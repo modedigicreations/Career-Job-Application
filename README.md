@@ -1,74 +1,121 @@
-# Career Manager (Career-Job-Application)
+# MODE CRM
 
-A job application and management full-stack app (Node.js/Express backend + React frontend).
+A comprehensive CRM (Customer Relationship Management) system built for MODE Digital Creations. Full-stack application with React frontend and Node.js/Express backend.
 
-## Overview
+## Features
 
-This project provides basic features for managing job listings, submitting applications, and tracking candidates. The repository contains two main parts:
+- **Lead Management** — Capture and track leads from multiple sources (Website, Facebook Ads, Google Ads, WhatsApp, Manual, CSV Import)
+- **Sales Pipeline** — Kanban board with drag-and-drop through 8 stages (New Lead → Won/Lost)
+- **Contact & Company Management** — Organize business relationships
+- **Project Management** — Track projects with task checklists and progress
+- **Hosting & Domain Management** — Monitor domains, SSL, hosting plans with expiry reminders (90/30/7/1 day alerts)
+- **Invoice & Payment Module** — Generate invoices, record payments, track outstanding balances (NGN, GBP, USD)
+- **Staff Performance Dashboard** — KPIs: leads generated, calls, emails, deals won, revenue
+- **Service Catalog** — 10 service offerings with pricing and features
+- **Support Tickets** — Client ticket management with priority levels
+- **Email Campaigns** — Lead nurture and hosting renewal automation sequences
+- **Settings** — Company profile, team management, notification preferences
 
-- `server/` — Node.js + Express API and data layer
-- `client/` — React frontend
+## Tech Stack
 
-## Setup
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS |
+| State | Zustand (persisted to localStorage) |
+| Charts | Recharts |
+| Backend | Node.js, Express, TypeScript |
+| Database | SQLite (dev) / PostgreSQL (prod) via Prisma ORM |
+| Auth | JWT + bcrypt |
 
-Prerequisites: Node.js (16+), npm or yarn, Git, and optionally the GitHub CLI (`gh`) if you want automated repo creation.
+## Quick Start
 
-1. Copy environment examples:
+### Prerequisites
 
-	 - Server: `cp server/.env.example server/.env` and edit values.
-	 - Client: `cp client/.env.example client/.env` and edit values.
+- Node.js 18+
+- npm or yarn
 
-2. Install dependencies and run:
+### Frontend (runs standalone with demo data)
 
-	 - Server:
+```bash
+cd client
+npm install
+npm run dev
+```
 
-		 ```bash
-		 cd server
-		 npm install
-		 npm run dev
-		 ```
+Open `http://localhost:5173` — the app works immediately with built-in demo data.
 
-	 - Client:
+### Backend API
 
-		 ```bash
-		 cd client
-		 npm install
-		 npm start
-		 ```
+```bash
+cd server
+cp .env.example .env
+npm install
+npx prisma generate
+npx prisma db push
+npx tsx prisma/seed.ts   # seed demo data
+npm run dev
+```
 
-3. API base URL defaults to `http://localhost:3000` (see `client/.env.example`).
+API runs at `http://localhost:3000`. The frontend proxies `/api` requests to the backend when both are running.
 
-## API Endpoints (examples)
+## API Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | /api/auth/register | Register a user |
-| POST | /api/auth/login | Log in and receive token |
-| GET | /api/jobs | List job postings |
-| POST | /api/jobs | Create a job posting (auth) |
-| GET | /api/jobs/:id | Get job details |
-| POST | /api/jobs/:id/apply | Submit an application for a job |
-| GET | /api/applications | List applications (auth) |
+| POST | /api/auth/register | Register user |
+| POST | /api/auth/login | Login, receive JWT |
+| GET | /api/auth/me | Current user profile |
+| GET/POST/PUT/DELETE | /api/leads | Lead CRUD |
+| GET/POST/PUT/DELETE | /api/contacts | Contact CRUD |
+| GET/POST/PUT/DELETE | /api/companies | Company CRUD |
+| GET/POST/PUT/DELETE | /api/projects | Project CRUD |
+| GET/POST/PUT/DELETE | /api/tasks | Task CRUD |
+| GET/POST/PUT/DELETE | /api/services | Service catalog CRUD |
+| GET/POST/PUT/DELETE | /api/hosting | Hosting account CRUD |
+| GET | /api/hosting/expiring | Accounts expiring within 90 days |
+| GET/POST/PUT/DELETE | /api/invoices | Invoice CRUD |
+| GET/POST | /api/payments | Payment recording |
+| GET/POST/PUT | /api/tickets | Support ticket management |
+| GET/POST | /api/activities | Activity log |
+| GET/POST/PUT | /api/campaigns | Email campaign management |
+| GET | /api/dashboard/stats | Dashboard statistics |
+| GET | /api/dashboard/pipeline | Pipeline breakdown |
 
-Adjust the endpoints as implemented in `server/`.
+## Project Structure
 
-## GitHub
-
-To create a repo and push from the command line using the GitHub CLI:
-
-```bash
-gh repo create career-job-application --public --source=. --remote=origin --push --confirm
+```
+├── client/                    # React frontend
+│   ├── src/
+│   │   ├── components/        # UI components by feature
+│   │   │   ├── layout/        # Sidebar, Header, Layout
+│   │   │   └── ui/            # Shared components (Modal, StatCard, etc.)
+│   │   ├── pages/             # Page components
+│   │   ├── store/             # Zustand state management
+│   │   ├── types/             # TypeScript type definitions
+│   │   └── lib/               # Utilities and seed data
+│   └── ...
+├── server/                    # Express backend
+│   ├── src/
+│   │   ├── routes/            # API route handlers
+│   │   └── middleware/        # Auth middleware
+│   └── prisma/
+│       ├── schema.prisma      # Database schema
+│       └── seed.ts            # Database seeder
+└── ...
 ```
 
-If `gh` is not available, create the repository on github.com and add the remote:
+## Default Login (Seeded)
 
-```bash
-git remote add origin git@github.com:YOUR_USERNAME/career-job-application.git
-git push -u origin main
-```
+All seeded users use password: `password123`
 
-## Notes
+| Email | Role |
+|---|---|
+| adewale@modedigital.ng | Admin |
+| chioma@modedigital.ng | Sales |
+| emeka@modedigital.ng | Developer |
+| fatima@modedigital.ng | Manager |
+| ibrahim@modedigital.ng | Support |
 
-- Do not commit `.env` files — use the `.env.example` files as templates.
-- Database files under `db/*.db` are ignored by `.gitignore`.
+## License
 
+Proprietary — MODE Digital Creations
