@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '@/store/useStore';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, exportToCsv } from '@/lib/utils';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 import StatCard from '@/components/ui/StatCard';
-import { Plus, Search, FileText, DollarSign, Clock, CheckCircle2, AlertCircle, Eye, Trash2 } from 'lucide-react';
+import { Plus, Search, FileText, DollarSign, Clock, CheckCircle2, AlertCircle, Eye, Trash2, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { v4 as uuid } from 'uuid';
 import type { Invoice, InvoiceItem, InvoiceStatus, Currency } from '@/types';
@@ -101,7 +101,17 @@ export default function InvoicesPage() {
             <option value="overdue">Overdue</option>
           </select>
         </div>
-        <button onClick={openCreate} className="btn-primary"><Plus className="h-4 w-4 mr-2" /> Create Invoice</button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => exportToCsv('invoices-export', ['Invoice #', 'Client', 'Email', 'Total', 'Paid', 'Balance', 'Currency', 'Status', 'Issue Date', 'Due Date'],
+              filtered.map((i) => [i.invoiceNumber, i.clientName, i.clientEmail, String(i.total), String(i.amountPaid), String(i.total - i.amountPaid), i.currency, i.status, i.issueDate, i.dueDate])
+            )}
+            className="btn-secondary"
+          >
+            <Download className="h-4 w-4 mr-2" /> Export
+          </button>
+          <button onClick={openCreate} className="btn-primary"><Plus className="h-4 w-4 mr-2" /> Create Invoice</button>
+        </div>
       </div>
 
       {filtered.length === 0 ? (

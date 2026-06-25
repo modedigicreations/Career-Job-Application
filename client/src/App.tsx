@@ -15,6 +15,7 @@ import ServicesPage from '@/pages/ServicesPage';
 import TicketsPage from '@/pages/TicketsPage';
 import EmailCampaignsPage from '@/pages/EmailCampaignsPage';
 import SettingsPage from '@/pages/SettingsPage';
+import NotFoundPage from '@/pages/NotFoundPage';
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/tickets" element={<TicketsPage />} />
         <Route path="/email-campaigns" element={<EmailCampaignsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   );

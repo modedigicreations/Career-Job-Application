@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import { taskSchema, taskUpdateSchema } from '../lib/validators';
 
 const router = Router();
 
@@ -17,7 +18,11 @@ router.get('/', async (req: Request, res: Response) => {
 
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const task = await prisma.task.create({ data: req.body });
+    const parsed = taskSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
+    }
+    const task = await prisma.task.create({ data: parsed.data });
     res.status(201).json(task);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create task' });
@@ -26,7 +31,11 @@ router.post('/', async (req: Request, res: Response) => {
 
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const task = await prisma.task.update({ where: { id: req.params.id }, data: req.body });
+    const parsed = taskUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
+    }
+    const task = await prisma.task.update({ where: { id: req.params.id }, data: parsed.data });
     res.json(task);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update task' });

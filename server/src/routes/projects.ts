@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import { projectSchema, projectUpdateSchema } from '../lib/validators';
 
 const router = Router();
 
@@ -33,7 +34,11 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const project = await prisma.project.create({ data: req.body });
+    const parsed = projectSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
+    }
+    const project = await prisma.project.create({ data: parsed.data });
     res.status(201).json(project);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create project' });
@@ -42,7 +47,11 @@ router.post('/', async (req: Request, res: Response) => {
 
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const project = await prisma.project.update({ where: { id: req.params.id }, data: req.body });
+    const parsed = projectUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
+    }
+    const project = await prisma.project.update({ where: { id: req.params.id }, data: parsed.data });
     res.json(project);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update project' });

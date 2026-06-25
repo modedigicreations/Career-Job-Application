@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '@/store/useStore';
-import { formatDate } from '@/lib/utils';
+import { formatDate, exportToCsv } from '@/lib/utils';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
-import { Plus, Search, UserCircle, Trash2, Edit2, Mail, Phone } from 'lucide-react';
+import { Plus, Search, UserCircle, Trash2, Edit2, Mail, Phone, Download } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
 import type { Contact } from '@/types';
 
@@ -45,7 +45,17 @@ export default function ContactsPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input type="text" placeholder="Search contacts..." value={search} onChange={(e) => setSearch(e.target.value)} className="input pl-9" />
         </div>
-        <button onClick={openCreate} className="btn-primary"><Plus className="h-4 w-4 mr-2" /> Add Contact</button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => exportToCsv('contacts-export', ['Name', 'Email', 'Phone', 'Company', 'Position', 'Active', 'Created'],
+              filtered.map((c) => [c.name, c.email, c.phone, c.company, c.position, c.isActive ? 'Yes' : 'No', c.createdAt])
+            )}
+            className="btn-secondary"
+          >
+            <Download className="h-4 w-4 mr-2" /> Export
+          </button>
+          <button onClick={openCreate} className="btn-primary"><Plus className="h-4 w-4 mr-2" /> Add Contact</button>
+        </div>
       </div>
 
       {filtered.length === 0 ? (

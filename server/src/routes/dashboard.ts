@@ -11,7 +11,8 @@ router.get('/stats', async (_req: Request, res: Response) => {
       wonLeads,
       activeProjects,
       totalInvoices,
-      paidInvoices,
+      paidRevenue,
+      outstandingData,
       openTickets,
       hostingAccounts,
     ] = await Promise.all([
@@ -20,17 +21,20 @@ router.get('/stats', async (_req: Request, res: Response) => {
       prisma.lead.count({ where: { status: 'won' } }),
       prisma.project.count({ where: { status: 'in-progress' } }),
       prisma.invoice.count(),
-      prisma.invoice.findMany({ where: { status: 'paid' } }),
+      prisma.invoice.aggregate({
+        where: { status: 'paid' },
+        _sum: { total: true },
+      }),
+      prisma.invoice.aggregate({
+        where: { status: { in: ['sent', 'partially-paid', 'overdue'] } },
+        _sum: { total: true, amountPaid: true },
+      }),
       prisma.ticket.count({ where: { status: { in: ['open', 'in-progress'] } } }),
       prisma.hostingAccount.count({ where: { status: 'active' } }),
     ]);
 
-    const totalRevenue = paidInvoices.reduce((sum, inv) => sum + inv.total, 0);
-
-    const outstandingInvoices = await prisma.invoice.findMany({
-      where: { status: { in: ['sent', 'partially-paid', 'overdue'] } },
-    });
-    const outstanding = outstandingInvoices.reduce((sum, inv) => sum + (inv.total - inv.amountPaid), 0);
+    const totalRevenue = paidRevenue._sum.total || 0;
+    const outstanding = (outstandingData._sum.total || 0) - (outstandingData._sum.amountPaid || 0);
 
     res.json({
       totalLeads,
@@ -53,11 +57,15 @@ router.get('/pipeline', async (_req: Request, res: Response) => {
     const stages = ['new-lead', 'qualified', 'contacted', 'discovery-call', 'proposal-sent', 'negotiation', 'won', 'lost'];
     const pipeline = await Promise.all(
       stages.map(async (stage) => {
-        const leads = await prisma.lead.findMany({ where: { status: stage } });
+        const result = await prisma.lead.aggregate({
+          where: { status: stage },
+          _count: true,
+          _sum: { estimatedValue: true },
+        });
         return {
           stage,
-          count: leads.length,
-          value: leads.reduce((sum, l) => sum + l.estimatedValue, 0),
+          count: result._count,
+          value: result._sum.estimatedValue || 0,
         };
       })
     );
