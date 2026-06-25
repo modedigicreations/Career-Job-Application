@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import { paymentSchema } from '../lib/validators';
 
 const router = Router();
 
@@ -17,11 +18,11 @@ router.get('/', async (req: Request, res: Response) => {
 
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { invoiceId, amount, currency, method, reference, notes } = req.body;
-
-    if (!invoiceId || !amount || amount <= 0) {
-      return res.status(400).json({ error: 'Valid invoiceId and positive amount are required' });
+    const parsed = paymentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
     }
+    const { invoiceId, amount, currency, method, reference, notes } = parsed.data;
 
     const result = await prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.findUnique({ where: { id: invoiceId } });

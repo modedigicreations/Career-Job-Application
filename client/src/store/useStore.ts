@@ -58,11 +58,13 @@ interface CRMState {
 
   addTicket: (ticket: Ticket) => void;
   updateTicket: (id: string, updates: Partial<Ticket>) => void;
+  deleteTicket: (id: string) => void;
 
   addActivity: (activity: Activity) => void;
 
   addEmailCampaign: (campaign: EmailCampaign) => void;
   updateEmailCampaign: (id: string, updates: Partial<EmailCampaign>) => void;
+  deleteEmailCampaign: (id: string) => void;
 
   resetToSeedData: () => void;
 }
@@ -136,12 +138,14 @@ export const useStore = create<CRMState>()(
         set((s) => ({
           tickets: s.tickets.map((t) => (t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t)),
         })),
+      deleteTicket: (id) => set((s) => ({ tickets: s.tickets.filter((t) => t.id !== id) })),
 
       addActivity: (activity) => set((s) => ({ activities: [activity, ...s.activities] })),
 
       addEmailCampaign: (campaign) => set((s) => ({ emailCampaigns: [...s.emailCampaigns, campaign] })),
       updateEmailCampaign: (id, updates) =>
         set((s) => ({ emailCampaigns: s.emailCampaigns.map((e) => (e.id === id ? { ...e, ...updates } : e)) })),
+      deleteEmailCampaign: (id) => set((s) => ({ emailCampaigns: s.emailCampaigns.filter((e) => e.id !== id) })),
 
       resetToSeedData: () => set(seedData),
     }),

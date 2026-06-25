@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '@/store/useStore';
-import { formatCurrency, formatDate, getInitials } from '@/lib/utils';
+import { formatCurrency, formatDate, getInitials, exportToCsv } from '@/lib/utils';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
-import { Plus, Search, Users, Trash2, Edit2, Eye } from 'lucide-react';
+import { Plus, Search, Users, Trash2, Edit2, Eye, Download } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
 import type { Lead, LeadStatus, LeadSource, ServiceType, Currency } from '@/types';
 
@@ -103,7 +103,17 @@ export default function LeadsPage() {
             {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </div>
-        <button onClick={openCreate} className="btn-primary"><Plus className="h-4 w-4 mr-2" /> Add Lead</button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => exportToCsv('leads-export', ['Name', 'Company', 'Email', 'Phone', 'Service', 'Source', 'Value', 'Currency', 'Probability', 'Status', 'Created'],
+              filtered.map((l) => [l.name, l.company, l.email, l.phone, l.serviceInterested, l.source, String(l.estimatedValue), l.currency, String(l.probability), l.status, l.createdAt])
+            )}
+            className="btn-secondary"
+          >
+            <Download className="h-4 w-4 mr-2" /> Export
+          </button>
+          <button onClick={openCreate} className="btn-primary"><Plus className="h-4 w-4 mr-2" /> Add Lead</button>
+        </div>
       </div>
 
       {filtered.length === 0 ? (

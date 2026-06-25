@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import { contactSchema, contactUpdateSchema } from '../lib/validators';
 
 const router = Router();
 
@@ -33,7 +34,11 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const contact = await prisma.contact.create({ data: req.body });
+    const parsed = contactSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
+    }
+    const contact = await prisma.contact.create({ data: parsed.data });
     res.status(201).json(contact);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create contact' });
@@ -42,7 +47,11 @@ router.post('/', async (req: Request, res: Response) => {
 
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const contact = await prisma.contact.update({ where: { id: req.params.id }, data: req.body });
+    const parsed = contactUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
+    }
+    const contact = await prisma.contact.update({ where: { id: req.params.id }, data: parsed.data });
     res.json(contact);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update contact' });

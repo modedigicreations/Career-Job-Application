@@ -4,7 +4,7 @@ import { formatDate, cn } from '@/lib/utils';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
-import { Plus, Search, Ticket, MessageSquare } from 'lucide-react';
+import { Plus, Search, Ticket, Trash2 } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
 import type { Ticket as TicketType, TicketStatus } from '@/types';
 
@@ -21,7 +21,7 @@ const PRIORITY_COLORS = {
 };
 
 export default function TicketsPage() {
-  const { tickets, users, addTicket, updateTicket } = useStore();
+  const { tickets, users, addTicket, updateTicket, deleteTicket } = useStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showForm, setShowForm] = useState(false);
@@ -99,7 +99,15 @@ export default function TicketsPage() {
                 </div>
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 text-xs text-gray-400">
                   <span>Created {formatDate(ticket.createdAt)}</span>
-                  {assignee && <span>Assigned to {assignee.name}</span>}
+                  <div className="flex items-center gap-2">
+                    {assignee && <span>Assigned to {assignee.name}</span>}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); if (confirm('Delete this ticket?')) deleteTicket(ticket.id); }}
+                      className="p-1 rounded hover:bg-gray-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );

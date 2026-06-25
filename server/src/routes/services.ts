@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import { serviceSchema, serviceUpdateSchema } from '../lib/validators';
 
 const router = Router();
 
@@ -24,8 +25,12 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { features, ...rest } = req.body;
-    const service = await prisma.service.create({ data: { ...rest, features: JSON.stringify(features || []) } });
+    const parsed = serviceSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
+    }
+    const { features, ...rest } = parsed.data;
+    const service = await prisma.service.create({ data: { ...rest, features: JSON.stringify(features) } });
     res.status(201).json({ ...service, features: JSON.parse(service.features) });
   } catch (error) {
     res.status(500).json({ error: 'Failed to create service' });
@@ -34,7 +39,11 @@ router.post('/', async (req: Request, res: Response) => {
 
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { features, ...rest } = req.body;
+    const parsed = serviceUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
+    }
+    const { features, ...rest } = parsed.data;
     const data: any = rest;
     if (features) data.features = JSON.stringify(features);
     const service = await prisma.service.update({ where: { id: req.params.id }, data });

@@ -1,7 +1,7 @@
 import { Menu, Bell, Search, X } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-import { getInitials } from '@/lib/utils';
-import { useState, useRef, useMemo } from 'react';
+import { getInitials, formatDate, getDaysUntil } from '@/lib/utils';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
@@ -14,10 +14,26 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
   const leads = useStore((s) => s.leads);
   const contacts = useStore((s) => s.contacts);
   const projects = useStore((s) => s.projects);
+  const invoices = useStore((s) => s.invoices);
+  const tickets = useStore((s) => s.tickets);
+  const hostingAccounts = useStore((s) => s.hostingAccounts);
+  const activities = useStore((s) => s.activities);
   const [showSearch, setShowSearch] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const results = useMemo(() => {
     if (!query || query.length < 2) return [];
@@ -29,8 +45,43 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
       .forEach((c) => items.push({ label: c.name, sub: `Contact - ${c.company}`, path: '/contacts' }));
     projects.filter((p) => p.name.toLowerCase().includes(q) || p.clientName.toLowerCase().includes(q)).slice(0, 3)
       .forEach((p) => items.push({ label: p.name, sub: `Project - ${p.clientName}`, path: `/projects/${p.id}` }));
+    invoices.filter((i) => i.invoiceNumber.toLowerCase().includes(q) || i.clientName.toLowerCase().includes(q)).slice(0, 3)
+      .forEach((i) => items.push({ label: i.invoiceNumber, sub: `Invoice - ${i.clientName}`, path: `/invoices/${i.id}` }));
+    tickets.filter((t) => t.subject.toLowerCase().includes(q) || t.clientName.toLowerCase().includes(q)).slice(0, 2)
+      .forEach((t) => items.push({ label: t.subject, sub: `Ticket - ${t.clientName}`, path: '/tickets' }));
+    hostingAccounts.filter((h) => h.domainName.toLowerCase().includes(q) || h.clientName.toLowerCase().includes(q)).slice(0, 2)
+      .forEach((h) => items.push({ label: h.domainName, sub: `Hosting - ${h.clientName}`, path: '/hosting' }));
     return items;
-  }, [query, leads, contacts, projects]);
+  }, [query, leads, contacts, projects, invoices, tickets, hostingAccounts]);
+
+  const notifications = useMemo(() => {
+    const items: { id: string; text: string; type: 'warning' | 'info' | 'success'; time: string; path: string }[] = [];
+
+    hostingAccounts.filter((h) => h.status === 'active').forEach((h) => {
+      const days = getDaysUntil(h.expiryDate);
+      if (days <= 30 && days > 0) {
+        items.push({ id: `host-${h.id}`, text: `${h.domainName} expires in ${days} days`, type: 'warning', time: h.expiryDate, path: '/hosting' });
+      } else if (days <= 0) {
+        items.push({ id: `host-${h.id}`, text: `${h.domainName} has expired!`, type: 'warning', time: h.expiryDate, path: '/hosting' });
+      }
+    });
+
+    invoices.filter((i) => i.status === 'sent' && new Date(i.dueDate) < new Date()).forEach((i) => {
+      items.push({ id: `inv-${i.id}`, text: `Invoice ${i.invoiceNumber} is overdue`, type: 'warning', time: i.dueDate, path: `/invoices/${i.id}` });
+    });
+
+    tickets.filter((t) => t.status === 'open' && t.priority === 'urgent').forEach((t) => {
+      items.push({ id: `tk-${t.id}`, text: `Urgent ticket: ${t.subject}`, type: 'warning', time: t.createdAt, path: '/tickets' });
+    });
+
+    activities.slice(0, 5).forEach((a) => {
+      items.push({ id: `act-${a.id}`, text: a.description, type: 'info', time: a.createdAt, path: '/dashboard' });
+    });
+
+    return items.slice(0, 10);
+  }, [hostingAccounts, invoices, tickets, activities]);
+
+  const urgentCount = notifications.filter((n) => n.type === 'warning').length;
 
   function closeSearch() {
     setShowSearch(false);
@@ -40,6 +91,7 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
   function goTo(path: string) {
     navigate(path);
     closeSearch();
+    setShowNotifications(false);
   }
 
   return (
@@ -59,7 +111,7 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
                 <input
                   ref={inputRef}
                   type="text"
-                  placeholder="Search leads, contacts, projects..."
+                  placeholder="Search leads, contacts, projects, invoices..."
                   className="input w-full pl-9 pr-8"
                   autoFocus
                   value={query}
@@ -96,10 +148,42 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
           </button>
         )}
 
-        <button className="relative p-2 rounded-md hover:bg-gray-100">
-          <Bell className="h-5 w-5 text-gray-500" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500" />
-        </button>
+        <div className="relative" ref={notifRef}>
+          <button onClick={() => setShowNotifications(!showNotifications)} className="relative p-2 rounded-md hover:bg-gray-100">
+            <Bell className="h-5 w-5 text-gray-500" />
+            {urgentCount > 0 && (
+              <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                {urgentCount}
+              </span>
+            )}
+          </button>
+
+          {showNotifications && (
+            <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-xl border border-gray-200 bg-white shadow-xl z-50">
+              <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
+                {urgentCount > 0 && <span className="badge bg-red-100 text-red-700">{urgentCount} alerts</span>}
+              </div>
+              <div className="max-h-96 overflow-y-auto divide-y divide-gray-100">
+                {notifications.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-sm text-gray-500">No notifications</p>
+                ) : (
+                  notifications.map((n) => (
+                    <button key={n.id} onClick={() => goTo(n.path)} className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors">
+                      <div className={`mt-0.5 h-2 w-2 rounded-full flex-shrink-0 ${
+                        n.type === 'warning' ? 'bg-amber-500' : n.type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+                      }`} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-gray-700 line-clamp-2">{n.text}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{formatDate(n.time)}</p>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center gap-2 pl-2 border-l border-gray-200">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-600 text-xs font-bold">

@@ -1,5 +1,17 @@
 import { useStore } from '@/store/useStore';
 import { formatCurrency, getInitials, cn } from '@/lib/utils';
+import type { Currency } from '@/types';
+
+function formatMultiCurrency(leads: { estimatedValue: number; currency: Currency }[]): string {
+  const byCurrency: Record<string, number> = {};
+  leads.forEach((l) => {
+    byCurrency[l.currency] = (byCurrency[l.currency] || 0) + l.estimatedValue;
+  });
+  const entries = Object.entries(byCurrency).filter(([, v]) => v > 0);
+  if (entries.length === 0) return formatCurrency(0);
+  if (entries.length === 1) return formatCurrency(entries[0][1], entries[0][0] as Currency);
+  return entries.map(([c, v]) => formatCurrency(v, c as Currency)).join(' + ');
+}
 import type { LeadStatus, Lead } from '@/types';
 import { useState } from 'react';
 
@@ -40,24 +52,22 @@ export default function PipelinePage() {
     setDragOver(null);
   }
 
-  const totalValue = leads
-    .filter((l) => !['won', 'lost'].includes(l.status))
-    .reduce((sum, l) => sum + l.estimatedValue, 0);
-
-  const weightedValue = leads
-    .filter((l) => !['won', 'lost'].includes(l.status))
-    .reduce((sum, l) => sum + l.estimatedValue * (l.probability / 100), 0);
+  const activeLeads = leads.filter((l) => !['won', 'lost'].includes(l.status));
+  const totalPipeline = formatMultiCurrency(activeLeads);
+  const weightedPipeline = formatMultiCurrency(
+    activeLeads.map((l) => ({ estimatedValue: l.estimatedValue * (l.probability / 100), currency: l.currency }))
+  );
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-6 text-sm">
+      <div className="flex items-center gap-6 text-sm flex-wrap">
         <div>
           <span className="text-gray-500">Total Pipeline: </span>
-          <span className="font-semibold text-gray-900">{formatCurrency(totalValue)}</span>
+          <span className="font-semibold text-gray-900">{totalPipeline}</span>
         </div>
         <div>
           <span className="text-gray-500">Weighted: </span>
-          <span className="font-semibold text-gray-900">{formatCurrency(weightedValue)}</span>
+          <span className="font-semibold text-gray-900">{weightedPipeline}</span>
         </div>
         <div>
           <span className="text-gray-500">Active Deals: </span>

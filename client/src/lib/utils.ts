@@ -11,7 +11,10 @@ export function formatCurrency(amount: number, currency: 'NGN' | 'GBP' | 'USD' =
 }
 
 export function formatDate(date: string | Date): string {
-  return new Date(date).toLocaleDateString('en-GB', {
+  if (!date) return '-';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '-';
+  return d.toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -48,14 +51,38 @@ export function getStatusColor(status: string): string {
     pending: 'bg-yellow-100 text-yellow-800',
     completed: 'bg-green-100 text-green-800',
     'in-progress': 'bg-blue-100 text-blue-800',
+    'on-hold': 'bg-orange-100 text-orange-800',
+    cancelled: 'bg-red-100 text-red-800',
     overdue: 'bg-red-100 text-red-800',
     paid: 'bg-green-100 text-green-800',
     unpaid: 'bg-red-100 text-red-800',
     'partially-paid': 'bg-yellow-100 text-yellow-800',
+    sent: 'bg-cyan-100 text-cyan-800',
     draft: 'bg-gray-100 text-gray-800',
     open: 'bg-blue-100 text-blue-800',
     closed: 'bg-gray-100 text-gray-800',
     resolved: 'bg-green-100 text-green-800',
+    suspended: 'bg-orange-100 text-orange-800',
+    expired: 'bg-red-100 text-red-800',
+    blocked: 'bg-red-100 text-red-800',
+    paused: 'bg-yellow-100 text-yellow-800',
   };
   return colors[status] || 'bg-gray-100 text-gray-800';
+}
+
+export function exportToCsv(filename: string, headers: string[], rows: string[][]) {
+  const escape = (val: string) => {
+    if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+      return `"${val.replace(/"/g, '""')}"`;
+    }
+    return val;
+  };
+  const csv = [headers.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${filename}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
