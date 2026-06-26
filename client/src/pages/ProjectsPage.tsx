@@ -4,9 +4,10 @@ import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
-import { Plus, Search, FolderKanban, Calendar, DollarSign } from 'lucide-react';
+import { Plus, Search, FolderKanban, Calendar, DollarSign, Trash2, Edit2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { v4 as uuid } from 'uuid';
+import { showToast } from '@/components/ui/Toast';
 import type { Project, ProjectStatus, ServiceType, Currency } from '@/types';
 
 const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
@@ -46,8 +47,10 @@ export default function ProjectsPage() {
     e.preventDefault();
     if (editing) {
       updateProject(editing.id, form);
+      showToast('Project updated successfully');
     } else {
       addProject({ ...form, id: uuid(), createdAt: new Date().toISOString() } as Project);
+      showToast('Project created successfully');
     }
     setShowForm(false);
   }
@@ -73,31 +76,37 @@ export default function ProjectsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {filtered.map((project) => (
-            <Link key={project.id} to={`/projects/${project.id}`} className="card p-5 hover:shadow-md transition-shadow">
+            <div key={project.id} className="card p-5 hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between mb-2">
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">{project.name}</p>
+                <Link to={`/projects/${project.id}`} className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 hover:text-brand-600">{project.name}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{project.clientName}</p>
+                </Link>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                  <StatusBadge status={project.status} />
+                  <button onClick={() => openEdit(project)} className="p-1 rounded hover:bg-gray-100"><Edit2 className="h-4 w-4 text-gray-400" /></button>
+                  <button onClick={() => { if (confirm('Delete this project?')) { deleteProject(project.id); showToast('Project deleted'); } }} className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
                 </div>
-                <StatusBadge status={project.status} />
               </div>
-              <p className="text-xs text-gray-600 line-clamp-2 mb-3">{project.description}</p>
+              <Link to={`/projects/${project.id}`}>
+                <p className="text-xs text-gray-600 line-clamp-2 mb-3">{project.description}</p>
 
-              <div className="mb-3">
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="text-gray-500">Progress</span>
-                  <span className="font-medium text-gray-700">{project.progress}%</span>
+                <div className="mb-3">
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-gray-500">Progress</span>
+                    <span className="font-medium text-gray-700">{project.progress}%</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-gray-100">
+                    <div className={cn('h-2 rounded-full transition-all', project.progress === 100 ? 'bg-green-500' : 'bg-brand-500')} style={{ width: `${project.progress}%` }} />
+                  </div>
                 </div>
-                <div className="h-2 w-full rounded-full bg-gray-100">
-                  <div className={cn('h-2 rounded-full transition-all', project.progress === 100 ? 'bg-green-500' : 'bg-brand-500')} style={{ width: `${project.progress}%` }} />
-                </div>
-              </div>
 
-              <div className="flex items-center justify-between text-xs text-gray-500 border-t border-gray-100 pt-3">
-                <div className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> {formatDate(project.startDate)} - {formatDate(project.endDate)}</div>
-                <div className="flex items-center gap-1"><DollarSign className="h-3.5 w-3.5" /> {formatCurrency(project.budget, project.currency)}</div>
-              </div>
-            </Link>
+                <div className="flex items-center justify-between text-xs text-gray-500 border-t border-gray-100 pt-3">
+                  <div className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> {formatDate(project.startDate)} - {formatDate(project.endDate)}</div>
+                  <div className="flex items-center gap-1"><DollarSign className="h-3.5 w-3.5" /> {formatCurrency(project.budget, project.currency)}</div>
+                </div>
+              </Link>
+            </div>
           ))}
         </div>
       )}
@@ -117,6 +126,7 @@ export default function ProjectsPage() {
                 <option value="custom-software">Custom Software</option>
                 <option value="seo-services">SEO Services</option>
                 <option value="web-hosting">Web Hosting</option>
+                <option value="domain-registration">Domain Registration</option>
                 <option value="graphic-design">Graphic Design</option>
                 <option value="social-media-management">Social Media</option>
                 <option value="cbt-platform">CBT Platform</option>

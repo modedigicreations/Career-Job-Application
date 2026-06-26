@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 import { Plus, Search, Ticket, Trash2 } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
+import { showToast } from '@/components/ui/Toast';
 import type { Ticket as TicketType, TicketStatus } from '@/types';
 
 const emptyTicket: Omit<TicketType, 'id' | 'createdAt' | 'updatedAt'> = {
@@ -44,8 +45,10 @@ export default function TicketsPage() {
     const now = new Date().toISOString();
     if (editing) {
       updateTicket(editing.id, form);
+      showToast('Ticket updated successfully');
     } else {
       addTicket({ ...form, id: uuid(), createdAt: now, updatedAt: now } as TicketType);
+      showToast('Ticket created successfully');
     }
     setShowForm(false);
   }
@@ -102,7 +105,7 @@ export default function TicketsPage() {
                   <div className="flex items-center gap-2">
                     {assignee && <span>Assigned to {assignee.name}</span>}
                     <button
-                      onClick={(e) => { e.stopPropagation(); if (confirm('Delete this ticket?')) deleteTicket(ticket.id); }}
+                      onClick={(e) => { e.stopPropagation(); if (confirm('Delete this ticket?')) { deleteTicket(ticket.id); showToast('Ticket deleted'); } }}
                       className="p-1 rounded hover:bg-gray-100"
                     >
                       <Trash2 className="h-3.5 w-3.5 text-red-400" />

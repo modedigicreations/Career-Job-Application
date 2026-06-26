@@ -35,6 +35,16 @@ router.get('/expiring', async (_req: Request, res: Response) => {
   }
 });
 
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const account = await prisma.hostingAccount.findUnique({ where: { id: req.params.id } });
+    if (!account) return res.status(404).json({ error: 'Hosting account not found' });
+    res.json(account);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch hosting account' });
+  }
+});
+
 router.post('/', async (req: Request, res: Response) => {
   try {
     const parsed = hostingSchema.safeParse(req.body);

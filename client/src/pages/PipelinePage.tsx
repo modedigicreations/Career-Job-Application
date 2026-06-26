@@ -99,7 +99,7 @@ export default function PipelinePage() {
                     {stageLeads.length}
                   </span>
                 </div>
-                <p className="text-xs text-gray-400 mt-0.5">{formatCurrency(stageTotal)}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{formatMultiCurrency(stageLeads)}</p>
               </div>
 
               <div className="p-2 space-y-2 min-h-[200px]">

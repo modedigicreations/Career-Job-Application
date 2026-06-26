@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal';
 import { useState } from 'react';
 import { ArrowLeft, CreditCard } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
+import { showToast } from '@/components/ui/Toast';
 import type { Payment } from '@/types';
 
 export default function InvoiceDetailPage() {
@@ -34,12 +35,14 @@ export default function InvoiceDetailPage() {
       date: new Date().toISOString(),
       notes: paymentForm.notes,
     });
+    showToast('Payment recorded successfully');
     setShowPayment(false);
     setPaymentForm({ amount: 0, method: 'bank-transfer', reference: '', notes: '' });
   }
 
   function markAsSent() {
     updateInvoice(inv.id, { status: 'sent' });
+    showToast('Invoice marked as sent');
   }
 
   return (

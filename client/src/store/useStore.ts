@@ -7,6 +7,7 @@ import type {
 import { seedData } from '@/lib/seed-data';
 
 interface CRMState {
+  isAuthenticated: boolean;
   currentUser: User;
   users: User[];
   leads: Lead[];
@@ -21,6 +22,10 @@ interface CRMState {
   tickets: Ticket[];
   activities: Activity[];
   emailCampaigns: EmailCampaign[];
+
+  setAuthenticated: (value: boolean) => void;
+  setCurrentUser: (user: User) => void;
+  logout: () => void;
 
   addLead: (lead: Lead) => void;
   updateLead: (id: string, updates: Partial<Lead>) => void;
@@ -72,7 +77,12 @@ interface CRMState {
 export const useStore = create<CRMState>()(
   persist(
     (set) => ({
+      isAuthenticated: false,
       ...seedData,
+
+      setAuthenticated: (value) => set({ isAuthenticated: value }),
+      setCurrentUser: (user) => set({ currentUser: user }),
+      logout: () => set({ isAuthenticated: false, currentUser: seedData.currentUser }),
 
       addLead: (lead) => set((s) => ({ leads: [...s.leads, lead] })),
       updateLead: (id, updates) =>

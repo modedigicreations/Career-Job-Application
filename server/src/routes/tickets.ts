@@ -22,6 +22,16 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id }, include: { assignedUser: { select: { id: true, name: true } } } });
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+    res.json(ticket);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch ticket' });
+  }
+});
+
 router.post('/', async (req: Request, res: Response) => {
   try {
     const parsed = ticketSchema.safeParse(req.body);

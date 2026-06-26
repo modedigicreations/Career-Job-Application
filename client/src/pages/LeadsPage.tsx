@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 import { Plus, Search, Users, Trash2, Edit2, Eye, Download } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
+import { showToast } from '@/components/ui/Toast';
 import type { Lead, LeadStatus, LeadSource, ServiceType, Currency } from '@/types';
 
 const SERVICE_OPTIONS: { value: ServiceType; label: string }[] = [
@@ -84,8 +85,10 @@ export default function LeadsPage() {
     const now = new Date().toISOString();
     if (editingLead) {
       updateLead(editingLead.id, { ...form });
+      showToast('Lead updated successfully');
     } else {
       addLead({ ...form, id: uuid(), createdAt: now, updatedAt: now } as Lead);
+      showToast('Lead created successfully');
     }
     setShowForm(false);
   }
@@ -173,7 +176,7 @@ export default function LeadsPage() {
                         <div className="flex items-center gap-1">
                           <button onClick={() => setShowDetail(lead)} className="p-1 rounded hover:bg-gray-100"><Eye className="h-4 w-4 text-gray-400" /></button>
                           <button onClick={() => openEdit(lead)} className="p-1 rounded hover:bg-gray-100"><Edit2 className="h-4 w-4 text-gray-400" /></button>
-                          <button onClick={() => { if (confirm('Delete this lead?')) deleteLead(lead.id); }} className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
+                          <button onClick={() => { if (confirm('Delete this lead?')) { deleteLead(lead.id); showToast('Lead deleted'); } }} className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
                         </div>
                       </td>
                     </tr>

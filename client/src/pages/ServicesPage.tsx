@@ -5,6 +5,7 @@ import Modal from '@/components/ui/Modal';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { Plus, Edit2, Package, Check } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
+import { showToast } from '@/components/ui/Toast';
 import type { Service, ServiceType, Currency } from '@/types';
 
 const SERVICE_TYPE_OPTIONS: { value: ServiceType; label: string }[] = [
@@ -50,8 +51,10 @@ export default function ServicesPage() {
     e.preventDefault();
     if (editing) {
       updateService(editing.id, form);
+      showToast('Service updated successfully');
     } else {
       addService({ ...form, id: uuid() } as Service);
+      showToast('Service created successfully');
     }
     setShowForm(false);
   }

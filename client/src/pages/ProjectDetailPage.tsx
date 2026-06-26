@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal';
 import { useState } from 'react';
 import { ArrowLeft, Plus, CheckCircle2, Circle, Clock, AlertCircle } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
+import { showToast } from '@/components/ui/Toast';
 import type { Task, TaskStatus } from '@/types';
 
 const PRIORITY_COLORS = {
@@ -67,12 +68,14 @@ export default function ProjectDetailPage() {
     if (editingTask) {
       updateTask(editingTask.id, taskForm);
       updateProject(proj.id, { progress: calcProgress(projectTasks, { taskId: editingTask.id, newStatus: taskForm.status }) });
+      showToast('Task updated');
     } else {
       addTask({
         ...taskForm, id: uuid(), projectId: proj.id,
         order: projectTasks.length + 1, createdAt: new Date().toISOString(),
       } as Task);
       updateProject(proj.id, { progress: calcProgress(projectTasks, { isNew: true, newTaskCompleted: taskForm.status === 'completed' }) });
+      showToast('Task added');
     }
     setShowTaskForm(false);
   }

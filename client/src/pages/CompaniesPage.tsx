@@ -5,6 +5,7 @@ import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 import { Plus, Search, Building2, Trash2, Edit2, Globe, Mail, Phone, MapPin } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
+import { showToast } from '@/components/ui/Toast';
 import type { Company } from '@/types';
 
 const emptyCompany: Omit<Company, 'id' | 'createdAt'> = {
@@ -31,8 +32,10 @@ export default function CompaniesPage() {
     e.preventDefault();
     if (editing) {
       updateCompany(editing.id, form);
+      showToast('Company updated successfully');
     } else {
       addCompany({ ...form, id: uuid(), createdAt: new Date().toISOString() } as Company);
+      showToast('Company created successfully');
     }
     setShowForm(false);
   }
@@ -67,7 +70,7 @@ export default function CompaniesPage() {
                   </div>
                   <div className="flex gap-1">
                     <button onClick={() => openEdit(company)} className="p-1 rounded hover:bg-gray-100"><Edit2 className="h-4 w-4 text-gray-400" /></button>
-                    <button onClick={() => { if (confirm('Delete?')) deleteCompany(company.id); }} className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
+                    <button onClick={() => { if (confirm('Delete?')) { deleteCompany(company.id); showToast('Company deleted'); } }} className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
                   </div>
                 </div>
                 <div className="space-y-1.5 text-xs text-gray-600">

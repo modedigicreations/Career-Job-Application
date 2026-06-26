@@ -8,6 +8,7 @@ import StatCard from '@/components/ui/StatCard';
 import { Plus, Search, FileText, DollarSign, Clock, CheckCircle2, AlertCircle, Eye, Trash2, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { v4 as uuid } from 'uuid';
+import { showToast } from '@/components/ui/Toast';
 import type { Invoice, InvoiceItem, InvoiceStatus, Currency } from '@/types';
 
 const emptyInvoice: Omit<Invoice, 'id' | 'createdAt' | 'invoiceNumber'> = {
@@ -74,6 +75,7 @@ export default function InvoicesPage() {
       ...form, id: uuid(), invoiceNumber, items, subtotal, tax, total,
       createdAt: new Date().toISOString(),
     } as Invoice);
+    showToast(`Invoice ${invoiceNumber} created`);
     setShowForm(false);
   }
 
@@ -150,7 +152,7 @@ export default function InvoicesPage() {
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
                         <Link to={`/invoices/${invoice.id}`} className="p-1 rounded hover:bg-gray-100"><Eye className="h-4 w-4 text-gray-400" /></Link>
-                        <button onClick={() => { if (confirm('Delete?')) deleteInvoice(invoice.id); }} className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
+                        <button onClick={() => { if (confirm('Delete?')) { deleteInvoice(invoice.id); showToast('Invoice deleted'); } }} className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
                       </div>
                     </td>
                   </tr>
