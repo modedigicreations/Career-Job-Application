@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 import { Plus, Mail, Send, Eye, Pause, Play, MousePointerClick } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
+import { showToast } from '@/components/ui/Toast';
 import type { EmailCampaign } from '@/types';
 
 export default function EmailCampaignsPage() {
@@ -20,6 +21,7 @@ export default function EmailCampaignsPage() {
       recipientCount: 0, sentCount: 0, openRate: 0, clickRate: 0,
       createdAt: new Date().toISOString(),
     });
+    showToast('Campaign created successfully');
     setShowForm(false);
     setForm({ name: '', type: 'custom' });
   }

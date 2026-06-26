@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useStore } from '@/store/useStore';
 import Layout from '@/components/layout/Layout';
+import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
 import LeadsPage from '@/pages/LeadsPage';
 import PipelinePage from '@/pages/PipelinePage';
@@ -18,6 +20,12 @@ import SettingsPage from '@/pages/SettingsPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 
 export default function App() {
+  const isAuthenticated = useStore((s) => s.isAuthenticated);
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
+
   return (
     <Routes>
       <Route element={<Layout />}>

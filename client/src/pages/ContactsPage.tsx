@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 import { Plus, Search, UserCircle, Trash2, Edit2, Mail, Phone, Download } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
+import { showToast } from '@/components/ui/Toast';
 import type { Contact } from '@/types';
 
 const emptyContact: Omit<Contact, 'id' | 'createdAt'> = {
@@ -32,8 +33,10 @@ export default function ContactsPage() {
     e.preventDefault();
     if (editing) {
       updateContact(editing.id, form);
+      showToast('Contact updated successfully');
     } else {
       addContact({ ...form, id: uuid(), createdAt: new Date().toISOString() } as Contact);
+      showToast('Contact created successfully');
     }
     setShowForm(false);
   }
@@ -88,7 +91,7 @@ export default function ContactsPage() {
                 <span className="text-xs text-gray-400">Added {formatDate(contact.createdAt)}</span>
                 <div className="flex gap-1">
                   <button onClick={() => openEdit(contact)} className="p-1 rounded hover:bg-gray-100"><Edit2 className="h-4 w-4 text-gray-400" /></button>
-                  <button onClick={() => { if (confirm('Delete this contact?')) deleteContact(contact.id); }} className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
+                  <button onClick={() => { if (confirm('Delete this contact?')) { deleteContact(contact.id); showToast('Contact deleted'); } }} className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
                 </div>
               </div>
             </div>

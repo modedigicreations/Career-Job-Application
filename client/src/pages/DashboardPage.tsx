@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Legend,
+  PieChart, Pie, Cell, LineChart, Line,
 } from 'recharts';
 import { Link } from 'react-router-dom';
 
@@ -92,7 +92,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="card p-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4">Revenue Trend (2026)</h3>
+          <h3 className="text-sm font-semibold text-gray-900 mb-4">Revenue Trend ({new Date().getFullYear()})</h3>
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={monthlyRevenue}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />

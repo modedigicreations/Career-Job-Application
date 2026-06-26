@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 import { Plus, Search, Server, AlertTriangle, Shield, ShieldCheck, ShieldX } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
+import { showToast } from '@/components/ui/Toast';
 import type { HostingAccount, HostingPlan, Currency } from '@/types';
 
 const emptyAccount: Omit<HostingAccount, 'id'> = {
@@ -39,8 +40,10 @@ export default function HostingPage() {
     e.preventDefault();
     if (editing) {
       updateHostingAccount(editing.id, form);
+      showToast('Hosting account updated');
     } else {
       addHostingAccount({ ...form, id: uuid() } as HostingAccount);
+      showToast('Hosting account created');
     }
     setShowForm(false);
   }
@@ -60,7 +63,12 @@ export default function HostingPage() {
               const days = getDaysUntil(account.expiryDate);
               return (
                 <p key={account.id} className="text-sm text-amber-700">
-                  <strong>{account.domainName}</strong> ({account.clientName}) expires in <strong>{days} days</strong> ({formatDate(account.expiryDate)})
+                  <strong>{account.domainName}</strong> ({account.clientName}){' '}
+                  {days <= 0
+                    ? <><strong>expired {Math.abs(days)} days ago</strong></>
+                    : <>expires in <strong>{days} days</strong></>
+                  }{' '}
+                  ({formatDate(account.expiryDate)})
                 </p>
               );
             })}

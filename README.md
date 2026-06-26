@@ -4,17 +4,21 @@ A comprehensive CRM (Customer Relationship Management) system built for MODE Dig
 
 ## Features
 
-- **Lead Management** — Capture and track leads from multiple sources (Website, Facebook Ads, Google Ads, WhatsApp, Manual, CSV Import)
-- **Sales Pipeline** — Kanban board with drag-and-drop through 8 stages (New Lead → Won/Lost)
-- **Contact & Company Management** — Organize business relationships
-- **Project Management** — Track projects with task checklists and progress
+- **Authentication** — Login gate with user authentication and session persistence
+- **Lead Management** — Capture and track leads from multiple sources (Website, Facebook Ads, Google Ads, WhatsApp, Manual, CSV Import, Referral)
+- **Sales Pipeline** — Kanban board with drag-and-drop through 8 stages (New Lead → Won/Lost) with multi-currency support
+- **Contact & Company Management** — Organize business relationships with search and CSV export
+- **Project Management** — Track projects with task checklists, progress tracking, inline edit/delete
 - **Hosting & Domain Management** — Monitor domains, SSL, hosting plans with expiry reminders (90/30/7/1 day alerts)
-- **Invoice & Payment Module** — Generate invoices, record payments, track outstanding balances (NGN, GBP, USD)
+- **Invoice & Payment Module** — Generate invoices with auto-numbering, record payments, track outstanding balances (NGN, GBP, USD)
 - **Staff Performance Dashboard** — KPIs: leads generated, calls, emails, deals won, revenue
 - **Service Catalog** — 10 service offerings with pricing and features
 - **Support Tickets** — Client ticket management with priority levels
 - **Email Campaigns** — Lead nurture and hosting renewal automation sequences
-- **Settings** — Company profile, team management, notification preferences
+- **Global Search** — Search across leads, contacts, projects, invoices, tickets, and hosting
+- **Notifications** — Real-time alerts for expiring domains, overdue invoices, urgent tickets
+- **Toast Notifications** — Instant feedback on all CRUD operations
+- **Settings** — Company profile, team management, notification preferences, data reset
 
 ## Tech Stack
 
@@ -42,7 +46,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173` — the app works immediately with built-in demo data.
+Open `http://localhost:5173` — log in with any demo account email and any password (4+ characters).
 
 ### Backend API
 
@@ -75,9 +79,9 @@ API runs at `http://localhost:3000`. The frontend proxies `/api` requests to the
 | GET | /api/hosting/expiring | Accounts expiring within 90 days |
 | GET/POST/PUT/DELETE | /api/invoices | Invoice CRUD |
 | GET/POST | /api/payments | Payment recording |
-| GET/POST/PUT | /api/tickets | Support ticket management |
+| GET/POST/PUT/DELETE | /api/tickets | Support ticket management |
 | GET/POST | /api/activities | Activity log |
-| GET/POST/PUT | /api/campaigns | Email campaign management |
+| GET/POST/PUT/DELETE | /api/campaigns | Email campaign management |
 | GET | /api/dashboard/stats | Dashboard statistics |
 | GET | /api/dashboard/pipeline | Pipeline breakdown |
 

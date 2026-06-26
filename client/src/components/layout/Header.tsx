@@ -1,4 +1,4 @@
-import { Menu, Bell, Search, X } from 'lucide-react';
+import { Menu, Bell, Search, X, LogOut } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { getInitials, formatDate, getDaysUntil } from '@/lib/utils';
 import { useState, useRef, useMemo, useEffect } from 'react';
@@ -11,6 +11,7 @@ interface HeaderProps {
 
 export default function Header({ onMenuClick, title }: HeaderProps) {
   const currentUser = useStore((s) => s.currentUser);
+  const logout = useStore((s) => s.logout);
   const leads = useStore((s) => s.leads);
   const contacts = useStore((s) => s.contacts);
   const projects = useStore((s) => s.projects);
@@ -193,6 +194,13 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
             <p className="text-sm font-medium text-gray-900 leading-tight">{currentUser.name}</p>
             <p className="text-xs text-gray-500 capitalize">{currentUser.role}</p>
           </div>
+          <button
+            onClick={() => { if (confirm('Sign out of MODE CRM?')) logout(); }}
+            className="p-2 rounded-md hover:bg-gray-100 ml-1"
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4 text-gray-400" />
+          </button>
         </div>
       </div>
     </header>
