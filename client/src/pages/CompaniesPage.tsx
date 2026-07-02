@@ -9,7 +9,7 @@ import { showToast } from '@/components/ui/Toast';
 import type { Company } from '@/types';
 
 const emptyCompany: Omit<Company, 'id' | 'createdAt'> = {
-  name: '', industry: '', website: '', email: '', phone: '', address: '', contactIds: [],
+  name: '', industry: '', website: '', email: '', phone: '', address: '',
 };
 
 export default function CompaniesPage() {
@@ -55,7 +55,10 @@ export default function CompaniesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((company) => {
-            const companyContacts = contacts.filter((c) => company.contactIds.includes(c.id));
+            // Match contacts by company name (server has no contactIds relation); fall back to legacy contactIds.
+            const companyContacts = contacts.filter(
+              (c) => c.company.toLowerCase() === company.name.toLowerCase() || (company.contactIds ?? []).includes(c.id)
+            );
             return (
               <div key={company.id} className="card p-5">
                 <div className="flex items-start justify-between mb-3">

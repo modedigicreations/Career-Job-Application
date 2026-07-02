@@ -5,21 +5,40 @@ import { generateToken, authenticateToken, AuthRequest } from '../middleware/aut
 
 const router = Router();
 
+const VALID_ROLES = ['admin', 'manager', 'sales', 'support', 'developer'];
+
 router.post('/register', async (req: Request, res: Response) => {
   try {
     const { name, email, password, role, phone } = req.body;
-    if (!name || !email || !password) {
+    if (typeof name !== 'string' || typeof email !== 'string' || typeof password !== 'string' || !name.trim() || !email.trim() || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required' });
     }
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+    if (trimmedName.length > 200) {
+      return res.status(400).json({ error: 'Name must be 200 characters or fewer' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail) || trimmedEmail.length > 254) {
+      return res.status(400).json({ error: 'A valid email address is required' });
+    }
+    if (password.length < 8 || password.length > 128) {
+      return res.status(400).json({ error: 'Password must be between 8 and 128 characters' });
+    }
+    if (role !== undefined && !VALID_ROLES.includes(role)) {
+      return res.status(400).json({ error: `Role must be one of: ${VALID_ROLES.join(', ')}` });
+    }
+    if (phone !== undefined && phone !== null && (typeof phone !== 'string' || phone.length > 50)) {
+      return res.status(400).json({ error: 'Phone must be a string of 50 characters or fewer' });
+    }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await prisma.user.findUnique({ where: { email: trimmedEmail } });
     if (existing) {
       return res.status(409).json({ error: 'Email already registered' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
-      data: { name, email, password: hashedPassword, role: role || 'sales', phone },
+      data: { name: trimmedName, email: trimmedEmail, password: hashedPassword, role: role || 'sales', phone },
     });
 
     const token = generateToken(user.id, user.role);

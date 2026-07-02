@@ -13,9 +13,10 @@ function SavedToast({ show }: { show: boolean }) {
 }
 
 export default function SettingsPage() {
-  const { currentUser, users, resetToSeedData } = useStore();
+  const { currentUser, users, updateUser, resetToSeedData } = useStore();
   const [activeTab, setActiveTab] = useState<'profile' | 'company' | 'team' | 'notifications' | 'data'>('profile');
   const [profile, setProfile] = useState({ name: currentUser.name, email: currentUser.email, phone: currentUser.phone || '' });
+  const [profileError, setProfileError] = useState('');
   const [company, setCompany] = useState({ name: 'MODE Digital Creations', website: 'modedigitalcreations.ng', email: 'admin@modedigitalcreations.ng', phone: '+234 801 234 5678', address: 'Lagos, Nigeria', currency: 'NGN' });
   const [notifications, setNotifications] = useState({
     newLeads: true, dealChanges: true, invoicePayments: true,
@@ -26,6 +27,22 @@ export default function SettingsPage() {
   function showSaved() {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  function saveProfile() {
+    setProfileError('');
+    const name = profile.name.trim();
+    const email = profile.email.trim();
+    if (!name) {
+      setProfileError('Name is required.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setProfileError('Please enter a valid email address.');
+      return;
+    }
+    updateUser(currentUser.id, { name, email, phone: profile.phone.trim() });
+    showSaved();
   }
 
   const tabs = [
@@ -86,7 +103,12 @@ export default function SettingsPage() {
               <input className="input bg-gray-50" value={currentUser.role} disabled />
             </div>
           </div>
-          <button className="btn-primary" onClick={showSaved}>Save Changes</button>
+          {profileError && (
+            <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
+              <p className="text-sm text-red-700">{profileError}</p>
+            </div>
+          )}
+          <button className="btn-primary" onClick={saveProfile}>Save Changes</button>
         </div>
       )}
 

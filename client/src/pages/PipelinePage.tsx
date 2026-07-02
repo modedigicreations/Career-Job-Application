@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { formatCurrency, getInitials, cn } from '@/lib/utils';
-import type { Currency } from '@/types';
+import type { Currency, LeadStatus, Lead, User } from '@/types';
 
 function formatMultiCurrency(leads: { estimatedValue: number; currency: Currency }[]): string {
   const byCurrency: Record<string, number> = {};
@@ -12,8 +13,6 @@ function formatMultiCurrency(leads: { estimatedValue: number; currency: Currency
   if (entries.length === 1) return formatCurrency(entries[0][1], entries[0][0] as Currency);
   return entries.map(([c, v]) => formatCurrency(v, c as Currency)).join(' + ');
 }
-import type { LeadStatus, Lead } from '@/types';
-import { useState } from 'react';
 
 const STAGES: { key: LeadStatus; label: string; color: string }[] = [
   { key: 'new-lead', label: 'New Lead', color: 'border-t-blue-500' },
@@ -115,8 +114,8 @@ export default function PipelinePage() {
   );
 }
 
-function DealCard({ lead, users, onDragStart }: { lead: Lead; users: any[]; onDragStart: (id: string) => void }) {
-  const assignee = users.find((u: any) => u.id === lead.assignedTo);
+function DealCard({ lead, users, onDragStart }: { lead: Lead; users: User[]; onDragStart: (id: string) => void }) {
+  const assignee = users.find((u) => u.id === lead.assignedTo);
 
   return (
     <div

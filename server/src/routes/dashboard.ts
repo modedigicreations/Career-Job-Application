@@ -35,11 +35,13 @@ router.get('/stats', async (_req: Request, res: Response) => {
 
     const totalRevenue = paidRevenue._sum.total || 0;
     const outstanding = (outstandingData._sum.total || 0) - (outstandingData._sum.amountPaid || 0);
+    const conversionRate = totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 1000) / 10 : 0;
 
     res.json({
       totalLeads,
       activeLeads,
       wonLeads,
+      conversionRate,
       totalRevenue,
       outstanding,
       activeProjects,

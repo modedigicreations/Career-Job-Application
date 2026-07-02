@@ -5,11 +5,14 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 import StatCard from '@/components/ui/StatCard';
-import { Plus, Search, FileText, DollarSign, Clock, CheckCircle2, AlertCircle, Eye, Trash2, Download } from 'lucide-react';
+import { Plus, Search, FileText, DollarSign, Clock, AlertCircle, Eye, Trash2, Download, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { v4 as uuid } from 'uuid';
 import { showToast } from '@/components/ui/Toast';
 import type { Invoice, InvoiceItem, InvoiceStatus, Currency } from '@/types';
+
+/** Nigerian VAT rate applied to all invoices. */
+const VAT_RATE = 0.075;
 
 const emptyInvoice: Omit<Invoice, 'id' | 'createdAt' | 'invoiceNumber'> = {
   clientId: '', clientName: '', clientEmail: '', items: [],
@@ -64,7 +67,7 @@ export default function InvoicesPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const subtotal = items.reduce((s, i) => s + i.total, 0);
-    const tax = subtotal * 0.075;
+    const tax = subtotal * VAT_RATE;
     const total = subtotal + tax;
     const maxNum = invoices.reduce((max, inv) => {
       const match = inv.invoiceNumber.match(/INV-\d+-(\d+)/);
@@ -151,8 +154,17 @@ export default function InvoicesPage() {
                     <td className="px-4 py-3"><StatusBadge status={invoice.status} /></td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
-                        <Link to={`/invoices/${invoice.id}`} className="p-1 rounded hover:bg-gray-100"><Eye className="h-4 w-4 text-gray-400" /></Link>
-                        <button onClick={() => { if (confirm('Delete?')) { deleteInvoice(invoice.id); showToast('Invoice deleted'); } }} className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
+                        <Link to={`/invoices/${invoice.id}`} title="View invoice" className="p-1 rounded hover:bg-gray-100"><Eye className="h-4 w-4 text-gray-400" /></Link>
+                        {invoice.status === 'draft' && (
+                          <button
+                            onClick={() => { updateInvoice(invoice.id, { status: 'sent' }); showToast(`Invoice ${invoice.invoiceNumber} marked as sent`); }}
+                            title="Mark as sent"
+                            className="p-1 rounded hover:bg-gray-100"
+                          >
+                            <Send className="h-4 w-4 text-brand-500" />
+                          </button>
+                        )}
+                        <button onClick={() => { if (confirm(`Delete invoice ${invoice.invoiceNumber}?`)) { deleteInvoice(invoice.id); showToast('Invoice deleted'); } }} title="Delete invoice" className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
                       </div>
                     </td>
                   </tr>
@@ -203,8 +215,8 @@ export default function InvoicesPage() {
             <div className="mt-3 flex justify-end">
               <div className="text-right text-sm space-y-1">
                 <p>Subtotal: <strong>{formatCurrency(items.reduce((s, i) => s + i.total, 0), form.currency)}</strong></p>
-                <p>Tax (7.5%): <strong>{formatCurrency(items.reduce((s, i) => s + i.total, 0) * 0.075, form.currency)}</strong></p>
-                <p className="text-base">Total: <strong>{formatCurrency(items.reduce((s, i) => s + i.total, 0) * 1.075, form.currency)}</strong></p>
+                <p>VAT ({(VAT_RATE * 100).toFixed(1)}%): <strong>{formatCurrency(items.reduce((s, i) => s + i.total, 0) * VAT_RATE, form.currency)}</strong></p>
+                <p className="text-base">Total: <strong>{formatCurrency(items.reduce((s, i) => s + i.total, 0) * (1 + VAT_RATE), form.currency)}</strong></p>
               </div>
             </div>
           </div>

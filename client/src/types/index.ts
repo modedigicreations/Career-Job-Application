@@ -77,7 +77,8 @@ export interface Company {
   email: string;
   phone: string;
   address: string;
-  contactIds: string[];
+  /** Client-side only convenience list; the server derives contacts by company name. */
+  contactIds?: string[];
   createdAt: string;
 }
 
@@ -102,7 +103,8 @@ export interface Project {
   id: string;
   name: string;
   description: string;
-  clientId: string;
+  /** Optional link to a contact record; projects are keyed by clientName on the server. */
+  clientId?: string;
   clientName: string;
   serviceType: ServiceType;
   status: ProjectStatus;

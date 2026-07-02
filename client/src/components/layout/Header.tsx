@@ -1,6 +1,6 @@
 import { Menu, Bell, Search, X, LogOut } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-import { getInitials, formatDate, getDaysUntil } from '@/lib/utils';
+import { getInitials, formatRelativeTime, getDaysUntil } from '@/lib/utils';
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -76,7 +76,7 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
     });
 
     activities.slice(0, 5).forEach((a) => {
-      items.push({ id: `act-${a.id}`, text: a.description, type: 'info', time: a.createdAt, path: '/dashboard' });
+      items.push({ id: `act-${a.id}`, text: a.description, type: 'info', time: a.createdAt, path: '/activities' });
     });
 
     return items.slice(0, 10);
@@ -176,7 +176,7 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
                       }`} />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm text-gray-700 line-clamp-2">{n.text}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{formatDate(n.time)}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{formatRelativeTime(n.time)}</p>
                       </div>
                     </button>
                   ))

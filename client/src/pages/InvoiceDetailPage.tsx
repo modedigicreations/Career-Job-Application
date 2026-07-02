@@ -4,7 +4,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
 import { useState } from 'react';
-import { ArrowLeft, CreditCard } from 'lucide-react';
+import { ArrowLeft, CreditCard, FileQuestion } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
 import { showToast } from '@/components/ui/Toast';
 import type { Payment } from '@/types';
@@ -17,7 +17,22 @@ export default function InvoiceDetailPage() {
   const [showPayment, setShowPayment] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ amount: 0, method: 'bank-transfer' as Payment['method'], reference: '', notes: '' });
 
-  if (!invoice) return <div className="text-center py-16"><p className="text-gray-500">Invoice not found.</p><Link to="/invoices" className="text-brand-500 text-sm">Back to Invoices</Link></div>;
+  if (!invoice) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 mb-4">
+          <FileQuestion className="h-8 w-8 text-gray-400" />
+        </div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">Invoice not found</h2>
+        <p className="text-sm text-gray-500 max-w-sm mb-6">
+          The invoice you're looking for doesn't exist or may have been deleted.
+        </p>
+        <Link to="/invoices" className="btn-primary">
+          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Invoices
+        </Link>
+      </div>
+    );
+  }
 
   const inv = invoice;
   const balance = inv.total - inv.amountPaid;
@@ -103,7 +118,7 @@ export default function InvoiceDetailPage() {
         <div className="flex justify-end mb-8">
           <div className="w-64 space-y-2">
             <div className="flex justify-between text-sm"><span className="text-gray-500">Subtotal</span><span>{formatCurrency(inv.subtotal, inv.currency)}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-gray-500">Tax (7.5%)</span><span>{formatCurrency(inv.tax, inv.currency)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-gray-500">VAT (7.5%)</span><span>{formatCurrency(inv.tax, inv.currency)}</span></div>
             <div className="flex justify-between text-sm font-bold border-t border-gray-200 pt-2"><span>Total</span><span>{formatCurrency(inv.total, inv.currency)}</span></div>
             <div className="flex justify-between text-sm text-green-600"><span>Paid</span><span>{formatCurrency(inv.amountPaid, inv.currency)}</span></div>
             <div className="flex justify-between text-sm font-bold text-brand-600"><span>Balance Due</span><span>{formatCurrency(balance, inv.currency)}</span></div>

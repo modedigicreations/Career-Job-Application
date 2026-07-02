@@ -16,6 +16,7 @@ import StaffPage from '@/pages/StaffPage';
 import ServicesPage from '@/pages/ServicesPage';
 import TicketsPage from '@/pages/TicketsPage';
 import EmailCampaignsPage from '@/pages/EmailCampaignsPage';
+import ActivityLogPage from '@/pages/ActivityLogPage';
 import SettingsPage from '@/pages/SettingsPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/tickets" element={<TicketsPage />} />
         <Route path="/email-campaigns" element={<EmailCampaignsPage />} />
+        <Route path="/activities" element={<ActivityLogPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

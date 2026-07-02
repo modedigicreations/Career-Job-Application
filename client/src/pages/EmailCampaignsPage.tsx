@@ -4,13 +4,13 @@ import { formatDate, cn } from '@/lib/utils';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
-import { Plus, Mail, Send, Eye, Pause, Play, MousePointerClick } from 'lucide-react';
+import { Plus, Mail, Send, Eye, Pause, Play, MousePointerClick, Trash2 } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
 import { showToast } from '@/components/ui/Toast';
 import type { EmailCampaign } from '@/types';
 
 export default function EmailCampaignsPage() {
-  const { emailCampaigns, addEmailCampaign, updateEmailCampaign } = useStore();
+  const { emailCampaigns, addEmailCampaign, updateEmailCampaign, deleteEmailCampaign } = useStore();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', type: 'custom' as EmailCampaign['type'] });
 
@@ -29,6 +29,7 @@ export default function EmailCampaignsPage() {
   function toggleStatus(campaign: EmailCampaign) {
     const newStatus = campaign.status === 'active' ? 'paused' : 'active';
     updateEmailCampaign(campaign.id, { status: newStatus });
+    showToast(newStatus === 'active' ? 'Campaign activated' : 'Campaign paused');
   }
 
   return (
@@ -124,11 +125,20 @@ export default function EmailCampaignsPage() {
 
               <div className="flex items-center justify-between border-t border-gray-100 pt-3">
                 <span className="text-xs text-gray-400">Created {formatDate(campaign.createdAt)}</span>
-                {campaign.status !== 'completed' && campaign.status !== 'draft' && (
-                  <button onClick={() => toggleStatus(campaign)} className="text-xs text-brand-500 font-medium hover:text-brand-700 flex items-center gap-1">
-                    {campaign.status === 'active' ? <><Pause className="h-3 w-3" /> Pause</> : <><Play className="h-3 w-3" /> Activate</>}
+                <div className="flex items-center gap-3">
+                  {campaign.status !== 'completed' && (
+                    <button onClick={() => toggleStatus(campaign)} className="text-xs text-brand-500 font-medium hover:text-brand-700 flex items-center gap-1">
+                      {campaign.status === 'active' ? <><Pause className="h-3 w-3" /> Pause</> : <><Play className="h-3 w-3" /> Activate</>}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { if (confirm(`Delete campaign "${campaign.name}"?`)) { deleteEmailCampaign(campaign.id); showToast('Campaign deleted'); } }}
+                    title="Delete campaign"
+                    className="text-xs text-red-400 font-medium hover:text-red-600 flex items-center gap-1"
+                  >
+                    <Trash2 className="h-3 w-3" /> Delete
                   </button>
-                )}
+                </div>
               </div>
             </div>
           ))}

@@ -25,6 +25,7 @@ interface CRMState {
 
   setAuthenticated: (value: boolean) => void;
   setCurrentUser: (user: User) => void;
+  updateUser: (id: string, updates: Partial<User>) => void;
   logout: () => void;
 
   addLead: (lead: Lead) => void;
@@ -82,6 +83,11 @@ export const useStore = create<CRMState>()(
 
       setAuthenticated: (value) => set({ isAuthenticated: value }),
       setCurrentUser: (user) => set({ currentUser: user }),
+      updateUser: (id, updates) =>
+        set((s) => ({
+          users: s.users.map((u) => (u.id === id ? { ...u, ...updates } : u)),
+          currentUser: s.currentUser.id === id ? { ...s.currentUser, ...updates } : s.currentUser,
+        })),
       logout: () => set({ isAuthenticated: false, currentUser: seedData.currentUser }),
 
       addLead: (lead) => set((s) => ({ leads: [...s.leads, lead] })),
