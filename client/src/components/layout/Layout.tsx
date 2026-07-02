@@ -17,6 +17,7 @@ const pageTitles: Record<string, string> = {
   '/services': 'Service Catalog',
   '/tickets': 'Support Tickets',
   '/email-campaigns': 'Email Campaigns',
+  '/activities': 'Activity Log',
   '/settings': 'Settings',
 };
 

@@ -1,5 +1,5 @@
 import { useStore } from '@/store/useStore';
-import { formatCurrency, formatDate, getInitials } from '@/lib/utils';
+import { formatCurrency, formatDate, formatRelativeTime, getInitials } from '@/lib/utils';
 import StatCard from '@/components/ui/StatCard';
 import StatusBadge from '@/components/ui/StatusBadge';
 import {
@@ -14,11 +14,17 @@ import { Link } from 'react-router-dom';
 const PIPELINE_COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#f97316', '#6366f1', '#ec4899', '#22c55e', '#ef4444'];
 
 export default function DashboardPage() {
-  const { leads, projects, invoices, payments, hostingAccounts, activities, users } = useStore();
+  const { leads, projects, invoices, payments, hostingAccounts, activities } = useStore();
 
   const totalLeads = leads.length;
   const activeDeals = leads.filter((l) => !['won', 'lost'].includes(l.status)).length;
   const wonDeals = leads.filter((l) => l.status === 'won').length;
+  const winRate = totalLeads > 0 ? Math.round((wonDeals / totalLeads) * 100) : 0;
+  const now = new Date();
+  const leadsThisMonth = leads.filter((l) => {
+    const d = new Date(l.createdAt);
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }).length;
   const totalRevenue = invoices.filter((i) => i.status === 'paid').reduce((sum, i) => sum + i.total, 0);
   const activeProjects = projects.filter((p) => p.status === 'in-progress').length;
   const outstandingInvoices = invoices
@@ -65,9 +71,9 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <StatCard title="Total Leads" value={totalLeads} change="+3 this month" changeType="positive" icon={Users} />
+        <StatCard title="Total Leads" value={totalLeads} change={`+${leadsThisMonth} this month`} changeType={leadsThisMonth > 0 ? 'positive' : 'neutral'} icon={Users} />
         <StatCard title="Active Deals" value={activeDeals} icon={TrendingUp} iconColor="bg-purple-100 text-purple-600" />
-        <StatCard title="Won Deals" value={wonDeals} change={`${totalLeads > 0 ? Math.round((wonDeals / totalLeads) * 100) : 0}% conversion`} changeType="positive" icon={CheckCircle2} iconColor="bg-green-100 text-green-600" />
+        <StatCard title="Won Deals" value={wonDeals} change={`${winRate}% win rate`} changeType="positive" icon={CheckCircle2} iconColor="bg-green-100 text-green-600" />
         <StatCard title="Revenue (Paid)" value={formatCurrency(totalRevenue)} icon={DollarSign} iconColor="bg-emerald-100 text-emerald-600" />
         <StatCard title="Active Projects" value={activeProjects} icon={FolderKanban} iconColor="bg-orange-100 text-orange-600" />
         <StatCard title="Outstanding" value={formatCurrency(outstandingInvoices)} change="Unpaid invoices" changeType="negative" icon={Clock} iconColor="bg-red-100 text-red-600" />
@@ -123,7 +129,7 @@ export default function DashboardPage() {
         <div className="card p-6 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-gray-900">Recent Activity</h3>
-            <Link to="/leads" className="text-xs text-brand-500 hover:text-brand-600 font-medium">View all</Link>
+            <Link to="/activities" className="text-xs text-brand-500 hover:text-brand-600 font-medium">View all</Link>
           </div>
           <div className="space-y-3">
             {recentActivities.map((activity) => (
@@ -133,7 +139,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-gray-700 truncate">{activity.description}</p>
-                  <p className="text-xs text-gray-400">{formatDate(activity.createdAt)} &middot; {activity.userName}</p>
+                  <p className="text-xs text-gray-400">{formatRelativeTime(activity.createdAt)} &middot; {activity.userName}</p>
                 </div>
               </div>
             ))}

@@ -6,7 +6,7 @@ import {
 import { Users, PhoneCall, Mail, Trophy, DollarSign, FolderCheck } from 'lucide-react';
 
 export default function StaffPage() {
-  const { users, leads, projects, invoices, activities } = useStore();
+  const { users, leads, projects, activities } = useStore();
 
   const staffMetrics = users
     .filter((u) => u.isActive)
@@ -41,10 +41,21 @@ export default function StaffPage() {
     emails: m.emailsSent,
   }));
 
-  const topPerformer = staffMetrics.reduce((top, current) =>
-    current.revenueGenerated > (top?.revenueGenerated || 0) ? current : top,
-    staffMetrics[0]
-  );
+  const topPerformer = staffMetrics.length > 0
+    ? staffMetrics.reduce((top, current) => (current.revenueGenerated > top.revenueGenerated ? current : top))
+    : null;
+
+  if (staffMetrics.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 mb-4">
+          <Users className="h-8 w-8 text-gray-400" />
+        </div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">No active staff</h2>
+        <p className="text-sm text-gray-500 max-w-sm">There are no active team members to report on yet.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

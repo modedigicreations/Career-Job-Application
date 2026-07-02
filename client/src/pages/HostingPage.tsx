@@ -4,7 +4,7 @@ import { formatCurrency, formatDate, getDaysUntil, cn } from '@/lib/utils';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
-import { Plus, Search, Server, AlertTriangle, Shield, ShieldCheck, ShieldX } from 'lucide-react';
+import { Plus, Search, Server, AlertTriangle, Shield, ShieldCheck, ShieldX, Edit2, Trash2 } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
 import { showToast } from '@/components/ui/Toast';
 import type { HostingAccount, HostingPlan, Currency } from '@/types';
@@ -129,7 +129,16 @@ export default function HostingPage() {
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">{formatCurrency(account.monthlyFee, account.currency)}</td>
                       <td className="px-4 py-3"><StatusBadge status={account.status} /></td>
                       <td className="px-4 py-3">
-                        <button onClick={() => openEdit(account)} className="text-xs text-brand-500 hover:text-brand-700 font-medium">Edit</button>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => openEdit(account)} title="Edit account" className="p-1 rounded hover:bg-gray-100"><Edit2 className="h-4 w-4 text-gray-400" /></button>
+                          <button
+                            onClick={() => { if (confirm(`Delete hosting account for ${account.domainName}?`)) { deleteHostingAccount(account.id); showToast('Hosting account deleted'); } }}
+                            title="Delete account"
+                            className="p-1 rounded hover:bg-gray-100"
+                          >
+                            <Trash2 className="h-4 w-4 text-red-400" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

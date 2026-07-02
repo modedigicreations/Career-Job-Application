@@ -19,7 +19,7 @@ const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
 ];
 
 const emptyProject: Omit<Project, 'id' | 'createdAt'> = {
-  name: '', description: '', clientId: '', clientName: '', serviceType: 'website-development',
+  name: '', description: '', clientName: '', serviceType: 'website-development',
   status: 'pending', startDate: '', endDate: '', budget: 0, currency: 'NGN',
   progress: 0, assignedTeam: [],
 };

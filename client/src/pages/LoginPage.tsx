@@ -13,21 +13,29 @@ export default function LoginPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
+    const trimmedEmail = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+
+    setLoading(true);
     setTimeout(() => {
-      const user = users.find(
-        (u) => u.email.toLowerCase() === email.toLowerCase() && u.isActive
-      );
+      const user = users.find((u) => u.email.toLowerCase() === trimmedEmail.toLowerCase());
 
       if (!user) {
-        setError('Invalid email or password. Please try again.');
+        setError('No account found with that email. Use one of the demo accounts below.');
         setLoading(false);
         return;
       }
 
-      if (password.length < 4) {
-        setError('Invalid email or password. Please try again.');
+      if (!user.isActive) {
+        setError('This account has been deactivated. Contact an administrator.');
         setLoading(false);
         return;
       }
@@ -113,7 +121,7 @@ export default function LoginPage() {
         </div>
 
         <div className="mt-6 card p-4">
-          <p className="text-xs font-medium text-gray-500 mb-2">Demo Accounts (any password with 4+ chars):</p>
+          <p className="text-xs font-medium text-gray-500 mb-2">Demo Accounts (any password with 6+ chars):</p>
           <div className="space-y-1">
             {users.filter((u) => u.isActive).slice(0, 3).map((u) => (
               <button

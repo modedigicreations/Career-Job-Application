@@ -14,13 +14,17 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
+    if (!isOpen) return;
+    document.body.style.overflow = 'hidden';
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
     }
+    document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.body.style.overflow = '';
+      document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -37,10 +41,10 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-[10vh]"
       onClick={(e) => e.target === overlayRef.current && onClose()}
     >
-      <div className={cn('w-full rounded-xl bg-white shadow-xl', sizes[size])}>
+      <div role="dialog" aria-modal="true" aria-label={title} className={cn('w-full rounded-xl bg-white shadow-xl', sizes[size])}>
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-          <button onClick={onClose} className="p-1 rounded-md hover:bg-gray-100">
+          <button onClick={onClose} aria-label="Close dialog" className="p-1 rounded-md hover:bg-gray-100">
             <X className="h-5 w-5 text-gray-500" />
           </button>
         </div>

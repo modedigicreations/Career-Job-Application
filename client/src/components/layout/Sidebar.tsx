@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, Users, GitBranch, UserCircle, Building2,
   FolderKanban, Server, FileText, BarChart3, Package,
-  Ticket, Mail, Settings, X, ChevronLeft,
+  Ticket, Mail, History, Settings, X, ChevronLeft,
 } from 'lucide-react';
 
 const navItems = [
@@ -19,6 +19,7 @@ const navItems = [
   { label: 'Services', path: '/services', icon: Package },
   { label: 'Tickets', path: '/tickets', icon: Ticket },
   { label: 'Campaigns', path: '/email-campaigns', icon: Mail },
+  { label: 'Activity Log', path: '/activities', icon: History },
   { label: 'Settings', path: '/settings', icon: Settings },
 ];
 

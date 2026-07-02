@@ -3,7 +3,8 @@ import { useStore } from '@/store/useStore';
 import { formatCurrency } from '@/lib/utils';
 import Modal from '@/components/ui/Modal';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { Plus, Edit2, Package, Check } from 'lucide-react';
+import EmptyState from '@/components/ui/EmptyState';
+import { Plus, Edit2, Trash2, Package, Check } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
 import { showToast } from '@/components/ui/Toast';
 import type { Service, ServiceType, Currency } from '@/types';
@@ -27,7 +28,7 @@ const emptyService: Omit<Service, 'id'> = {
 };
 
 export default function ServicesPage() {
-  const { services, addService, updateService } = useStore();
+  const { services, addService, updateService, deleteService } = useStore();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Service | null>(null);
   const [form, setForm] = useState(emptyService);
@@ -65,6 +66,10 @@ export default function ServicesPage() {
         <button onClick={openCreate} className="btn-primary"><Plus className="h-4 w-4 mr-2" /> Add Service</button>
       </div>
 
+      {services.length === 0 && (
+        <EmptyState icon={Package} title="No services" description="Add services to build your catalog." action={<button onClick={openCreate} className="btn-primary">Add Service</button>} />
+      )}
+
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {services.map((service) => (
           <div key={service.id} className="card overflow-hidden">
@@ -75,9 +80,18 @@ export default function ServicesPage() {
                   <p className="text-brand-100 text-sm mt-1">Starting from</p>
                   <p className="text-2xl font-bold mt-1">{formatCurrency(service.basePrice, service.currency)}</p>
                 </div>
-                <button onClick={() => openEdit(service)} className="p-1.5 rounded-md bg-white/20 hover:bg-white/30 transition-colors">
-                  <Edit2 className="h-4 w-4" />
-                </button>
+                <div className="flex gap-1.5">
+                  <button onClick={() => openEdit(service)} title="Edit service" className="p-1.5 rounded-md bg-white/20 hover:bg-white/30 transition-colors">
+                    <Edit2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => { if (confirm(`Delete service "${service.name}"?`)) { deleteService(service.id); showToast('Service deleted'); } }}
+                    title="Delete service"
+                    className="p-1.5 rounded-md bg-white/20 hover:bg-red-500/80 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
             <div className="p-5">

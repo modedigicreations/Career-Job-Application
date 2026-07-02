@@ -4,7 +4,7 @@ import { formatCurrency, formatDate, getInitials, cn } from '@/lib/utils';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
 import { useState } from 'react';
-import { ArrowLeft, Plus, CheckCircle2, Circle, Clock, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Plus, CheckCircle2, Circle, Clock, AlertCircle, FolderX } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
 import { showToast } from '@/components/ui/Toast';
 import type { Task, TaskStatus } from '@/types';
@@ -33,7 +33,22 @@ export default function ProjectDetailPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskForm, setTaskForm] = useState({ title: '', description: '', assignedTo: '', dueDate: '', priority: 'medium' as Task['priority'], status: 'pending' as TaskStatus });
 
-  if (!project) return <div className="text-center py-16"><p className="text-gray-500">Project not found.</p><Link to="/projects" className="text-brand-500 text-sm">Back to Projects</Link></div>;
+  if (!project) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 mb-4">
+          <FolderX className="h-8 w-8 text-gray-400" />
+        </div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">Project not found</h2>
+        <p className="text-sm text-gray-500 max-w-sm mb-6">
+          The project you're looking for doesn't exist or may have been deleted.
+        </p>
+        <Link to="/projects" className="btn-primary">
+          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Projects
+        </Link>
+      </div>
+    );
+  }
 
   const proj = project;
   const completedTasks = projectTasks.filter((t) => t.status === 'completed').length;
