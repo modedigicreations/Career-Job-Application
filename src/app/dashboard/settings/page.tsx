@@ -46,11 +46,11 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-xl font-extrabold text-slate-900 tracking-tight sm:text-2xl">
             System & Enterprise Settings
           </h1>
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
             mode-ops v2.0
           </span>
         </div>
@@ -59,7 +59,7 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-6">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 sm:p-6 space-y-6">
         <form onSubmit={handleSave} className="space-y-5 text-xs">
           {/* Executive Managing Director Profile */}
           <div>

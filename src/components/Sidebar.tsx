@@ -32,9 +32,17 @@ import type { UserRole } from '@/lib/types';
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
-  const { currentUser, setCurrentUserRole, leads, requisitions, goals, notifications } = useAppStore();
+  const {
+    currentUser,
+    setCurrentUserRole,
+    leads,
+    requisitions,
+    goals,
+    notifications,
+    mobileSidebarOpen,
+    setMobileSidebarOpen
+  } = useAppStore();
 
   const unreadNotifs = notifications.filter(n => !n.read).length;
   const pendingRequisitions = requisitions.filter(r => r.status === 'Pending').length;
@@ -120,7 +128,7 @@ export default function Sidebar() {
     <div className="flex flex-col h-full bg-[#0B111E] text-slate-300">
       {/* Brand Header */}
       <div className="p-4 border-b border-slate-800/80 flex items-center justify-between">
-        <Link href="/dashboard" className="flex items-center gap-3 group">
+        <Link href="/dashboard" onClick={() => setMobileSidebarOpen(false)} className="flex items-center gap-3 group">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#0D52F8] to-[#0544d0] flex items-center justify-center text-white font-black text-lg shadow-lg shadow-blue-500/25 group-hover:scale-105 transition">
             M
           </div>
@@ -134,6 +142,14 @@ export default function Sidebar() {
             <p className="text-[11px] text-slate-400 font-medium">Enterprise Management</p>
           </div>
         </Link>
+        <button
+          type="button"
+          onClick={() => setMobileSidebarOpen(false)}
+          className="lg:hidden p-1.5 rounded-lg bg-slate-800/80 text-slate-400 hover:text-white cursor-pointer"
+          aria-label="Close navigation"
+        >
+          <X size={18} />
+        </button>
       </div>
 
       {/* Role Impersonation / Active User Switcher */}
@@ -200,7 +216,7 @@ export default function Sidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    onClick={() => setMobileOpen(false)}
+                    onClick={() => setMobileSidebarOpen(false)}
                     className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
                       isActive
                         ? 'bg-[#0D52F8] text-white shadow-sm shadow-blue-500/30'
@@ -237,33 +253,14 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile Top Header */}
-      <header className="lg:hidden h-14 bg-[#0B111E] border-b border-slate-800 px-4 flex items-center justify-between text-white sticky top-0 z-40">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#0D52F8] flex items-center justify-center text-white font-bold text-sm">
-            M
-          </div>
-          <span className="font-bold text-sm tracking-tight">MODE OPS</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href="/dashboard" className="p-1.5 rounded-lg bg-slate-800 text-slate-300">
-            <Bell size={16} />
-          </Link>
-          <button
-            type="button"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
-          >
-            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-        </div>
-      </header>
-
       {/* Mobile Drawer Overlay */}
-      {mobileOpen && (
+      {mobileSidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-xs" onClick={() => setMobileOpen(false)} />
-          <div className="relative w-72 max-w-[80vw] h-full shadow-2xl">
+          <div
+            className="fixed inset-0 bg-black/75 backdrop-blur-xs transition-opacity"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+          <div className="relative w-72 max-w-[85vw] h-full shadow-2xl z-10">
             {navContent}
           </div>
         </div>
