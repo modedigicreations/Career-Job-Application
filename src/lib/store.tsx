@@ -19,6 +19,7 @@ interface AppContextType {
   currentUser: UserProfile;
   setCurrentUserRole: (role: UserRole) => void;
   users: UserProfile[];
+  updateUserProfile: (id: string, updates: Partial<UserProfile>) => void;
 
   // CRM
   leads: Lead[];
@@ -74,8 +75,39 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<UserProfile>(initialProfiles[0]);
-  const [users] = useState<UserProfile[]>(initialProfiles);
+  const [users, setUsers] = useState<UserProfile[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mode_ops_users');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          return parsed.map((u: UserProfile) => {
+            if (u.id === 'u1' && (u.full_name?.includes('Adewale') || u.email?.includes('adewale'))) {
+              return { ...u, full_name: 'Davids Ogan', email: 'davids@modedigital.ng' };
+            }
+            return u;
+          });
+        } catch {}
+      }
+    }
+    return initialProfiles;
+  });
+
+  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('mode_ops_current_user');
+      if (savedUser) {
+        try {
+          const u = JSON.parse(savedUser);
+          if (u.id === 'u1' && (u.full_name?.includes('Adewale') || u.email?.includes('adewale'))) {
+            return { ...u, full_name: 'Davids Ogan', email: 'davids@modedigital.ng' };
+          }
+          return u;
+        } catch {}
+      }
+    }
+    return initialProfiles[0];
+  });
 
   const [leads, setLeads] = useState<Lead[]>(() => {
     if (typeof window !== 'undefined') {
@@ -182,6 +214,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('mode_ops_leads', JSON.stringify(leads));
+      localStorage.setItem('mode_ops_users', JSON.stringify(users));
       localStorage.setItem('mode_ops_requisitions', JSON.stringify(requisitions));
       localStorage.setItem('mode_ops_goals', JSON.stringify(goals));
       localStorage.setItem('mode_ops_invoices', JSON.stringify(invoices));
@@ -205,6 +238,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       job_title: `${role.toUpperCase()} Lead`,
     };
     setCurrentUser(found);
+  };
+
+  const updateUserProfile = (id: string, updates: Partial<UserProfile>) => {
+    setUsers(prev => {
+      const updated = prev.map(u => u.id === id ? { ...u, ...updates } : u);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_users', JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    if (currentUser.id === id) {
+      setCurrentUser(prev => {
+        const next = { ...prev, ...updates };
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('mode_ops_current_user', JSON.stringify(next));
+        }
+        return next;
+      });
+    }
+
+    logActivity('user_profile_update', `Executive updated profile for ${updates.full_name || id}`, 'User', id);
   };
 
   // Activity logger helper
@@ -491,6 +546,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         currentUser,
         setCurrentUserRole,
         users,
+        updateUserProfile,
         leads,
         addLead,
         updateLeadStatus,
