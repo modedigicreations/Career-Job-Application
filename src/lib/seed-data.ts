@@ -4,7 +4,7 @@ import type {
 } from './types';
 
 export const initialProfiles: UserProfile[] = [
-  { id: 'u1', email: 'adewale@modedigital.ng', full_name: 'Adewale Okonkwo', role: 'managing_director', department: 'Executive', job_title: 'Managing Director & Founder', phone: '+234 801 234 5678', is_active: true },
+  { id: 'u1', email: 'davids@modedigital.ng', full_name: 'Davids Ogan', role: 'managing_director', department: 'Executive', job_title: 'Managing Director & Founder', phone: '+234 801 234 5678', is_active: true },
   { id: 'u2', email: 'chioma@modedigital.ng', full_name: 'Chioma Eze', role: 'sales', department: 'Sales & Growth', job_title: 'Head of Sales', phone: '+234 802 345 6789', is_active: true },
   { id: 'u3', email: 'emeka@modedigital.ng', full_name: 'Emeka Nwosu', role: 'developer', department: 'Engineering', job_title: 'Senior Full-Stack Engineer', phone: '+234 803 456 7890', is_active: true },
   { id: 'u4', email: 'fatima@modedigital.ng', full_name: 'Fatima Bello', role: 'manager', department: 'Operations', job_title: 'Operations & Project Manager', phone: '+234 804 567 8901', is_active: true },
@@ -99,7 +99,7 @@ export const initialRequisitions: Requisition[] = [
     staffId: 'u3',
     decisionNotes: 'Approved by MD. Essential for production stability.',
     decidedAt: '2026-06-22T10:15:00Z',
-    decidedBy: 'Adewale Okonkwo',
+    decidedBy: 'Davids Ogan',
     completedAt: '2026-06-22T11:30:00Z',
     disbursedBy: 'Ibrahim Musa',
     transactionId: 'TXN-GTB-8839219',
@@ -119,7 +119,7 @@ export const initialRequisitions: Requisition[] = [
     staffId: 'u4',
     decisionNotes: 'Approved. Accounts to disburse via swift online portal.',
     decidedAt: '2026-06-24T14:00:00Z',
-    decidedBy: 'Adewale Okonkwo',
+    decidedBy: 'Davids Ogan',
     createdAt: '2026-06-24T11:20:00Z',
   },
   {
@@ -159,7 +159,7 @@ export const initialGoals: Goal[] = [
   {
     id: 'g1',
     manager_id: 'u1',
-    manager_name: 'Adewale Okonkwo',
+    manager_name: 'Davids Ogan',
     employee_id: 'u2',
     employee_name: 'Chioma Eze',
     objective: 'Generate 15 Qualified Enterprise Leads in Q3',
@@ -177,7 +177,7 @@ export const initialGoals: Goal[] = [
   {
     id: 'g2',
     manager_id: 'u1',
-    manager_name: 'Adewale Okonkwo',
+    manager_name: 'Davids Ogan',
     employee_id: 'u3',
     employee_name: 'Emeka Nwosu',
     objective: 'Unify 3 Internal Codebases into Mode-Ops Next.js Architecture',
@@ -217,7 +217,7 @@ export const initialFeedbacks: Feedback[] = [
     id: 'fb1',
     goal_id: 'g1',
     manager_id: 'u1',
-    manager_name: 'Adewale Okonkwo',
+    manager_name: 'Davids Ogan',
     employee_id: 'u2',
     employee_name: 'Chioma Eze',
     type: 'praise',
@@ -228,7 +228,7 @@ export const initialFeedbacks: Feedback[] = [
     id: 'fb2',
     goal_id: 'g2',
     manager_id: 'u1',
-    manager_name: 'Adewale Okonkwo',
+    manager_name: 'Davids Ogan',
     employee_id: 'u3',
     employee_name: 'Emeka Nwosu',
     type: 'praise',
@@ -256,7 +256,7 @@ export const initialTickets: Ticket[] = [
 
 export const initialActivities: ActivityItem[] = [
   { id: 'act-1', activity_type: 'crm_deal', description: 'FashionHub Lagos made full payment of ₦1,290,000 for Phase 1', entity_type: 'Invoice', entity_id: 'inv1', user_name: 'Chioma Eze', created_at: '2026-06-10 11:30' },
-  { id: 'act-2', activity_type: 'expense_approval', description: 'Requisition REQ-2026-1042 (₦145,000) approved & disbursed for Cloud Servers', entity_type: 'Requisition', entity_id: 'req-1', user_name: 'Adewale Okonkwo', created_at: '2026-06-22 11:30' },
+  { id: 'act-2', activity_type: 'expense_approval', description: 'Requisition REQ-2026-1042 (₦145,000) approved & disbursed for Cloud Servers', entity_type: 'Requisition', entity_id: 'req-1', user_name: 'Davids Ogan', created_at: '2026-06-22 11:30' },
   { id: 'act-3', activity_type: 'goal_milestone', description: 'Emeka Nwosu submitted Strategy iteration for unified mode-ops codebase', entity_type: 'Goal', entity_id: 'g2', user_name: 'Emeka Nwosu', created_at: '2026-06-23 15:45' },
   { id: 'act-4', activity_type: 'crm_lead', description: 'New international lead captured from UK: UK Trade Connect (GBP 5,200)', entity_type: 'Lead', entity_id: 'l5', user_name: 'Chioma Eze', created_at: '2026-06-24 09:20' },
 ];
@@ -264,5 +264,5 @@ export const initialActivities: ActivityItem[] = [
 export const initialNotifications: AppNotification[] = [
   { id: 'notif-1', user_id: 'u1', type: 'expense', title: 'New Requisition Pending', message: 'Chioma Eze requested ₦250,000 for Q3 Marketing & Meta Ads spend.', link_url: '/dashboard/expenses', read: false, created_at: '2026-06-25T09:45:00Z' },
   { id: 'notif-2', user_id: 'u1', type: 'hosting', title: 'Domain Renewal Approaching', message: 'edufirst.ng expires in under 15 days. Auto-renew is turned OFF.', link_url: '/dashboard/crm/hosting', read: false, created_at: '2026-06-25T11:00:00Z' },
-  { id: 'notif-3', user_id: 'u2', type: 'feedback', title: 'New One-Minute Praise!', message: 'Adewale Okonkwo sent you praise regarding the UK Trade deal.', link_url: '/dashboard/omm/feedback', read: true, created_at: '2026-06-15T14:30:00Z' },
+  { id: 'notif-3', user_id: 'u2', type: 'feedback', title: 'New One-Minute Praise!', message: 'Davids Ogan sent you praise regarding the UK Trade deal.', link_url: '/dashboard/omm/feedback', read: true, created_at: '2026-06-15T14:30:00Z' },
 ];

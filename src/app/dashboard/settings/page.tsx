@@ -8,18 +8,37 @@ import {
   ShieldCheck,
   Check,
   Save,
-  Database
+  Database,
+  User,
+  Mail,
+  Phone
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 
 export default function SettingsPage() {
-  const { currentUser } = useAppStore();
+  const { currentUser, updateUserProfile, users } = useAppStore();
   const [companyName, setCompanyName] = useState('MODE Digital Creations');
   const [defaultCurrency, setDefaultCurrency] = useState('NGN');
+  
+  // Executive profile fields
+  const [execName, setExecName] = useState(currentUser.full_name || 'Davids Ogan');
+  const [execEmail, setExecEmail] = useState(currentUser.email || 'davids@modedigital.ng');
+  const [execTitle, setExecTitle] = useState(currentUser.job_title || 'Managing Director & Founder');
+  const [execPhone, setExecPhone] = useState(currentUser.phone || '+234 801 234 5678');
+  
   const [saved, setSaved] = useState(false);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Update active executive profile
+    updateUserProfile(currentUser.id, {
+      full_name: execName,
+      email: execEmail,
+      job_title: execTitle,
+      phone: execPhone,
+    });
+
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -36,14 +55,64 @@ export default function SettingsPage() {
           </span>
         </div>
         <p className="text-xs text-slate-500 mt-1">
-          Company profile, multi-currency default configurations, and Supabase database status.
+          Company profile, Managing Director identity, multi-currency defaults, and Supabase database status.
         </p>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-6">
         <form onSubmit={handleSave} className="space-y-5 text-xs">
+          {/* Executive Managing Director Profile */}
           <div>
-            <h2 className="text-sm font-bold text-slate-900 mb-1">Company Profile</h2>
+            <h2 className="text-sm font-bold text-slate-900 mb-1">Managing Director & Executive Identity</h2>
+            <p className="text-slate-500 mb-3">Super Admin credentials shown across company vouchers, approvals, and executive cockpit.</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Managing Director Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={execName}
+                  onChange={e => setExecName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Executive Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={execEmail}
+                  onChange={e => setExecEmail(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Job Title</label>
+                <input
+                  type="text"
+                  value={execTitle}
+                  onChange={e => setExecTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Phone Number</label>
+                <input
+                  type="tel"
+                  value={execPhone}
+                  onChange={e => setExecPhone(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-100">
+            <h2 className="text-sm font-bold text-slate-900 mb-1">Company Profile & Branding</h2>
             <p className="text-slate-500 mb-3">Appears on invoices, vouchers, and client proposals.</p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -91,7 +160,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between pt-4 border-t border-slate-100">
             {saved ? (
               <span className="text-emerald-600 font-bold flex items-center gap-1">
-                <Check size={14} /> Settings Saved
+                <Check size={14} /> Profile & Settings Saved
               </span>
             ) : <span />}
 
