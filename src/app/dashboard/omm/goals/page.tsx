@@ -124,13 +124,13 @@ export default function GoalsPage() {
       </div>
 
       {/* Goal Status Filter */}
-      <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center justify-between">
-        <div className="flex items-center gap-1">
+      <div className="bg-white p-3 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
           {['all', 'in_progress', 'completed', 'not_started'].map(st => (
             <button
               key={st}
               onClick={() => setFilterStatus(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition shrink-0 ${
                 filterStatus === st ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
@@ -138,7 +138,7 @@ export default function GoalsPage() {
             </button>
           ))}
         </div>
-        <span className="text-xs text-slate-400 font-medium">
+        <span className="text-xs text-slate-400 font-medium shrink-0">
           Showing {filteredGoals.length} Goals
         </span>
       </div>

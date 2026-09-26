@@ -70,6 +70,11 @@ interface AppContextType {
   activities: ActivityItem[];
   notifications: AppNotification[];
   markNotificationAsRead: (id: string) => void;
+
+  // Mobile Navigation
+  mobileSidebarOpen: boolean;
+  setMobileSidebarOpen: (open: boolean) => void;
+  toggleMobileSidebar: () => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -209,6 +214,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     return initialNotifications;
   });
+
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const toggleMobileSidebar = () => setMobileSidebarOpen(prev => !prev);
 
   // Sync to localStorage
   useEffect(() => {
@@ -583,6 +591,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         activities,
         notifications,
         markNotificationAsRead,
+        mobileSidebarOpen,
+        setMobileSidebarOpen,
+        toggleMobileSidebar,
       }}
     >
       {children}
