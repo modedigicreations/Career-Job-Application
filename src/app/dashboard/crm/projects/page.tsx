@@ -63,7 +63,7 @@ export default function ProjectsPage() {
       {/* Grid Layout: Left Projects Selector, Right Task Checklist */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Project Cards */}
-        <div className="space-y-3">
+        <div className="space-y-3 min-w-0">
           <div className="text-xs font-bold uppercase text-slate-400 tracking-wider px-1">
             Projects Portfolio
           </div>
@@ -116,7 +116,7 @@ export default function ProjectsPage() {
         </div>
 
         {/* Right Column: Active Project Details & Tasks Checklist */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="lg:col-span-2 space-y-5 min-w-0">
           {activeProject && (
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
