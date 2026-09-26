@@ -1,16 +1,17 @@
 import { Currency, RequisitionUrgency, RequisitionStatus, LeadStatus, ProjectStatus } from './types';
 
-export function formatCurrency(amount: number, currency: Currency = 'NGN'): string {
+export function formatCurrency(amount?: number | null, currency: Currency = 'NGN'): string {
+  const val = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
   if (currency === 'NGN') {
-    return `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    return `₦${val.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   }
   if (currency === 'GBP') {
-    return `£${amount.toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    return `£${val.toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   }
   if (currency === 'USD') {
-    return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    return `$${val.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   }
-  return `${amount}`;
+  return `${val}`;
 }
 
 export function formatDate(dateString?: string): string {

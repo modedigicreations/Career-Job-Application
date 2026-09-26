@@ -36,20 +36,20 @@ export default function Header() {
       {/* ======================================================== */}
       {/* MOBILE TOP BAR (Phone / Tablet < 1024px)                  */}
       {/* ======================================================== */}
-      <header className="lg:hidden h-14 bg-[#0B111E] text-white border-b border-slate-800/90 px-3 sm:px-4 flex items-center justify-between sticky top-0 z-40 shadow-xs">
+      <header className="lg:hidden h-14 bg-[#0B111E] text-white border-b border-slate-800/90 px-2.5 sm:px-4 flex items-center justify-between sticky top-0 z-40 shadow-xs w-full max-w-full">
         {/* Left: Hamburger & Brand */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           <button
             type="button"
             onClick={toggleMobileSidebar}
-            className="p-1.5 rounded-lg bg-slate-800/90 text-slate-300 hover:text-white hover:bg-slate-700 transition cursor-pointer"
+            className="p-1.5 rounded-lg bg-slate-800/90 text-slate-300 hover:text-white hover:bg-slate-700 transition cursor-pointer shrink-0"
             aria-label="Open mobile menu"
           >
-            <Menu size={20} />
+            <Menu size={19} />
           </button>
 
-          <Link href="/dashboard" className="flex items-center gap-2 group">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#0D52F8] to-[#0544d0] flex items-center justify-center text-white font-black text-xs shadow-md shadow-blue-500/30">
+          <Link href="/dashboard" className="flex items-center gap-1.5 group shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#0D52F8] to-[#0544d0] flex items-center justify-center text-white font-black text-xs shadow-md shadow-blue-500/30 shrink-0">
               M
             </div>
             <div className="flex items-center gap-1">
@@ -64,7 +64,7 @@ export default function Header() {
         </div>
 
         {/* Right: Search, Quick Action, Notifications, Avatar */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Mobile Search Toggle */}
           <button
             type="button"

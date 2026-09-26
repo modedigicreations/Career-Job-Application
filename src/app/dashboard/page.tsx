@@ -52,33 +52,33 @@ export default function ExecutiveCockpitPage() {
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
-      <div className="p-6 rounded-2xl bg-gradient-to-r from-[#0B111E] via-[#0D214F] to-[#0D52F8] text-white shadow-xl relative overflow-hidden">
+      <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-[#0B111E] via-[#0D214F] to-[#0D52F8] text-white shadow-xl relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-200 border border-blue-400/30">
                 MODE Operations Suite
               </span>
               <span className="text-xs text-blue-200">Unified System Live</span>
             </div>
-            <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight break-words">
               Welcome back, {currentUser.full_name}
             </h1>
             <p className="text-xs sm:text-sm text-blue-100/80 mt-1 max-w-xl">
               Cross-operational overview: CRM Sales Pipeline, Staff Expense Requisitions, and One-Minute Leadership Goals.
             </p>
           </div>
-          <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
             <Link
               href="/dashboard/crm/pipeline"
-              className="px-3.5 py-2 rounded-xl bg-white text-slate-900 font-semibold text-xs hover:bg-slate-100 transition shadow-sm flex items-center gap-1.5"
+              className="px-3 py-2 rounded-xl bg-white text-slate-900 font-semibold text-xs hover:bg-slate-100 transition shadow-sm flex items-center gap-1.5"
             >
               <Kanban size={14} className="text-blue-600" />
               <span>Sales Pipeline</span>
             </Link>
             <Link
               href="/dashboard/expenses"
-              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs transition border border-white/20 flex items-center gap-1.5"
+              className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs transition border border-white/20 flex items-center gap-1.5"
             >
               <WalletCards size={14} />
               <span>Requisitions ({pendingRequisitions.length})</span>
@@ -87,7 +87,7 @@ export default function ExecutiveCockpitPage() {
         </div>
 
         {/* Ambient background blur */}
-        <div className="absolute right-0 top-0 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+        <div className="absolute right-0 top-0 w-48 h-48 sm:w-96 sm:h-96 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
       </div>
 
       {/* Top Metric Cards */}
@@ -164,7 +164,7 @@ export default function ExecutiveCockpitPage() {
       {/* Main Two-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column (2 Cols) */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-6 min-w-0">
           {/* Quick Pending Requisitions Approvals (for MD & Managers) */}
           <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -260,7 +260,7 @@ export default function ExecutiveCockpitPage() {
             </div>
 
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs min-w-[500px]">
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 font-semibold">
                     <th className="pb-2">Client / Company</th>
@@ -300,7 +300,7 @@ export default function ExecutiveCockpitPage() {
         </div>
 
         {/* Right Column (1 Col) */}
-        <div className="space-y-6">
+        <div className="space-y-6 min-w-0">
           {/* Hosting & Renewal Alerts */}
           <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
