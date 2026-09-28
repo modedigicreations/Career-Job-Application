@@ -164,6 +164,19 @@ export interface HostingAccount {
   status: 'active' | 'suspended' | 'expired';
   monthlyFee: number;
   currency: Currency;
+  isWhmcsLive?: boolean;
+  whmcsDomainId?: string | number;
+  registrar?: string;
+}
+
+export interface WhmcsConfig {
+  apiUrl: string;
+  identifier: string;
+  secret: string;
+  autoSync: boolean;
+  isConnected: boolean;
+  lastSyncAt?: string;
+  totalLiveDomains?: number;
 }
 
 export interface InvoiceItem {

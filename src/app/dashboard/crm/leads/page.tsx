@@ -16,7 +16,13 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import type { Lead, LeadStatus, Currency } from '@/lib/types';
-import { formatCurrency, formatDate, getLeadStatusBadge } from '@/lib/utils';
+import { formatCurrency, formatDate, getLeadStatusBadge, formatWhatsAppUrl, formatMailtoUrl } from '@/lib/utils';
+
+const WhatsAppIcon = ({ className = "w-3 h-3 fill-current" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+  </svg>
+);
 
 export default function LeadsPage() {
   const { leads, addLead, updateLeadStatus, deleteLead } = useAppStore();
@@ -186,15 +192,32 @@ export default function LeadsPage() {
                     <div className="font-bold text-slate-900 leading-snug">{lead.name}</div>
                     <div className="text-[11px] text-slate-400 font-medium">{lead.company}</div>
                   </td>
-                  <td className="py-3.5 px-4 space-y-0.5 text-[11px] text-slate-600">
+                  <td className="py-3.5 px-4 space-y-1 text-[11px]">
                     <div className="flex items-center gap-1.5">
-                      <Mail size={12} className="text-slate-400" />
-                      <span>{lead.email}</span>
+                      <Mail size={12} className="text-slate-400 shrink-0" />
+                      <a
+                        href={formatMailtoUrl(lead.email, `Inquiry regarding ${lead.serviceInterested.replace('-', ' ')} - MODE DIGITAL CREATIONS`, `Hello ${lead.name},\n\nThank you for reaching out to MODE DIGITAL CREATIONS regarding ${lead.serviceInterested.replace('-', ' ')}.`)}
+                        className="text-slate-600 hover:text-[#0D52F8] hover:underline transition truncate max-w-[170px]"
+                        title={`Email ${lead.email}`}
+                      >
+                        {lead.email}
+                      </a>
                     </div>
                     {lead.phone && (
                       <div className="flex items-center gap-1.5">
-                        <Phone size={12} className="text-slate-400" />
-                        <span>{lead.phone}</span>
+                        <Phone size={12} className="text-slate-400 shrink-0" />
+                        <a
+                          href={formatWhatsAppUrl(lead.phone, `Hello ${lead.name}, this is MODE DIGITAL CREATIONS following up on your inquiry for ${lead.serviceInterested.replace('-', ' ')}.`)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-slate-600 hover:text-emerald-600 hover:underline transition flex items-center gap-1"
+                          title="Chat on WhatsApp"
+                        >
+                          <span>{lead.phone}</span>
+                          <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            WhatsApp
+                          </span>
+                        </a>
                       </div>
                     )}
                   </td>
@@ -215,17 +238,38 @@ export default function LeadsPage() {
                     </span>
                   </td>
                   <td className="py-3.5 px-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1.5">
+                      {lead.phone && (
+                        <a
+                          href={formatWhatsAppUrl(lead.phone, `Hello ${lead.name}, this is MODE DIGITAL CREATIONS following up on your inquiry for ${lead.serviceInterested.replace('-', ' ')}.`)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-semibold flex items-center gap-1 shadow-2xs transition"
+                          title="Direct WhatsApp Chat"
+                        >
+                          <WhatsAppIcon className="w-3 h-3 fill-white" />
+                          <span className="hidden sm:inline">WhatsApp</span>
+                        </a>
+                      )}
+                      <a
+                        href={formatMailtoUrl(lead.email, `MODE DIGITAL CREATIONS - Follow-up on ${lead.serviceInterested.replace('-', ' ')}`, `Hello ${lead.name},\n\nWe are following up on your inquiry for ${lead.serviceInterested.replace('-', ' ')} at MODE DIGITAL CREATIONS.`)}
+                        className="px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#0D52F8] border border-blue-200 text-[11px] font-semibold flex items-center gap-1 transition"
+                        title="Direct Email"
+                      >
+                        <Mail size={12} />
+                        <span className="hidden sm:inline">Email</span>
+                      </a>
                       <Link
                         href="/dashboard/crm/pipeline"
-                        className="text-[#0D52F8] hover:underline font-semibold text-xs"
+                        className="text-slate-500 hover:text-[#0D52F8] font-semibold text-xs px-1.5 py-1"
                       >
                         Pipeline
                       </Link>
                       <button
                         type="button"
                         onClick={() => deleteLead(lead.id)}
-                        className="text-slate-400 hover:text-rose-600 text-xs"
+                        className="text-slate-400 hover:text-rose-600 text-xs px-1"
+                        title="Delete Lead"
                       >
                         Delete
                       </button>
