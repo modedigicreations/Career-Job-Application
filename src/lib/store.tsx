@@ -20,6 +20,8 @@ interface AppContextType {
   setCurrentUserRole: (role: UserRole) => void;
   users: UserProfile[];
   updateUserProfile: (id: string, updates: Partial<UserProfile>) => void;
+  addUserProfile: (profile: Omit<UserProfile, 'id'>) => void;
+  deleteUserProfile: (id: string) => void;
 
   // CRM
   leads: Lead[];
@@ -31,12 +33,25 @@ interface AppContextType {
   addContact: (contact: Omit<Contact, 'id' | 'createdAt'>) => void;
 
   companies: Company[];
+  addCompany: (company: Omit<Company, 'id' | 'createdAt'>) => void;
+  updateCompany: (id: string, updates: Partial<Company>) => void;
+  deleteCompany: (id: string) => void;
+
   projects: Project[];
+  addProject: (project: Omit<Project, 'id' | 'createdAt'>) => void;
+  updateProject: (id: string, updates: Partial<Project>) => void;
+  deleteProject: (id: string) => void;
+
   tasks: Task[];
   toggleTask: (id: string) => void;
   addTask: (task: Omit<Task, 'id' | 'createdAt'>) => void;
+  updateTask: (id: string, updates: Partial<Task>) => void;
+  deleteTask: (id: string) => void;
 
   services: Service[];
+  addService: (service: Omit<Service, 'id'>) => void;
+  updateService: (id: string, updates: Partial<Service>) => void;
+  deleteService: (id: string) => void;
   hostingAccounts: HostingAccount[];
   renewHosting: (id: string, additionalMonths?: number) => void;
 
@@ -130,8 +145,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return initialContacts;
   });
 
-  const [companies] = useState<Company[]>(initialCompanies);
-  const [projects] = useState<Project[]>(initialProjects);
+  const [companies, setCompanies] = useState<Company[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mode_ops_companies');
+      if (saved) try { return JSON.parse(saved); } catch {}
+    }
+    return initialCompanies;
+  });
+
+  const [projects, setProjects] = useState<Project[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mode_ops_projects');
+      if (saved) try { return JSON.parse(saved); } catch {}
+    }
+    return initialProjects;
+  });
 
   const [tasks, setTasks] = useState<Task[]>(() => {
     if (typeof window !== 'undefined') {
@@ -141,7 +169,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return initialTasks;
   });
 
-  const [services] = useState<Service[]>(initialServices);
+  const [services, setServices] = useState<Service[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mode_ops_services');
+      if (saved) try { return JSON.parse(saved); } catch {}
+    }
+    return initialServices;
+  });
 
   const [hostingAccounts, setHostingAccounts] = useState<HostingAccount[]>(() => {
     if (typeof window !== 'undefined') {
@@ -223,6 +257,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') {
       localStorage.setItem('mode_ops_leads', JSON.stringify(leads));
       localStorage.setItem('mode_ops_users', JSON.stringify(users));
+      localStorage.setItem('mode_ops_companies', JSON.stringify(companies));
+      localStorage.setItem('mode_ops_projects', JSON.stringify(projects));
+      localStorage.setItem('mode_ops_services', JSON.stringify(services));
       localStorage.setItem('mode_ops_requisitions', JSON.stringify(requisitions));
       localStorage.setItem('mode_ops_goals', JSON.stringify(goals));
       localStorage.setItem('mode_ops_invoices', JSON.stringify(invoices));
@@ -233,7 +270,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('mode_ops_activities', JSON.stringify(activities));
       localStorage.setItem('mode_ops_notifications', JSON.stringify(notifications));
     }
-  }, [leads, requisitions, goals, invoices, hostingAccounts, tasks, feedbacks, tickets, activities, notifications]);
+  }, [leads, users, companies, projects, services, requisitions, goals, invoices, hostingAccounts, tasks, feedbacks, tickets, activities, notifications]);
 
   // Switch Role
   const setCurrentUserRole = (role: UserRole) => {
@@ -268,6 +305,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     logActivity('user_profile_update', `Executive updated profile for ${updates.full_name || id}`, 'User', id);
+  };
+
+  const addUserProfile = (profileData: Omit<UserProfile, 'id'>) => {
+    const newUser: UserProfile = {
+      ...profileData,
+      id: `u-${Date.now()}`,
+      is_active: profileData.is_active ?? true,
+    };
+    setUsers(prev => {
+      const updated = [...prev, newUser];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_users', JSON.stringify(updated));
+      }
+      return updated;
+    });
+    logActivity('user_create', `Added staff member: ${newUser.full_name} (${newUser.job_title || newUser.role})`, 'User', newUser.id);
+  };
+
+  const deleteUserProfile = (id: string) => {
+    setUsers(prev => {
+      const updated = prev.filter(u => u.id !== id);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_users', JSON.stringify(updated));
+      }
+      return updated;
+    });
+    logActivity('user_delete', `Removed staff member profile (${id})`, 'User', id);
   };
 
   // Activity logger helper
@@ -316,6 +380,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setContacts(prev => [newContact, ...prev]);
   };
 
+  const addCompany = (companyData: Omit<Company, 'id' | 'createdAt'>) => {
+    const newCompany: Company = {
+      ...companyData,
+      id: `co-${Date.now()}`,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    setCompanies(prev => [newCompany, ...prev]);
+    logActivity('crm_company', `Added corporate client org: ${newCompany.name}`, 'Company', newCompany.id);
+  };
+
+  const updateCompany = (id: string, updates: Partial<Company>) => {
+    setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+    logActivity('crm_company', `Updated corporate client org: ${updates.name || id}`, 'Company', id);
+  };
+
+  const deleteCompany = (id: string) => {
+    setCompanies(prev => prev.filter(c => c.id !== id));
+    logActivity('crm_company', `Deleted corporate client org (${id})`, 'Company', id);
+  };
+
+  const addProject = (projectData: Omit<Project, 'id' | 'createdAt'>) => {
+    const newProject: Project = {
+      ...projectData,
+      id: `p-${Date.now()}`,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    setProjects(prev => [newProject, ...prev]);
+    logActivity('crm_project', `Created client project: ${newProject.name}`, 'Project', newProject.id);
+  };
+
+  const updateProject = (id: string, updates: Partial<Project>) => {
+    setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+    logActivity('crm_project', `Updated client project: ${updates.name || id}`, 'Project', id);
+  };
+
+  const deleteProject = (id: string) => {
+    setProjects(prev => prev.filter(p => p.id !== id));
+    setTasks(prev => prev.filter(t => t.projectId !== id));
+    logActivity('crm_project', `Deleted client project (${id})`, 'Project', id);
+  };
+
   const toggleTask = (id: string) => {
     setTasks(prev => prev.map(t => {
       if (t.id === id) {
@@ -333,6 +438,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createdAt: new Date().toISOString().split('T')[0],
     };
     setTasks(prev => [newTask, ...prev]);
+  };
+
+  const updateTask = (id: string, updates: Partial<Task>) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+  };
+
+  const deleteTask = (id: string) => {
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
+  const addService = (serviceData: Omit<Service, 'id'>) => {
+    const newService: Service = {
+      ...serviceData,
+      id: `s-${Date.now()}`,
+    };
+    setServices(prev => [newService, ...prev]);
+    logActivity('crm_service', `Added service catalog solution: ${newService.name}`, 'Service', newService.id);
+  };
+
+  const updateService = (id: string, updates: Partial<Service>) => {
+    setServices(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+    logActivity('crm_service', `Updated service solution: ${updates.name || id}`, 'Service', id);
+  };
+
+  const deleteService = (id: string) => {
+    setServices(prev => prev.filter(s => s.id !== id));
+    logActivity('crm_service', `Deleted service solution (${id})`, 'Service', id);
   };
 
   const renewHosting = (id: string, additionalMonths = 12) => {
@@ -555,6 +687,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setCurrentUserRole,
         users,
         updateUserProfile,
+        addUserProfile,
+        deleteUserProfile,
         leads,
         addLead,
         updateLeadStatus,
@@ -562,11 +696,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         contacts,
         addContact,
         companies,
+        addCompany,
+        updateCompany,
+        deleteCompany,
         projects,
+        addProject,
+        updateProject,
+        deleteProject,
         tasks,
         toggleTask,
         addTask,
+        updateTask,
+        deleteTask,
         services,
+        addService,
+        updateService,
+        deleteService,
         hostingAccounts,
         renewHosting,
         invoices,
