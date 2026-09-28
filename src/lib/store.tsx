@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type {
   UserProfile, Lead, Contact, Company, Project, Task, Service, HostingAccount,
   Invoice, Payment, Ticket, ActivityItem, Requisition, Goal, Feedback, AppNotification,
-  UserRole, LeadStatus, RequisitionStatus, GoalStatus
+  UserRole, LeadStatus, RequisitionStatus, GoalStatus, WhmcsConfig
 } from './types';
 import {
   initialProfiles, initialLeads, initialContacts, initialCompanies,
@@ -54,6 +54,9 @@ interface AppContextType {
   deleteService: (id: string) => void;
   hostingAccounts: HostingAccount[];
   renewHosting: (id: string, additionalMonths?: number) => void;
+  whmcsConfig: import('./types').WhmcsConfig;
+  updateWhmcsConfig: (updates: Partial<import('./types').WhmcsConfig>) => void;
+  syncWhmcsHosting: () => Promise<{ success: boolean; count?: number; message?: string }>;
 
   invoices: Invoice[];
   addInvoice: (invoice: Omit<Invoice, 'id' | 'createdAt'>) => void;
@@ -185,6 +188,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return initialHostingAccounts;
   });
 
+  const [whmcsConfig, setWhmcsConfig] = useState<WhmcsConfig>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mode_ops_whmcs_config');
+      if (saved) try { return JSON.parse(saved); } catch {}
+    }
+    return {
+      apiUrl: 'https://billing.modewebhost.com',
+      identifier: 'MODE_WHMCS_API_ID',
+      secret: '••••••••••••••••',
+      autoSync: true,
+      isConnected: true,
+      lastSyncAt: new Date().toISOString(),
+      totalLiveDomains: 6,
+    };
+  });
+
   const [invoices, setInvoices] = useState<Invoice[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('mode_ops_invoices');
@@ -264,13 +283,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('mode_ops_goals', JSON.stringify(goals));
       localStorage.setItem('mode_ops_invoices', JSON.stringify(invoices));
       localStorage.setItem('mode_ops_hosting', JSON.stringify(hostingAccounts));
+      localStorage.setItem('mode_ops_whmcs_config', JSON.stringify(whmcsConfig));
       localStorage.setItem('mode_ops_tasks', JSON.stringify(tasks));
       localStorage.setItem('mode_ops_feedbacks', JSON.stringify(feedbacks));
       localStorage.setItem('mode_ops_tickets', JSON.stringify(tickets));
       localStorage.setItem('mode_ops_activities', JSON.stringify(activities));
       localStorage.setItem('mode_ops_notifications', JSON.stringify(notifications));
     }
-  }, [leads, users, companies, projects, services, requisitions, goals, invoices, hostingAccounts, tasks, feedbacks, tickets, activities, notifications]);
+  }, [leads, users, companies, projects, services, requisitions, goals, invoices, hostingAccounts, whmcsConfig, tasks, feedbacks, tickets, activities, notifications]);
 
   // Switch Role
   const setCurrentUserRole = (role: UserRole) => {
@@ -484,6 +504,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const target = hostingAccounts.find(h => h.id === id);
     if (target) {
       logActivity('hosting_renew', `Extended domain & hosting renewal for ${target.domainName} by ${additionalMonths} months`, 'Hosting', id);
+    }
+  };
+
+  const updateWhmcsConfig = (updates: Partial<WhmcsConfig>) => {
+    setWhmcsConfig(prev => {
+      const next = { ...prev, ...updates };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_whmcs_config', JSON.stringify(next));
+      }
+      return next;
+    });
+  };
+
+  const syncWhmcsHosting = async (): Promise<{ success: boolean; count?: number; message?: string }> => {
+    try {
+      const res = await fetch('/api/whmcs/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiUrl: whmcsConfig.apiUrl,
+          identifier: whmcsConfig.identifier,
+          secret: whmcsConfig.secret
+        })
+      });
+      const data = await res.json();
+      if (data && data.success && Array.isArray(data.accounts)) {
+        setHostingAccounts(data.accounts);
+        const now = new Date().toISOString();
+        updateWhmcsConfig({
+          isConnected: true,
+          lastSyncAt: now,
+          totalLiveDomains: data.accounts.length
+        });
+        logActivity('whmcs_sync', `Synchronized ${data.accounts.length} live domain & hosting renewals from WHMCS`, 'Hosting', 'whmcs');
+        return { success: true, count: data.accounts.length, message: data.message };
+      }
+      return { success: false, message: data?.error || 'Failed to sync' };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'WHMCS sync error' };
     }
   };
 
@@ -714,6 +773,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deleteService,
         hostingAccounts,
         renewHosting,
+        whmcsConfig,
+        updateWhmcsConfig,
+        syncWhmcsHosting,
         invoices,
         addInvoice,
         recordPayment,

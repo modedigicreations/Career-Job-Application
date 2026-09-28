@@ -106,3 +106,21 @@ export function generateReceiptNumber(): string {
   const rand = Math.floor(1000 + Math.random() * 9000);
   return `REQ-${year}-${rand}`;
 }
+
+export function formatWhatsAppUrl(phone?: string, text?: string): string {
+  if (!phone) return '#';
+  let cleaned = phone.replace(/[^0-9]/g, '');
+  if (cleaned.startsWith('0') && cleaned.length === 11) {
+    cleaned = '234' + cleaned.substring(1);
+  }
+  const query = text ? `?text=${encodeURIComponent(text)}` : '';
+  return `https://wa.me/${cleaned}${query}`;
+}
+
+export function formatMailtoUrl(email?: string, subject?: string, body?: string): string {
+  if (!email) return '#';
+  const params: string[] = [];
+  if (subject) params.push(`subject=${encodeURIComponent(subject)}`);
+  if (body) params.push(`body=${encodeURIComponent(body)}`);
+  return `mailto:${email}${params.length > 0 ? `?${params.join('&')}` : ''}`;
+}
