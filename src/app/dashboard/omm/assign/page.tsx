@@ -10,13 +10,16 @@ import {
   Phone,
   Edit3,
   Check,
-  X
+  X,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import type { UserProfile, UserRole } from '@/lib/types';
 
 export default function StaffAllocationPage() {
-  const { users, updateUserProfile, currentUser } = useAppStore();
+  const { users, updateUserProfile, addUserProfile, deleteUserProfile, currentUser } = useAppStore();
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
 
   // Form State
@@ -27,6 +30,17 @@ export default function StaffAllocationPage() {
   const [role, setRole] = useState<UserRole>('employee');
   const [phone, setPhone] = useState('');
 
+  const openAddModal = () => {
+    setEditingUser(null);
+    setFullName('');
+    setEmail('');
+    setJobTitle('');
+    setDepartment('Engineering');
+    setRole('employee');
+    setPhone('');
+    setIsModalOpen(true);
+  };
+
   const openEditModal = (u: UserProfile) => {
     setEditingUser(u);
     setFullName(u.full_name || '');
@@ -35,22 +49,52 @@ export default function StaffAllocationPage() {
     setDepartment(u.department || 'General');
     setRole(u.role);
     setPhone(u.phone || '');
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingUser(null);
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!fullName.trim() || !email.trim()) return;
+
+    if (editingUser) {
+      updateUserProfile(editingUser.id, {
+        full_name: fullName,
+        email,
+        job_title: jobTitle,
+        department,
+        role,
+        phone,
+      });
+    } else {
+      addUserProfile({
+        full_name: fullName,
+        email,
+        job_title: jobTitle || 'Team Member',
+        department: department || 'Operations',
+        role,
+        phone,
+        is_active: true,
+      });
+    }
+
+    closeModal();
+  };
+
+  const handleDelete = () => {
     if (!editingUser) return;
-
-    updateUserProfile(editingUser.id, {
-      full_name: fullName,
-      email,
-      job_title: jobTitle,
-      department,
-      role,
-      phone,
-    });
-
-    setEditingUser(null);
+    if (editingUser.id === currentUser.id) {
+      alert('You cannot delete your own active administrator profile.');
+      return;
+    }
+    if (confirm(`Are you sure you want to remove ${editingUser.full_name} from staff directory?`)) {
+      deleteUserProfile(editingUser.id);
+      closeModal();
+    }
   };
 
   return (
@@ -69,6 +113,15 @@ export default function StaffAllocationPage() {
             Review reporting chains, departmental assignments, and role-based permissions. Super Admins can update staff credentials.
           </p>
         </div>
+
+        <button
+          type="button"
+          onClick={openAddModal}
+          className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0 self-start sm:self-auto"
+        >
+          <Plus size={15} />
+          <span>Add Staff Member</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -139,17 +192,19 @@ export default function StaffAllocationPage() {
         ))}
       </div>
 
-      {/* Edit User Modal */}
-      {editingUser && (
+      {/* Add / Edit User Modal */}
+      {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setEditingUser(null)} />
-          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 z-10 text-xs">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={closeModal} />
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 z-10 text-xs animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-              <h2 className="text-base font-bold text-slate-900">Edit Staff Profile & Credentials</h2>
+              <h2 className="text-base font-bold text-slate-900">
+                {editingUser ? 'Edit Staff Profile & Credentials' : 'Add New Staff Member'}
+              </h2>
               <button
                 type="button"
-                onClick={() => setEditingUser(null)}
-                className="text-slate-400 hover:text-slate-600"
+                onClick={closeModal}
+                className="text-slate-400 hover:text-slate-600 p-1"
               >
                 <X size={18} />
               </button>
@@ -231,21 +286,34 @@ export default function StaffAllocationPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setEditingUser(null)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg font-semibold hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
-                >
-                  <Check size={14} />
-                  <span>Update Credentials</span>
-                </button>
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                {editingUser && editingUser.id !== currentUser.id ? (
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    className="text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 text-xs"
+                  >
+                    <Trash2 size={13} />
+                    <span>Remove Staff</span>
+                  </button>
+                ) : <span />}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="px-3.5 py-2 border border-slate-200 text-slate-600 rounded-lg font-semibold hover:bg-slate-50 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
+                  >
+                    <Check size={14} />
+                    <span>{editingUser ? 'Update Credentials' : 'Add Staff Member'}</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>
