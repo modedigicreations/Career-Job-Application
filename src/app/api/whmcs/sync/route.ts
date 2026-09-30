@@ -157,26 +157,36 @@ async function callWhmcsApi(endpoint: string, action: string, auth: { identifier
     const contentType = response.headers.get('content-type') || '';
     const text = await response.text();
 
-    if (!response.ok) {
+    let json: any = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      if (text.includes('result=error') && text.includes('message=')) {
+        const match = text.match(/message=([^;\n\r]+)/);
+        json = { result: 'error', message: match ? match[1].trim() : text.trim() };
+      }
+    }
+
+    if (json && json.result === 'error') {
       return {
         ok: false,
         status: response.status,
-        error: `HTTP ${response.status}: ${response.statusText}`,
+        error: json.message || 'WHMCS API Error',
+        whmcsError: json.message,
         raw: text.slice(0, 300)
       };
     }
 
-    try {
-      const json = JSON.parse(text);
-      return { ok: true, status: response.status, data: json };
-    } catch {
+    if (!response.ok) {
       return {
         ok: false,
         status: response.status,
-        error: 'WHMCS server returned non-JSON response (possibly HTML error page or Cloudflare challenge).',
+        error: json?.message || `HTTP ${response.status}: ${response.statusText}`,
         raw: text.slice(0, 300)
       };
     }
+
+    return { ok: true, status: response.status, data: json };
   } catch (err: any) {
     clearTimeout(timeoutId);
     return {
@@ -222,21 +232,36 @@ export async function POST(request: Request) {
 
       // Handle WHMCS API Errors explicitly
       if (!res.ok) {
+        let userAdvice = res.error;
+        let detectedIp: string | null = null;
+
+        // Check if raw or error contains "Invalid IP"
+        const combined = `${res.error} ${res.raw || ''}`;
+        const ipMatch = combined.match(/Invalid IP\s+([0-9a-fA-F.:]+)/i);
+        if (ipMatch) {
+          detectedIp = ipMatch[1];
+          userAdvice = `WHMCS Access Denied: Server IP ${detectedIp} is not in your WHMCS API whitelist. To fix this, log in to WHMCS > System Settings (or Setup) > General Settings > Security > API IP Access Restriction, and add ${detectedIp} to the whitelist (or empty the whitelist field to allow all IPs).`;
+        }
+
         return NextResponse.json({
           success: false,
           error: res.error,
           endpoint,
+          detectedIp,
           rawResponse: res.raw,
-          message: `Unable to connect to WHMCS: ${res.error}`
+          message: userAdvice
         }, { status: 400 });
       }
 
       if (res.data && res.data.result === 'error') {
         const errorMsg = res.data.message || 'WHMCS reported an unknown error.';
         let userAdvice = errorMsg;
+        let detectedIp: string | null = null;
 
-        if (errorMsg.toLowerCase().includes('ip') || errorMsg.toLowerCase().includes('not allowed')) {
-          userAdvice = `${errorMsg}. Please go to your WHMCS Admin > Setup/System Settings > General Settings > Security > API IP Access Restriction, and add your server IP to the whitelist.`;
+        const ipMatch = errorMsg.match(/Invalid IP\s+([0-9a-fA-F.:]+)/i);
+        if (ipMatch) {
+          detectedIp = ipMatch[1];
+          userAdvice = `WHMCS Access Denied: Server IP ${detectedIp} is not in your WHMCS API whitelist. To fix this, log in to WHMCS > System Settings (or Setup) > General Settings > Security > API IP Access Restriction, and add ${detectedIp} to the whitelist.`;
         } else if (errorMsg.toLowerCase().includes('auth')) {
           userAdvice = `${errorMsg}. Please verify your API Identifier and Secret Key (or your WHMCS Admin Username and Password).`;
         }
@@ -245,6 +270,7 @@ export async function POST(request: Request) {
           success: false,
           error: errorMsg,
           endpoint,
+          detectedIp,
           message: userAdvice
         }, { status: 400 });
       }

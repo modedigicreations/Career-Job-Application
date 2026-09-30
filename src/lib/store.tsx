@@ -56,7 +56,7 @@ interface AppContextType {
   renewHosting: (id: string, additionalMonths?: number) => void;
   whmcsConfig: import('./types').WhmcsConfig;
   updateWhmcsConfig: (updates: Partial<import('./types').WhmcsConfig>) => void;
-  syncWhmcsHosting: () => Promise<{ success: boolean; count?: number; message?: string }>;
+  syncWhmcsHosting: () => Promise<{ success: boolean; count?: number; message?: string; detectedIp?: string }>;
 
   invoices: Invoice[];
   addInvoice: (invoice: Omit<Invoice, 'id' | 'createdAt'>) => void;
@@ -517,7 +517,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const syncWhmcsHosting = async (): Promise<{ success: boolean; count?: number; message?: string }> => {
+  const syncWhmcsHosting = async (): Promise<{ success: boolean; count?: number; message?: string; detectedIp?: string }> => {
     try {
       const res = await fetch('/api/whmcs/sync', {
         method: 'POST',
@@ -540,7 +540,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         logActivity('whmcs_sync', `Synchronized ${data.accounts.length} live domain & hosting renewals from WHMCS`, 'Hosting', 'whmcs');
         return { success: true, count: data.accounts.length, message: data.message };
       }
-      return { success: false, message: data?.error || 'Failed to sync' };
+      return { success: false, message: data?.message || data?.error || 'Failed to sync', detectedIp: data?.detectedIp };
     } catch (err: any) {
       return { success: false, message: err?.message || 'WHMCS sync error' };
     }
