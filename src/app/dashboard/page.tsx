@@ -31,7 +31,8 @@ export default function ExecutiveCockpitPage() {
     goals,
     activities,
     currentUser,
-    updateRequisitionDecision
+    updateRequisitionDecision,
+    shifts
   } = useAppStore();
 
   // Metrics computation
@@ -88,6 +89,44 @@ export default function ExecutiveCockpitPage() {
 
         {/* Ambient background blur */}
         <div className="absolute right-0 top-0 w-48 h-48 sm:w-96 sm:h-96 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
+      </div>
+
+      {/* Live Staff on Shift Widget */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+            <Clock size={20} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-extrabold text-slate-900 text-sm">Today&apos;s Daily Staff Shifts</h3>
+              <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>{shifts.filter(s => s.status === 'active').length} Staff Clocked In</span>
+              </span>
+            </div>
+            <p className="text-slate-500 text-xs mt-0.5">
+              Staff shifts are actively logged for today to compute work hours and compensation.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 self-start md:self-auto">
+          <div className="flex -space-x-2 overflow-hidden">
+            {shifts.filter(s => s.status === 'active').slice(0, 4).map(s => (
+              <div key={s.id} className="w-7 h-7 rounded-full bg-slate-900 text-white border-2 border-white flex items-center justify-center text-[10px] font-bold shadow-xs" title={`${s.staffName} (${s.jobTitle})`}>
+                {s.staffName[0]}
+              </div>
+            ))}
+          </div>
+          <Link
+            href="/dashboard/payroll"
+            className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer ml-1"
+          >
+            <span>Shift &amp; Payroll Cockpit</span>
+            <ChevronRight size={13} />
+          </Link>
+        </div>
       </div>
 
       {/* Top Metric Cards */}

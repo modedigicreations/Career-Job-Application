@@ -14,6 +14,7 @@ export type UserRole =
 export interface UserProfile {
   id: string;
   email: string;
+  password?: string;
   full_name: string;
   role: UserRole;
   manager_id?: string | null;
@@ -24,6 +25,22 @@ export interface UserProfile {
   is_active?: boolean;
   hasPayrollAccess?: boolean;
   created_at?: string;
+}
+
+export interface StaffShift {
+  id: string;
+  staffId: string;
+  staffName: string;
+  staffEmail: string;
+  department: string;
+  jobTitle: string;
+  date: string; // YYYY-MM-DD
+  clockInTime: string; // ISO string
+  clockOutTime?: string | null; // ISO string
+  durationHours: number;
+  status: 'active' | 'completed';
+  notes?: string;
+  hourlyRate?: number;
 }
 
 // ==========================================
@@ -356,6 +373,8 @@ export interface PayrollRecord {
     other?: number;
   };
   bonuses: number;
+  shiftHours?: number;
+  shiftHourlyRate?: number;
   grossPay: number;
   deductions: {
     tax?: number; // PAYE

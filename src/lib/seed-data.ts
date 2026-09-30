@@ -1,15 +1,15 @@
 import type {
   UserProfile, Lead, Contact, Company, Project, Task, Service, HostingAccount,
   Invoice, Payment, Ticket, ActivityItem, Requisition, Goal, Feedback, AppNotification,
-  PayrollRecord
+  PayrollRecord, StaffShift
 } from './types';
 
 export const initialProfiles: UserProfile[] = [
-  { id: 'u1', email: 'davids@modedigital.ng', full_name: 'Davids Ogan', role: 'managing_director', department: 'Executive', job_title: 'Managing Director & Founder', phone: '+234 801 234 5678', is_active: true, hasPayrollAccess: true },
-  { id: 'u2', email: 'chioma@modedigital.ng', full_name: 'Chioma Eze', role: 'sales', department: 'Sales & Growth', job_title: 'Head of Sales', phone: '+234 802 345 6789', is_active: true },
-  { id: 'u3', email: 'emeka@modedigital.ng', full_name: 'Emeka Nwosu', role: 'developer', department: 'Engineering', job_title: 'Senior Full-Stack Engineer', phone: '+234 803 456 7890', is_active: true },
-  { id: 'u4', email: 'fatima@modedigital.ng', full_name: 'Fatima Bello', role: 'manager', department: 'Operations', job_title: 'Operations & Project Manager', phone: '+234 804 567 8901', is_active: true },
-  { id: 'u5', email: 'ibrahim@modedigital.ng', full_name: 'Ibrahim Musa', role: 'accounts', department: 'Finance & Support', job_title: 'Finance & Client Support Lead', phone: '+234 805 678 9012', is_active: true, hasPayrollAccess: true },
+  { id: 'u1', email: 'davids@modedigital.ng', password: 'password123', full_name: 'Davids Ogan', role: 'managing_director', department: 'Executive', job_title: 'Managing Director & Founder', phone: '+234 801 234 5678', is_active: true, hasPayrollAccess: true },
+  { id: 'u2', email: 'chioma@modedigital.ng', password: 'password123', full_name: 'Chioma Eze', role: 'sales', department: 'Sales & Growth', job_title: 'Head of Sales', phone: '+234 802 345 6789', is_active: true },
+  { id: 'u3', email: 'emeka@modedigital.ng', password: 'password123', full_name: 'Emeka Nwosu', role: 'developer', department: 'Engineering', job_title: 'Senior Full-Stack Engineer', phone: '+234 803 456 7890', is_active: true },
+  { id: 'u4', email: 'fatima@modedigital.ng', password: 'password123', full_name: 'Fatima Bello', role: 'manager', department: 'Operations', job_title: 'Operations & Project Manager', phone: '+234 804 567 8901', is_active: true },
+  { id: 'u5', email: 'ibrahim@modedigital.ng', password: 'password123', full_name: 'Ibrahim Musa', role: 'accounts', department: 'Finance & Support', job_title: 'Finance & Client Support Lead', phone: '+234 805 678 9012', is_active: true, hasPayrollAccess: true },
 ];
 
 export const initialLeads: Lead[] = [
@@ -409,5 +409,147 @@ export const initialPayrollRecords: PayrollRecord[] = [
     notes: 'Finance and support lead monthly compensation.',
     createdAt: '2026-09-25',
   },
+];
+
+// ==========================================
+// DAILY STAFF SHIFTS & ATTENDANCE
+// ==========================================
+export const initialShifts: StaffShift[] = [
+  {
+    id: 'shift-101',
+    staffId: 'u2',
+    staffName: 'Chioma Eze',
+    staffEmail: 'chioma@modedigital.ng',
+    department: 'Sales & Growth',
+    jobTitle: 'Head of Sales',
+    date: '2026-09-30',
+    clockInTime: '2026-09-30T08:15:00Z',
+    clockOutTime: null,
+    durationHours: 7.25,
+    status: 'active',
+    hourlyRate: 2800,
+    notes: 'In-office active shift: Client proposal closing calls & pipeline review.'
+  },
+  {
+    id: 'shift-102',
+    staffId: 'u3',
+    staffName: 'Emeka Nwosu',
+    staffEmail: 'emeka@modedigital.ng',
+    department: 'Engineering',
+    jobTitle: 'Senior Full-Stack Engineer',
+    date: '2026-09-30',
+    clockInTime: '2026-09-30T08:30:00Z',
+    clockOutTime: null,
+    durationHours: 7.0,
+    status: 'active',
+    hourlyRate: 3500,
+    notes: 'Active shift: ModeCBT testing engine deployment & Next.js Turbopack fixes.'
+  },
+  {
+    id: 'shift-103',
+    staffId: 'u4',
+    staffName: 'Fatima Bello',
+    staffEmail: 'fatima@modedigital.ng',
+    department: 'Operations',
+    jobTitle: 'Operations & Project Manager',
+    date: '2026-09-30',
+    clockInTime: '2026-09-30T08:45:00Z',
+    clockOutTime: null,
+    durationHours: 6.75,
+    status: 'active',
+    hourlyRate: 3000,
+    notes: 'Active shift: Operations sync, staff goals vetting, and sprint milestones.'
+  },
+  {
+    id: 'shift-104',
+    staffId: 'u5',
+    staffName: 'Ibrahim Musa',
+    staffEmail: 'ibrahim@modedigital.ng',
+    department: 'Finance & Support',
+    jobTitle: 'Finance & Client Support Lead',
+    date: '2026-09-30',
+    clockInTime: '2026-09-30T09:00:00Z',
+    clockOutTime: null,
+    durationHours: 6.5,
+    status: 'active',
+    hourlyRate: 2500,
+    notes: 'Active shift: WHMCS hosting reconciliation, disbursements and accounts audit.'
+  },
+  {
+    id: 'shift-105',
+    staffId: 'u1',
+    staffName: 'Davids Ogan',
+    staffEmail: 'davids@modedigital.ng',
+    department: 'Executive',
+    jobTitle: 'Managing Director & Founder',
+    date: '2026-09-30',
+    clockInTime: '2026-09-30T07:45:00Z',
+    clockOutTime: null,
+    durationHours: 7.75,
+    status: 'active',
+    hourlyRate: 5000,
+    notes: 'Managing Director daily executive shift & corporate governance.'
+  },
+  // Previous Day Completed Shifts
+  {
+    id: 'shift-099',
+    staffId: 'u2',
+    staffName: 'Chioma Eze',
+    staffEmail: 'chioma@modedigital.ng',
+    department: 'Sales & Growth',
+    jobTitle: 'Head of Sales',
+    date: '2026-09-29',
+    clockInTime: '2026-09-29T08:20:00Z',
+    clockOutTime: '2026-09-29T17:35:00Z',
+    durationHours: 9.25,
+    status: 'completed',
+    hourlyRate: 2800,
+    notes: 'Full shift: Sahara Logistics negotiation and UK Trade Connect proposals.'
+  },
+  {
+    id: 'shift-098',
+    staffId: 'u3',
+    staffName: 'Emeka Nwosu',
+    staffEmail: 'emeka@modedigital.ng',
+    department: 'Engineering',
+    jobTitle: 'Senior Full-Stack Engineer',
+    date: '2026-09-29',
+    clockInTime: '2026-09-29T08:30:00Z',
+    clockOutTime: '2026-09-29T18:00:00Z',
+    durationHours: 9.5,
+    status: 'completed',
+    hourlyRate: 3500,
+    notes: 'Full shift + 1.5h Overtime: Supabase schema migration and API endpoint hardening.'
+  },
+  {
+    id: 'shift-097',
+    staffId: 'u4',
+    staffName: 'Fatima Bello',
+    staffEmail: 'fatima@modedigital.ng',
+    department: 'Operations',
+    jobTitle: 'Operations & Project Manager',
+    date: '2026-09-29',
+    clockInTime: '2026-09-29T08:40:00Z',
+    clockOutTime: '2026-09-29T17:10:00Z',
+    durationHours: 8.5,
+    status: 'completed',
+    hourlyRate: 3000,
+    notes: 'Standard shift: Requisition sign-offs and client project milestone check.'
+  },
+  {
+    id: 'shift-096',
+    staffId: 'u5',
+    staffName: 'Ibrahim Musa',
+    staffEmail: 'ibrahim@modedigital.ng',
+    department: 'Finance & Support',
+    jobTitle: 'Finance & Client Support Lead',
+    date: '2026-09-29',
+    clockInTime: '2026-09-29T09:05:00Z',
+    clockOutTime: '2026-09-29T17:20:00Z',
+    durationHours: 8.25,
+    status: 'completed',
+    hourlyRate: 2500,
+    notes: 'Standard shift: Monthly payroll dispatches, bank reconciliations.'
+  }
 ];
 
