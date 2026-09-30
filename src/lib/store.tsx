@@ -4,13 +4,14 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type {
   UserProfile, Lead, Contact, Company, Project, Task, Service, HostingAccount,
   Invoice, Payment, Ticket, ActivityItem, Requisition, Goal, Feedback, AppNotification,
-  UserRole, LeadStatus, RequisitionStatus, GoalStatus, WhmcsConfig
+  UserRole, LeadStatus, RequisitionStatus, GoalStatus, WhmcsConfig, PayrollRecord
 } from './types';
 import {
   initialProfiles, initialLeads, initialContacts, initialCompanies,
   initialProjects, initialTasks, initialServices, initialHostingAccounts,
   initialInvoices, initialPayments, initialRequisitions, initialGoals,
-  initialFeedbacks, initialTickets, initialActivities, initialNotifications
+  initialFeedbacks, initialTickets, initialActivities, initialNotifications,
+  initialPayrollRecords
 } from './seed-data';
 import { generateReceiptNumber } from './utils';
 
@@ -60,8 +61,18 @@ interface AppContextType {
 
   invoices: Invoice[];
   addInvoice: (invoice: Omit<Invoice, 'id' | 'createdAt'>) => void;
+  updateInvoice: (id: string, updates: Partial<Invoice>) => void;
+  deleteInvoice: (id: string) => void;
   recordPayment: (invoiceId: string, amount: number, method: Payment['method'], reference?: string) => void;
   payments: Payment[];
+
+  // Staff Payroll
+  payrollRecords: PayrollRecord[];
+  addPayrollRecord: (record: Omit<PayrollRecord, 'id' | 'createdAt'>) => void;
+  updatePayrollRecord: (id: string, updates: Partial<PayrollRecord>) => void;
+  deletePayrollRecord: (id: string) => void;
+  processPayrollBatch: (period: string) => void;
+  setStaffPayrollAccess: (userId: string, hasAccess: boolean) => void;
 
   tickets: Ticket[];
   addTicket: (ticket: Omit<Ticket, 'id' | 'createdAt'>) => void;
@@ -268,6 +279,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return initialNotifications;
   });
 
+  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mode_ops_payroll');
+      if (saved) try { return JSON.parse(saved); } catch {}
+    }
+    return initialPayrollRecords;
+  });
+
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const toggleMobileSidebar = () => setMobileSidebarOpen(prev => !prev);
 
@@ -289,8 +308,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('mode_ops_tickets', JSON.stringify(tickets));
       localStorage.setItem('mode_ops_activities', JSON.stringify(activities));
       localStorage.setItem('mode_ops_notifications', JSON.stringify(notifications));
+      localStorage.setItem('mode_ops_payroll', JSON.stringify(payrollRecords));
     }
-  }, [leads, users, companies, projects, services, requisitions, goals, invoices, hostingAccounts, whmcsConfig, tasks, feedbacks, tickets, activities, notifications]);
+  }, [leads, users, companies, projects, services, requisitions, goals, invoices, hostingAccounts, whmcsConfig, tasks, feedbacks, tickets, activities, notifications, payrollRecords]);
 
   // Switch Role
   const setCurrentUserRole = (role: UserRole) => {
@@ -580,6 +600,70 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     logActivity('crm_payment', `Recorded payment of ₦${amount.toLocaleString()} for Invoice`, 'Payment', newPayment.id);
   };
 
+  const updateInvoice = (id: string, updates: Partial<Invoice>) => {
+    setInvoices(prev => prev.map(inv => {
+      if (inv.id === id) {
+        const next = { ...inv, ...updates };
+        if (updates.amountPaid !== undefined || updates.total !== undefined) {
+          const paid = next.amountPaid ?? 0;
+          const tot = next.total ?? 0;
+          if (paid >= tot && tot > 0) next.status = 'paid';
+          else if (paid > 0) next.status = 'partially-paid';
+        }
+        return next;
+      }
+      return inv;
+    }));
+    logActivity('crm_invoice', `Updated invoice details for #${updates.invoiceNumber || id}`, 'Invoice', id);
+  };
+
+  const deleteInvoice = (id: string) => {
+    setInvoices(prev => prev.filter(inv => inv.id !== id));
+    logActivity('crm_invoice', `Deleted invoice #${id}`, 'Invoice', id);
+  };
+
+  const addPayrollRecord = (recordData: Omit<PayrollRecord, 'id' | 'createdAt'>) => {
+    const newRecord: PayrollRecord = {
+      ...recordData,
+      id: `payr-${Date.now()}`,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    setPayrollRecords(prev => [newRecord, ...prev]);
+    logActivity('payroll', `Generated payroll record for ${newRecord.staffName} (${newRecord.period})`, 'Payroll', newRecord.id);
+  };
+
+  const updatePayrollRecord = (id: string, updates: Partial<PayrollRecord>) => {
+    setPayrollRecords(prev => prev.map(rec => rec.id === id ? { ...rec, ...updates } : rec));
+    logActivity('payroll', `Updated payroll record for #${id}`, 'Payroll', id);
+  };
+
+  const deletePayrollRecord = (id: string) => {
+    setPayrollRecords(prev => prev.filter(rec => rec.id !== id));
+    logActivity('payroll', `Removed payroll record #${id}`, 'Payroll', id);
+  };
+
+  const processPayrollBatch = (period: string) => {
+    const now = new Date().toISOString();
+    setPayrollRecords(prev => prev.map(rec => {
+      if (rec.period === period && rec.status !== 'paid') {
+        return {
+          ...rec,
+          status: 'paid' as const,
+          approvedBy: currentUser.full_name,
+          approvedAt: now,
+          paidAt: now
+        };
+      }
+      return rec;
+    }));
+    logActivity('payroll_batch', `Batch disbursed payroll for period: ${period}`, 'Payroll', period);
+  };
+
+  const setStaffPayrollAccess = (userId: string, hasAccess: boolean) => {
+    updateUserProfile(userId, { hasPayrollAccess: hasAccess });
+    logActivity('security', `${hasAccess ? 'Granted' : 'Revoked'} staff payroll permission for user #${userId}`, 'Security', userId);
+  };
+
   const addTicket = (ticketData: Omit<Ticket, 'id' | 'createdAt'>) => {
     const newTicket: Ticket = {
       ...ticketData,
@@ -778,8 +862,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         syncWhmcsHosting,
         invoices,
         addInvoice,
+        updateInvoice,
+        deleteInvoice,
         recordPayment,
         payments,
+        payrollRecords,
+        addPayrollRecord,
+        updatePayrollRecord,
+        deletePayrollRecord,
+        processPayrollBatch,
+        setStaffPayrollAccess,
         tickets,
         addTicket,
         updateTicketStatus,

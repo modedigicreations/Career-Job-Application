@@ -15,6 +15,7 @@ import {
   LifeBuoy,
   Briefcase,
   WalletCards,
+  Banknote,
   Target,
   Sparkles,
   History,
@@ -99,6 +100,11 @@ export default function Sidebar() {
           icon: WalletCards, 
           badge: pendingRequisitions > 0 ? `${pendingRequisitions}` : undefined,
           badgeColor: 'bg-amber-500 text-white'
+        },
+        { 
+          href: '/dashboard/payroll', 
+          label: 'Staff Payroll', 
+          icon: Banknote,
         },
       ],
     },

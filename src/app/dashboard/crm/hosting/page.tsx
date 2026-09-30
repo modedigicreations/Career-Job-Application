@@ -15,7 +15,12 @@ import {
   Key,
   Check,
   X,
-  Zap
+  Zap,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUpDown,
+  Filter,
+  ChevronDown
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { formatCurrency, formatDate, getDaysUntil } from '@/lib/utils';
@@ -31,6 +36,11 @@ export default function HostingPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPlan, setFilterPlan] = useState<string>('all');
+  const [filterUrgency, setFilterUrgency] = useState<'all' | 'urgent' | 'critical' | 'active' | 'expired'>('all');
+  const [sortBy, setSortBy] = useState<'expiry_asc' | 'expiry_desc' | 'domain_asc' | 'fee_desc'>('expiry_asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncNotice, setSyncNotice] = useState<{ type: 'success' | 'error'; title: string; message: string; detectedIp?: string } | null>(null);
   const [isWhmcsModalOpen, setIsWhmcsModalOpen] = useState(false);
@@ -44,20 +54,57 @@ export default function HostingPage() {
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; detectedIp?: string } | null>(null);
   const [copiedIp, setCopiedIp] = useState(false);
 
+  const urgentRenewals = hostingAccounts.filter(h => getDaysUntil(h.expiryDate) <= 30 && getDaysUntil(h.expiryDate) >= 0);
+  const criticalRenewals = hostingAccounts.filter(h => getDaysUntil(h.expiryDate) <= 7 && getDaysUntil(h.expiryDate) >= 0);
+  const expiredAccounts = hostingAccounts.filter(h => getDaysUntil(h.expiryDate) < 0);
+  const hasLiveAccounts = hostingAccounts.some(h => h.isWhmcsLive);
+
+  // Filter accounts
   const filteredAccounts = hostingAccounts.filter(h => {
-    if (searchTerm && !h.domainName.toLowerCase().includes(searchTerm.toLowerCase()) && !h.clientName.toLowerCase().includes(searchTerm.toLowerCase())) {
-      return false;
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      const matchDomain = h.domainName.toLowerCase().includes(q);
+      const matchClient = h.clientName.toLowerCase().includes(q);
+      const matchRegistrar = (h.registrar || '').toLowerCase().includes(q);
+      if (!matchDomain && !matchClient && !matchRegistrar) return false;
     }
     if (filterPlan !== 'all' && h.hostingPlan !== filterPlan) return false;
+
+    const daysLeft = getDaysUntil(h.expiryDate);
+    if (filterUrgency === 'urgent' && (daysLeft > 30 || daysLeft < 0)) return false;
+    if (filterUrgency === 'critical' && (daysLeft > 7 || daysLeft < 0)) return false;
+    if (filterUrgency === 'active' && daysLeft < 0) return false;
+    if (filterUrgency === 'expired' && daysLeft >= 0) return false;
+
     return true;
   });
+
+  // Sort accounts
+  const sortedAccounts = [...filteredAccounts].sort((a, b) => {
+    if (sortBy === 'expiry_asc') {
+      return getDaysUntil(a.expiryDate) - getDaysUntil(b.expiryDate);
+    }
+    if (sortBy === 'expiry_desc') {
+      return getDaysUntil(b.expiryDate) - getDaysUntil(a.expiryDate);
+    }
+    if (sortBy === 'domain_asc') {
+      return a.domainName.localeCompare(b.domainName);
+    }
+    if (sortBy === 'fee_desc') {
+      return b.monthlyFee - a.monthlyFee;
+    }
+    return 0;
+  });
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(sortedAccounts.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const paginatedAccounts = sortedAccounts.slice(startIndex, startIndex + pageSize);
 
   const totalMonthlyMrr = hostingAccounts
     .filter(h => h.status === 'active')
     .reduce((acc, curr) => acc + curr.monthlyFee, 0);
-
-  const urgentRenewals = hostingAccounts.filter(h => getDaysUntil(h.expiryDate) <= 30);
-  const hasLiveAccounts = hostingAccounts.some(h => h.isWhmcsLive);
 
   const handleSyncWhmcs = async () => {
     setIsSyncing(true);
@@ -254,46 +301,161 @@ export default function HostingPage() {
         </div>
       )}
 
-      {/* Urgent Warning Banner if any renewals within 30 days */}
+      {/* Clean Renewal Executive Banner */}
       {urgentRenewals.length > 0 && (
-        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-3">
-            <AlertTriangle size={20} className="text-amber-600 shrink-0" />
-            <div>
-              <span className="font-bold text-amber-900">
-                {urgentRenewals.length} Domain(s) Expiring Within 30 Days!
-              </span>
-              <p className="text-amber-700 text-[11px] mt-0.5">
-                {urgentRenewals.map(u => u.domainName).join(', ')} require renewal confirmation.
-              </p>
+        <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center shrink-0 mt-0.5 border border-amber-300/40">
+              <AlertTriangle size={18} className="text-amber-600" />
             </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-amber-950 text-sm">
+                  {urgentRenewals.length} Domain(s) Expiring Within 30 Days
+                </span>
+                {criticalRenewals.length > 0 && (
+                  <span className="px-2 py-0.5 bg-red-100 text-red-700 border border-red-200 rounded-full text-[10px] font-bold animate-pulse">
+                    {criticalRenewals.length} Critical (≤ 7 Days)
+                  </span>
+                )}
+              </div>
+              <p className="text-amber-800 text-[11px] mt-0.5">
+                Proactively follow up with clients for renewal confirmation and invoice generation before domain expiration.
+              </p>
+              {/* Soonest expiring preview pills */}
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                <span className="text-[10px] text-amber-700 font-semibold">Soonest:</span>
+                {urgentRenewals.slice(0, 4).map(u => (
+                  <span key={u.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/90 border border-amber-200 rounded-md text-[10px] font-mono text-amber-900 font-medium">
+                    <Globe size={10} className="text-amber-600" />
+                    <span>{u.domainName}</span>
+                    <span className="text-amber-600 font-sans font-bold">({getDaysUntil(u.expiryDate)}d)</span>
+                  </span>
+                ))}
+                {urgentRenewals.length > 4 && (
+                  <span className="text-[10px] text-amber-700 font-medium italic">
+                    +{urgentRenewals.length - 4} more
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start md:self-center shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                if (filterUrgency === 'urgent') {
+                  setFilterUrgency('all');
+                } else {
+                  setFilterUrgency('urgent');
+                  setCurrentPage(1);
+                }
+              }}
+              className={`px-3 py-1.5 rounded-xl font-bold text-xs transition cursor-pointer flex items-center gap-1.5 ${
+                filterUrgency === 'urgent'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-white border border-amber-300 text-amber-900 hover:bg-amber-100/70'
+              }`}
+            >
+              <Filter size={12} />
+              <span>{filterUrgency === 'urgent' ? 'Showing Urgent Only' : `Filter Urgent (${urgentRenewals.length})`}</span>
+            </button>
           </div>
         </div>
       )}
 
-      {/* Filter & Search Bar */}
-      <div className="bg-white p-3 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="relative w-full sm:w-72">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search domain or client..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
-          />
+      {/* Filter, Search & Sorting Bar */}
+      <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
+          <div className="relative w-full sm:w-72">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search 400+ domains, clients, registrars..."
+              value={searchTerm}
+              onChange={e => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Urgency Filter */}
+          <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+            {(
+              [
+                { id: 'all', label: 'All' },
+                { id: 'urgent', label: `Urgent (≤30d)` },
+                { id: 'critical', label: `Critical (≤7d)` },
+                { id: 'active', label: 'Active' },
+                { id: 'expired', label: 'Expired' }
+              ] as const
+            ).map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setFilterUrgency(tab.id);
+                  setCurrentPage(1);
+                }}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+                  filterUrgency === tab.id
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Hosting Plan Filter */}
           <select
             value={filterPlan}
-            onChange={e => setFilterPlan(e.target.value)}
-            className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-none"
+            onChange={e => {
+              setFilterPlan(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-700 focus:outline-none cursor-pointer"
           >
-            <option value="all">All Plans</option>
-            <option value="starter">Starter</option>
-            <option value="business">Business</option>
-            <option value="enterprise">Enterprise</option>
+            <option value="all">All Hosting Plans</option>
+            <option value="starter">Starter Plan</option>
+            <option value="business">Business Plan</option>
+            <option value="enterprise">Enterprise Plan</option>
+          </select>
+
+          {/* Sort By Dropdown */}
+          <select
+            value={sortBy}
+            onChange={e => {
+              setSortBy(e.target.value as any);
+              setCurrentPage(1);
+            }}
+            className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-700 focus:outline-none cursor-pointer"
+          >
+            <option value="expiry_asc">Sort: Soonest Expiry</option>
+            <option value="expiry_desc">Sort: Furthest Expiry</option>
+            <option value="domain_asc">Sort: Domain A-Z</option>
+            <option value="fee_desc">Sort: Highest Fee</option>
+          </select>
+
+          {/* Page Size */}
+          <select
+            value={pageSize}
+            onChange={e => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-700 focus:outline-none cursor-pointer font-medium"
+            title="Items per page"
+          >
+            <option value={25}>25 / page</option>
+            <option value={50}>50 / page</option>
+            <option value={100}>100 / page</option>
           </select>
         </div>
       </div>
@@ -302,86 +464,143 @@ export default function HostingPage() {
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs min-w-[700px]">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold text-[10px] uppercase">
+            <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold text-[10px] uppercase tracking-wider">
               <tr>
                 <th className="py-3 px-4">Domain Name</th>
                 <th className="py-3 px-4">Client</th>
                 <th className="py-3 px-4">Plan</th>
                 <th className="py-3 px-4">SSL Status</th>
-                <th className="py-3 px-4">Monthly Fee</th>
-                <th className="py-3 px-4">Expiry Date</th>
-                <th className="py-3 px-4">Urgency Badge</th>
+                <th className="py-3 px-4">Renewal Fee</th>
+                <th className="py-3 px-4">Next Due Date</th>
+                <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredAccounts.map(h => {
-                const daysLeft = getDaysUntil(h.expiryDate);
-                const isUrgent = daysLeft <= 30;
-                return (
-                  <tr key={h.id} className="hover:bg-slate-50/60 transition">
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-1.5 font-bold text-slate-900">
-                        <Globe size={14} className="text-blue-600" />
-                        <span>{h.domainName}</span>
-                        {h.isWhmcsLive && (
-                          <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200">
-                            WHMCS
-                          </span>
-                        )}
-                      </div>
-                      {h.registrar && (
-                        <div className="text-[10px] text-slate-400 mt-0.5">
-                          Registrar: {h.registrar}
+              {paginatedAccounts.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                    <Globe size={32} className="mx-auto mb-2 opacity-30" />
+                    <p className="font-semibold text-slate-600">No domains match your search or filter</p>
+                    <p className="text-[11px] mt-0.5">Try clearing filters or search keywords</p>
+                  </td>
+                </tr>
+              ) : (
+                paginatedAccounts.map(h => {
+                  const daysLeft = getDaysUntil(h.expiryDate);
+                  return (
+                    <tr key={h.id} className="hover:bg-slate-50/60 transition group">
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                          <Globe size={14} className="text-blue-600 shrink-0" />
+                          <span className="font-mono text-xs">{h.domainName}</span>
+                          {h.isWhmcsLive && (
+                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                              WHMCS
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-700 font-medium">
-                      {h.clientName}
-                    </td>
-                    <td className="py-3.5 px-4 capitalize font-mono text-[11px] text-slate-600">
-                      {h.hostingPlan}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold">
-                        <ShieldCheck size={14} />
-                        <span>Active SSL</span>
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 font-bold text-slate-900">
-                      {formatCurrency(h.monthlyFee, h.currency)}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-[11px] text-slate-600">
-                      {formatDate(h.expiryDate)}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        daysLeft <= 15
-                          ? 'bg-red-50 text-red-700 border-red-200 animate-pulse'
-                          : daysLeft <= 45
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      }`}>
-                        {daysLeft > 0 ? `${daysLeft} days remaining` : 'Expired'}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => renewHosting(h.id, 12)}
-                        className="px-2.5 py-1 bg-slate-900 hover:bg-[#0D52F8] text-white rounded-lg text-xs font-semibold flex items-center gap-1 ml-auto transition cursor-pointer"
-                        title="Renew domain and hosting for 1 year"
-                      >
-                        <RefreshCw size={11} />
-                        <span>Renew (1 Yr)</span>
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+                        {h.registrar && (
+                          <div className="text-[10px] text-slate-400 mt-0.5">
+                            Registrar: {h.registrar}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-700 font-medium">
+                        {h.clientName}
+                      </td>
+                      <td className="py-3.5 px-4 capitalize font-mono text-[11px] text-slate-600">
+                        {h.hostingPlan}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold">
+                          <ShieldCheck size={14} />
+                          <span>Active SSL</span>
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 font-bold text-slate-900">
+                        {formatCurrency(h.monthlyFee, h.currency)}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-[11px] text-slate-600">
+                        {formatDate(h.expiryDate)}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          daysLeft < 0
+                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                            : daysLeft <= 7
+                            ? 'bg-red-50 text-red-700 border-red-200 animate-pulse font-extrabold'
+                            : daysLeft <= 30
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        }`}>
+                          {daysLeft < 0
+                            ? 'Expired'
+                            : daysLeft === 0
+                            ? 'Due Today'
+                            : `${daysLeft} days left`}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => renewHosting(h.id, 12)}
+                          className="px-2.5 py-1 bg-slate-900 hover:bg-[#0D52F8] text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
+                          title="Renew domain and hosting for 1 year"
+                        >
+                          <RefreshCw size={11} />
+                          <span>Renew (1 Yr)</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Navigation Footer */}
+        {sortedAccounts.length > 0 && (
+          <div className="p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+            <div className="font-medium">
+              Showing <span className="font-bold text-slate-900">{startIndex + 1}</span> to{' '}
+              <span className="font-bold text-slate-900">
+                {Math.min(startIndex + pageSize, sortedAccounts.length)}
+              </span>{' '}
+              of <span className="font-bold text-slate-900">{sortedAccounts.length}</span> domains
+              {sortedAccounts.length !== hostingAccounts.length && (
+                <span className="text-slate-400"> (filtered from {hostingAccounts.length} total)</span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={safeCurrentPage <= 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer flex items-center gap-1 font-semibold"
+              >
+                <ChevronLeft size={13} />
+                <span>Prev</span>
+              </button>
+
+              <div className="px-3 py-1 font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg">
+                Page {safeCurrentPage} of {totalPages}
+              </div>
+
+              <button
+                type="button"
+                disabled={safeCurrentPage >= totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer flex items-center gap-1 font-semibold"
+              >
+                <span>Next</span>
+                <ChevronRight size={13} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* WHMCS Connection Configuration Modal */}
