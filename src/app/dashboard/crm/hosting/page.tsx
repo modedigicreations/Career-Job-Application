@@ -32,13 +32,16 @@ export default function HostingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPlan, setFilterPlan] = useState<string>('all');
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const [syncNotice, setSyncNotice] = useState<{ type: 'success' | 'error'; title: string; message: string } | null>(null);
   const [isWhmcsModalOpen, setIsWhmcsModalOpen] = useState(false);
 
   // WHMCS Config Modal Form State
   const [modalApiUrl, setModalApiUrl] = useState(whmcsConfig.apiUrl || 'https://billing.modewebhost.com');
-  const [modalIdentifier, setModalIdentifier] = useState(whmcsConfig.identifier || 'MODE_WHMCS_API_ID');
-  const [modalSecret, setModalSecret] = useState(whmcsConfig.secret || '');
+  const [modalIdentifier, setModalIdentifier] = useState(whmcsConfig.identifier || '');
+  const [modalSecret, setModalSecret] = useState(whmcsConfig.secret && whmcsConfig.secret !== '••••••••••••••••' ? whmcsConfig.secret : '');
+  const [modalAuthMethod, setModalAuthMethod] = useState<'api_credentials' | 'admin_login'>('api_credentials');
+  const [isTestingConn, setIsTestingConn] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const filteredAccounts = hostingAccounts.filter(h => {
     if (searchTerm && !h.domainName.toLowerCase().includes(searchTerm.toLowerCase()) && !h.clientName.toLowerCase().includes(searchTerm.toLowerCase())) {
@@ -53,6 +56,7 @@ export default function HostingPage() {
     .reduce((acc, curr) => acc + curr.monthlyFee, 0);
 
   const urgentRenewals = hostingAccounts.filter(h => getDaysUntil(h.expiryDate) <= 30);
+  const hasLiveAccounts = hostingAccounts.some(h => h.isWhmcsLive);
 
   const handleSyncWhmcs = async () => {
     setIsSyncing(true);
@@ -60,15 +64,73 @@ export default function HostingPage() {
     try {
       const res = await syncWhmcsHosting();
       if (res.success) {
-        setSyncNotice(res.message || `Successfully synced ${res.count} live domains from WHMCS.`);
+        setSyncNotice({
+          type: 'success',
+          title: 'WHMCS Synchronized',
+          message: res.message || `Successfully synced ${res.count} live domains and hosting accounts.`
+        });
       } else {
-        setSyncNotice(res.message || 'Sync failed. Please check WHMCS API credentials.');
+        setSyncNotice({
+          type: 'error',
+          title: 'WHMCS Sync Failed',
+          message: res.message || 'Unable to fetch data from WHMCS. Check your API credentials and IP restrictions.'
+        });
       }
-    } catch {
-      setSyncNotice('Unable to connect to WHMCS server.');
+    } catch (err: any) {
+      setSyncNotice({
+        type: 'error',
+        title: 'Connection Error',
+        message: err?.message || 'Unable to connect to WHMCS server.'
+      });
     } finally {
       setIsSyncing(false);
-      setTimeout(() => setSyncNotice(null), 5000);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    if (!modalApiUrl || !modalIdentifier || !modalSecret) {
+      setTestResult({
+        success: false,
+        message: 'Please fill in the WHMCS URL, Identifier/Username, and Secret/Password.'
+      });
+      return;
+    }
+
+    setIsTestingConn(true);
+    setTestResult(null);
+
+    try {
+      const res = await fetch('/api/whmcs/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiUrl: modalApiUrl,
+          identifier: modalIdentifier,
+          secret: modalSecret,
+          authMethod: modalAuthMethod,
+          isTestOnly: true
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setTestResult({
+          success: true,
+          message: data.message || 'Connection verified! WHMCS API responded successfully.'
+        });
+      } else {
+        setTestResult({
+          success: false,
+          message: data.message || data.error || 'Authentication failed. Please check your credentials.'
+        });
+      }
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        message: err.message || 'Network request failed when contacting WHMCS endpoint.'
+      });
+    } finally {
+      setIsTestingConn(false);
     }
   };
 
@@ -96,10 +158,17 @@ export default function HostingPage() {
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
               {hostingAccounts.length} Managed Domains
             </span>
-            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              WHMCS Live Sync: Active
-            </span>
+            {hasLiveAccounts ? (
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                WHMCS Live Sync: Active
+              </span>
+            ) : (
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                WHMCS: Demo Dataset Active
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-500 mt-1">
             Automated WHMCS client hosting sync, SSL tracking, expiry warning milestones, and renewal management.
@@ -118,7 +187,7 @@ export default function HostingPage() {
             type="button"
             onClick={handleSyncWhmcs}
             disabled={isSyncing}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition disabled:opacity-50 cursor-pointer"
             title="Fetch latest domain and hosting renewals from WHMCS API"
           >
             <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
@@ -127,8 +196,11 @@ export default function HostingPage() {
 
           <button
             type="button"
-            onClick={() => setIsWhmcsModalOpen(true)}
-            className="p-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition"
+            onClick={() => {
+              setIsWhmcsModalOpen(true);
+              setTestResult(null);
+            }}
+            className="p-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
             title="Configure WHMCS API connection settings"
           >
             <Server size={14} className="text-purple-600" />
@@ -139,12 +211,23 @@ export default function HostingPage() {
 
       {/* Sync Notification Banner */}
       {syncNotice && (
-        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center justify-between animate-in fade-in duration-200">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-            <span>{syncNotice}</span>
+        <div className={`p-4 rounded-xl border text-xs font-medium flex items-start justify-between animate-in fade-in duration-200 ${
+          syncNotice.type === 'success'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+            : 'bg-rose-50 border-rose-200 text-rose-900'
+        }`}>
+          <div className="flex items-start gap-2.5">
+            {syncNotice.type === 'success' ? (
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+            ) : (
+              <AlertTriangle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+            )}
+            <div>
+              <div className="font-bold text-xs">{syncNotice.title}</div>
+              <div className="mt-0.5 text-[11px] leading-relaxed opacity-90">{syncNotice.message}</div>
+            </div>
           </div>
-          <button onClick={() => setSyncNotice(null)} className="text-emerald-600 hover:text-emerald-900">
+          <button onClick={() => setSyncNotice(null)} className="p-1 opacity-70 hover:opacity-100">
             <X size={14} />
           </button>
         </div>
@@ -306,63 +389,142 @@ export default function HostingPage() {
 
             <form onSubmit={handleSaveWhmcsConfig} className="space-y-3.5">
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-                <span className="font-semibold text-slate-700 block">How it works:</span>
+                <span className="font-semibold text-slate-800 block text-xs">Connection Method</span>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Enter your WHMCS installation URL and API credentials to automatically pull live client domain names, expiry dates, registration details, and recurring revenue.
+                  You can connect using either your <strong>WHMCS Admin Login</strong> (Username + Password) or modern <strong>API Credentials</strong> (Identifier + Secret).
                 </p>
+                <div className="flex gap-2 pt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalAuthMethod('api_credentials');
+                      setTestResult(null);
+                    }}
+                    className={`flex-1 py-1 px-2 rounded-lg text-[11px] font-semibold border transition ${
+                      modalAuthMethod === 'api_credentials'
+                        ? 'bg-purple-50 text-purple-700 border-purple-300'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    API Credentials
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalAuthMethod('admin_login');
+                      setTestResult(null);
+                    }}
+                    className={`flex-1 py-1 px-2 rounded-lg text-[11px] font-semibold border transition ${
+                      modalAuthMethod === 'admin_login'
+                        ? 'bg-purple-50 text-purple-700 border-purple-300'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    Admin Login
+                  </button>
+                </div>
               </div>
 
               <div>
                 <label className="block text-slate-700 font-semibold mb-1">WHMCS System URL *</label>
                 <input
-                  type="url"
+                  type="text"
                   required
                   value={modalApiUrl}
-                  onChange={e => setModalApiUrl(e.target.value)}
+                  onChange={e => {
+                    setModalApiUrl(e.target.value);
+                    setTestResult(null);
+                  }}
                   placeholder="https://billing.modewebhost.com"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-purple-500/20"
                 />
+                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  Root or billing URL (e.g. https://billing.modewebhost.com or https://yourdomain.com/whmcs)
+                </span>
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">API Identifier / Username *</label>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  {modalAuthMethod === 'admin_login' ? 'WHMCS Admin Username *' : 'API Identifier *'}
+                </label>
                 <input
                   type="text"
                   required
                   value={modalIdentifier}
-                  onChange={e => setModalIdentifier(e.target.value)}
-                  placeholder="e.g. MODE_WHMCS_API_ID"
+                  onChange={e => {
+                    setModalIdentifier(e.target.value);
+                    setTestResult(null);
+                  }}
+                  placeholder={modalAuthMethod === 'admin_login' ? 'e.g. admin or your WHMCS username' : 'e.g. API Identifier key'}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-purple-500/20"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">API Secret / API Key *</label>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  {modalAuthMethod === 'admin_login' ? 'WHMCS Admin Password *' : 'API Secret Key *'}
+                </label>
                 <input
                   type="password"
                   required
                   value={modalSecret}
-                  onChange={e => setModalSecret(e.target.value)}
-                  placeholder="Enter your WHMCS API secret key"
+                  onChange={e => {
+                    setModalSecret(e.target.value);
+                    setTestResult(null);
+                  }}
+                  placeholder={modalAuthMethod === 'admin_login' ? 'Enter WHMCS admin password' : 'Enter WHMCS API secret key'}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-purple-500/20"
                 />
               </div>
 
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+              {/* Test Result Display */}
+              {testResult && (
+                <div className={`p-3 rounded-xl border text-[11px] font-medium leading-relaxed ${
+                  testResult.success
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    : 'bg-rose-50 border-rose-200 text-rose-800'
+                }`}>
+                  <div className="flex items-start gap-2">
+                    {testResult.success ? (
+                      <CheckCircle2 size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertTriangle size={14} className="text-rose-600 shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <span className="font-bold block">{testResult.success ? 'Connection Successful' : 'Connection Failed'}</span>
+                      <span>{testResult.message}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsWhmcsModalOpen(false)}
-                  className="px-3.5 py-2 border border-slate-200 text-slate-600 rounded-lg font-semibold hover:bg-slate-50"
+                  onClick={handleTestConnection}
+                  disabled={isTestingConn || !modalApiUrl || !modalIdentifier || !modalSecret}
+                  className="px-3 py-2 border border-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition text-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
-                  Cancel
+                  <RefreshCw size={12} className={isTestingConn ? 'animate-spin' : ''} />
+                  <span>{isTestingConn ? 'Testing...' : 'Test Connection'}</span>
                 </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
-                >
-                  <Check size={14} />
-                  <span>Connect & Sync Now</span>
-                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsWhmcsModalOpen(false)}
+                    className="px-3 py-2 border border-slate-200 text-slate-600 rounded-lg font-semibold hover:bg-slate-50 text-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition text-xs cursor-pointer"
+                  >
+                    <Check size={14} />
+                    <span>Connect & Sync</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>
