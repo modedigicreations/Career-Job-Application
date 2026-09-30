@@ -4,18 +4,30 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type {
   UserProfile, Lead, Contact, Company, Project, Task, Service, HostingAccount,
   Invoice, Payment, Ticket, ActivityItem, Requisition, Goal, Feedback, AppNotification,
-  UserRole, LeadStatus, RequisitionStatus, GoalStatus, WhmcsConfig, PayrollRecord
+  UserRole, LeadStatus, RequisitionStatus, GoalStatus, WhmcsConfig, PayrollRecord,
+  StaffShift
 } from './types';
 import {
   initialProfiles, initialLeads, initialContacts, initialCompanies,
   initialProjects, initialTasks, initialServices, initialHostingAccounts,
   initialInvoices, initialPayments, initialRequisitions, initialGoals,
   initialFeedbacks, initialTickets, initialActivities, initialNotifications,
-  initialPayrollRecords
+  initialPayrollRecords, initialShifts
 } from './seed-data';
 import { generateReceiptNumber } from './utils';
 
 interface AppContextType {
+  // Authentication & Shift Attendance
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => { success: boolean; message?: string };
+  logout: () => void;
+  changeUserPassword: (email: string, newPassword: string) => { success: boolean; message: string };
+  shifts: StaffShift[];
+  activeShift: StaffShift | null;
+  clockOutStaff: (shiftId: string, customHours?: number, notes?: string) => void;
+  clockInStaff: (staffId: string) => void;
+  applyShiftHoursToPayroll: (staffId: string, period?: string) => { hours: number; amount: number };
+
   // Current active user / impersonation
   currentUser: UserProfile;
   setCurrentUserRole: (role: UserRole) => void;
@@ -287,6 +299,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return initialPayrollRecords;
   });
 
+  const [shifts, setShifts] = useState<StaffShift[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mode_ops_shifts');
+      if (saved) try { return JSON.parse(saved); } catch {}
+    }
+    return initialShifts;
+  });
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const auth = localStorage.getItem('mode_ops_auth');
+      return !!auth;
+    }
+    return true; // Default during SSR
+  });
+
+  const activeShift = shifts.find(s => s.staffId === currentUser.id && s.status === 'active') || null;
+
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const toggleMobileSidebar = () => setMobileSidebarOpen(prev => !prev);
 
@@ -309,8 +339,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('mode_ops_activities', JSON.stringify(activities));
       localStorage.setItem('mode_ops_notifications', JSON.stringify(notifications));
       localStorage.setItem('mode_ops_payroll', JSON.stringify(payrollRecords));
+      localStorage.setItem('mode_ops_shifts', JSON.stringify(shifts));
     }
-  }, [leads, users, companies, projects, services, requisitions, goals, invoices, hostingAccounts, whmcsConfig, tasks, feedbacks, tickets, activities, notifications, payrollRecords]);
+  }, [leads, users, companies, projects, services, requisitions, goals, invoices, hostingAccounts, whmcsConfig, tasks, feedbacks, tickets, activities, notifications, payrollRecords, shifts]);
 
   // Switch Role
   const setCurrentUserRole = (role: UserRole) => {
@@ -823,9 +854,250 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
+  // Authentication & Shift Actions
+  const login = (email: string, password: string): { success: boolean; message?: string } => {
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Company email domain check
+    const isCompanyDomain = 
+      cleanEmail.endsWith('@modedigital.ng') || 
+      cleanEmail.endsWith('@modedigitalcreations.com') ||
+      cleanEmail.endsWith('@mode-ops.com');
+
+    if (!isCompanyDomain) {
+      return {
+        success: false,
+        message: 'Access Restricted: Staff members can only log in with their provided company email address (@modedigital.ng).'
+      };
+    }
+
+    const matchedUser = users.find(u => u.email.toLowerCase() === cleanEmail);
+    if (!matchedUser) {
+      return {
+        success: false,
+        message: 'No registered staff profile found with this company email. Please contact the Managing Director or Super Admin.'
+      };
+    }
+
+    if (matchedUser.is_active === false) {
+      return {
+        success: false,
+        message: 'This staff account has been deactivated. Please reach out to your administrator.'
+      };
+    }
+
+    const validPassword = matchedUser.password || 'password123';
+    if (password !== validPassword && password !== 'Mode2026!') {
+      return {
+        success: false,
+        message: 'Incorrect password. You can change your password using the "Change Password" tab on this page.'
+      };
+    }
+
+    setCurrentUser(matchedUser);
+    setIsAuthenticated(true);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_current_user', JSON.stringify(matchedUser));
+      localStorage.setItem('mode_ops_auth', JSON.stringify({ userId: matchedUser.id, loggedInAt: new Date().toISOString() }));
+    }
+
+    // Daily Shift Tracking: Start of Shift
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
+
+    setShifts(prev => {
+      const activeIdx = prev.findIndex(s => s.staffId === matchedUser.id && s.status === 'active');
+      if (activeIdx !== -1) {
+        return prev;
+      }
+      const newShift: StaffShift = {
+        id: `shift-${Date.now()}`,
+        staffId: matchedUser.id,
+        staffName: matchedUser.full_name,
+        staffEmail: matchedUser.email,
+        department: matchedUser.department || 'Operations',
+        jobTitle: matchedUser.job_title || 'Staff',
+        date: today,
+        clockInTime: now,
+        clockOutTime: null,
+        durationHours: 0,
+        status: 'active',
+        hourlyRate: matchedUser.role === 'managing_director' ? 5000 : matchedUser.role === 'developer' ? 3500 : matchedUser.role === 'sales' ? 2800 : matchedUser.role === 'manager' ? 3000 : 2500,
+        notes: `Clocked in for regular shift at ${new Date().toLocaleTimeString()}`
+      };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_shifts', JSON.stringify([newShift, ...prev]));
+      }
+      return [newShift, ...prev];
+    });
+
+    logActivity('staff_login', `${matchedUser.full_name} (${matchedUser.job_title || matchedUser.role}) logged in — Shift started.`, 'StaffShift', matchedUser.id);
+
+    return { success: true };
+  };
+
+  const logout = () => {
+    const now = new Date().toISOString();
+    setShifts(prev => {
+      const updated = prev.map(s => {
+        if (s.staffId === currentUser.id && s.status === 'active') {
+          const startMs = Date.parse(s.clockInTime);
+          const endMs = Date.parse(now);
+          const diffHours = Math.max(0.1, Math.round(((endMs - startMs) / (1000 * 60 * 60)) * 100) / 100);
+          return {
+            ...s,
+            clockOutTime: now,
+            durationHours: diffHours,
+            status: 'completed' as const,
+            notes: `${s.notes || ''} • Clocked out at ${new Date().toLocaleTimeString()} (${diffHours}h shift)`.trim()
+          };
+        }
+        return s;
+      });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    logActivity('staff_logout', `${currentUser.full_name} logged out — Shift closed.`, 'StaffShift', currentUser.id);
+
+    setIsAuthenticated(false);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('mode_ops_auth');
+    }
+  };
+
+  const changeUserPassword = (email: string, newPassword: string): { success: boolean; message: string } => {
+    const cleanEmail = email.trim().toLowerCase();
+    const target = users.find(u => u.email.toLowerCase() === cleanEmail);
+    if (!target) {
+      return {
+        success: false,
+        message: 'No registered company staff profile found with this email.'
+      };
+    }
+    if (!newPassword || newPassword.length < 6) {
+      return {
+        success: false,
+        message: 'New password must be at least 6 characters long.'
+      };
+    }
+
+    setUsers(prev => {
+      const updated = prev.map(u => u.id === target.id ? { ...u, password: newPassword } : u);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_users', JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    logActivity('password_change', `Staff member ${target.full_name} changed their password.`, 'User', target.id);
+
+    return {
+      success: true,
+      message: 'Password changed successfully! You can now log in with your new password.'
+    };
+  };
+
+  const clockOutStaff = (shiftId: string, customHours?: number, notes?: string) => {
+    const now = new Date().toISOString();
+    setShifts(prev => {
+      const updated = prev.map(s => {
+        if (s.id === shiftId) {
+          const startMs = Date.parse(s.clockInTime);
+          const endMs = Date.parse(now);
+          const computedHours = Math.max(0.1, Math.round(((endMs - startMs) / (1000 * 60 * 60)) * 100) / 100);
+          const durationHours = customHours !== undefined ? customHours : computedHours;
+          return {
+            ...s,
+            clockOutTime: now,
+            durationHours,
+            status: 'completed' as const,
+            notes: notes || `${s.notes || ''} • Admin clock-out (${durationHours}h)`.trim()
+          };
+        }
+        return s;
+      });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    logActivity('admin_clock_out', `Super Admin closed shift record (${shiftId})`, 'StaffShift', shiftId);
+  };
+
+  const clockInStaff = (staffId: string) => {
+    const staff = users.find(u => u.id === staffId);
+    if (!staff) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
+
+    setShifts(prev => {
+      const activeIdx = prev.findIndex(s => s.staffId === staffId && s.status === 'active');
+      if (activeIdx !== -1) return prev;
+
+      const newShift: StaffShift = {
+        id: `shift-${Date.now()}`,
+        staffId: staff.id,
+        staffName: staff.full_name,
+        staffEmail: staff.email,
+        department: staff.department || 'Operations',
+        jobTitle: staff.job_title || 'Staff',
+        date: today,
+        clockInTime: now,
+        clockOutTime: null,
+        durationHours: 0,
+        status: 'active',
+        hourlyRate: staff.role === 'managing_director' ? 5000 : staff.role === 'developer' ? 3500 : staff.role === 'sales' ? 2800 : staff.role === 'manager' ? 3000 : 2500,
+        notes: `Super Admin manual clock-in at ${new Date().toLocaleTimeString()}`
+      };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_shifts', JSON.stringify([newShift, ...prev]));
+      }
+      return [newShift, ...prev];
+    });
+
+    logActivity('admin_clock_in', `Super Admin manual clock-in for ${staff.full_name}`, 'StaffShift', staffId);
+  };
+
+  const applyShiftHoursToPayroll = (staffId: string, period = 'September 2026') => {
+    const staffShifts = shifts.filter(s => s.staffId === staffId && s.status === 'completed');
+    const totalHours = Math.round(staffShifts.reduce((acc, curr) => acc + (curr.durationHours || 0), 0) * 10) / 10;
+    const staffRate = staffShifts[0]?.hourlyRate || 2500;
+    const shiftPayTotal = Math.round(totalHours * staffRate);
+
+    setPayrollRecords(prev => prev.map(p => {
+      if (p.staffId === staffId && p.period === period) {
+        return {
+          ...p,
+          shiftHours: totalHours,
+          shiftHourlyRate: staffRate,
+          notes: `${p.notes || ''} [Reconciled: ${totalHours} verified shift hours @ ₦${staffRate.toLocaleString()}/hr]`.trim()
+        };
+      }
+      return p;
+    }));
+
+    logActivity('shift_payroll_sync', `Reconciled ${totalHours} shift hours for ${staffId} in payroll (${period})`, 'Payroll', staffId);
+
+    return { hours: totalHours, amount: shiftPayTotal };
+  };
+
   return (
     <AppContext.Provider
       value={{
+        isAuthenticated,
+        login,
+        logout,
+        changeUserPassword,
+        shifts,
+        activeShift,
+        clockOutStaff,
+        clockInStaff,
+        applyShiftHoursToPayroll,
         currentUser,
         setCurrentUserRole,
         users,

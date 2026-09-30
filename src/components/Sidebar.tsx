@@ -26,12 +26,16 @@ import {
   Bell,
   CheckCircle2,
   ShieldCheck,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Clock,
+  LogOut
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import type { UserRole } from '@/lib/types';
 
 export default function Sidebar() {
+  const router = useRouter();
   const pathname = usePathname();
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const {
@@ -42,7 +46,9 @@ export default function Sidebar() {
     goals,
     notifications,
     mobileSidebarOpen,
-    setMobileSidebarOpen
+    setMobileSidebarOpen,
+    activeShift,
+    logout
   } = useAppStore();
 
   const unreadNotifs = notifications.filter(n => !n.read).length;
@@ -244,6 +250,31 @@ export default function Sidebar() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Clock Out & Log Out Action Bar */}
+      <div className="p-2.5 border-t border-slate-800/80 bg-slate-900/60 space-y-1.5">
+        {activeShift && (
+          <div className="px-2.5 py-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-between font-mono">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Shift Active</span>
+            </span>
+            <span>{new Date(activeShift.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => {
+            setMobileSidebarOpen(false);
+            logout();
+            router.push('/login');
+          }}
+          className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 rounded-xl transition cursor-pointer"
+        >
+          <LogOut size={13} />
+          <span>Clock Out &amp; Log Out</span>
+        </button>
       </div>
 
       {/* Footer Info */}

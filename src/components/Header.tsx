@@ -12,22 +12,35 @@ import {
   Check,
   ChevronDown,
   Menu,
-  X
+  X,
+  Clock,
+  LogOut,
+  User
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { formatDate } from '@/lib/utils';
 
 export default function Header() {
+  const router = useRouter();
   const {
     notifications,
     markNotificationAsRead,
     currentUser,
-    toggleMobileSidebar
+    toggleMobileSidebar,
+    activeShift,
+    logout
   } = useAppStore();
   const [notifOpen, setNotifOpen] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -312,15 +325,98 @@ export default function Header() {
             )}
           </div>
 
-          {/* User Mini Avatar */}
-          <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-            <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
-              {currentUser.full_name ? currentUser.full_name[0] : 'U'}
+          {/* Shift Active Indicator Badge */}
+          {activeShift ? (
+            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 font-medium shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Shift Active: {new Date(activeShift.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
-            <div className="hidden xl:block text-left">
-              <div className="text-xs font-semibold text-slate-900 leading-tight">{currentUser.full_name}</div>
-              <div className="text-[10px] text-slate-500 capitalize">{currentUser.role.replace('_', ' ')}</div>
+          ) : (
+            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-[11px] text-slate-600">
+              <Clock size={12} className="text-slate-400" />
+              <span>Shift Inactive</span>
             </div>
+          )}
+
+          {/* User Profile & Logout Popover */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className="flex items-center gap-2 pl-2 border-l border-slate-200 text-left hover:opacity-90 transition cursor-pointer"
+              aria-label="User profile and shift options"
+            >
+              <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs ring-1 ring-slate-800">
+                {currentUser.full_name ? currentUser.full_name[0] : 'U'}
+              </div>
+              <div className="hidden xl:block text-left">
+                <div className="text-xs font-semibold text-slate-900 leading-tight">{currentUser.full_name}</div>
+                <div className="text-[10px] text-slate-500 capitalize">{currentUser.role.replace('_', ' ')}</div>
+              </div>
+              <ChevronDown size={13} className={`text-slate-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {userMenuOpen && (
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 z-50 animate-fade-in text-slate-800 text-xs">
+                {/* User Info Header */}
+                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 mb-2">
+                  <div className="font-bold text-slate-900 text-xs">{currentUser.full_name}</div>
+                  <div className="text-[11px] text-slate-500">{currentUser.email}</div>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <span className="capitalize px-1.5 py-0.2 rounded bg-blue-100 text-[10px] font-bold text-blue-700 font-mono">
+                      {currentUser.role.replace('_', ' ')}
+                    </span>
+                    <span className="text-[10px] text-slate-400">{currentUser.department || 'Operations'}</span>
+                  </div>
+                </div>
+
+                {/* Live Shift Info */}
+                <div className="p-2.5 bg-emerald-50/70 border border-emerald-100 rounded-xl mb-2 text-[11px]">
+                  <div className="flex items-center justify-between font-bold text-emerald-900 mb-0.5">
+                    <span className="flex items-center gap-1">
+                      <Clock size={12} className="text-emerald-600" />
+                      <span>Daily Shift Tracking</span>
+                    </span>
+                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 bg-emerald-200 text-emerald-800 rounded">
+                      {activeShift ? 'Active' : 'Off Duty'}
+                    </span>
+                  </div>
+                  {activeShift ? (
+                    <p className="text-[10px] text-emerald-700 leading-tight mt-1">
+                      Clocked in at {new Date(activeShift.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Clocking out will compute shift hours for payroll.
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-slate-500 leading-tight mt-1">
+                      Not currently on an active shift.
+                    </p>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="space-y-1">
+                  <Link
+                    href="/dashboard/settings"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-50 rounded-xl transition font-medium"
+                  >
+                    <User size={14} className="text-slate-500" />
+                    <span>My Profile &amp; Settings</span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      handleLogout();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-xl transition font-bold cursor-pointer"
+                  >
+                    <LogOut size={14} className="text-rose-600" />
+                    <span>Clock Out &amp; Log Out</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </header>

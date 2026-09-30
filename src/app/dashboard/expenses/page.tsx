@@ -112,7 +112,8 @@ export default function ExpensesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className={`space-y-6 ${receiptModalReq ? 'print:hidden' : ''}`}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -508,95 +509,101 @@ export default function ExpensesPage() {
           </div>
         </div>
       )}
+    </div>
 
-      {/* Formal Printable Receipt Modal */}
-      {receiptModalReq && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setReceiptModalReq(null)} />
-          <div className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 p-8 z-10 text-slate-800">
-            {/* Printable Area */}
-            <div id="print-receipt" className="space-y-6">
-              {/* Receipt Header */}
-              <div className="flex items-center justify-between border-b pb-4 border-slate-200">
+    {/* Formal Printable Receipt Voucher (Outside hidden dashboard) */}
+    {receiptModalReq && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto print:static print:p-0 print:m-0 print:overflow-visible print:bg-white print:block print:w-full">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs print:hidden" onClick={() => setReceiptModalReq(null)} />
+        <div
+          id="print-receipt"
+          className="printable-sheet relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 z-10 text-slate-800 print:p-0 print:my-0 print:max-w-full print:shadow-none print:border-none print:max-h-none print:overflow-visible print:rounded-none"
+        >
+          {/* Printable Area */}
+          <div className="space-y-4">
+            {/* Receipt Header */}
+            <div className="flex items-center justify-between border-b pb-3 border-slate-200">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#0D52F8] text-white flex items-center justify-center font-bold">M</div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-[#0D52F8] text-white flex items-center justify-center font-bold">M</div>
-                    <span className="text-lg font-black tracking-tight text-slate-900">MODE DIGITAL CREATIONS</span>
-                  </div>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Enterprise Operations Suite • Internal Payment Voucher</p>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs font-mono font-bold text-blue-600">{receiptModalReq.receiptNumber}</div>
-                  <div className="text-[10px] text-slate-400">{formatDate(receiptModalReq.completedAt || receiptModalReq.createdAt)}</div>
+                  <span className="text-base font-black tracking-tight text-slate-900 block leading-tight">MODE DIGITAL CREATIONS</span>
+                  <p className="text-[10px] text-slate-500">Enterprise Operations Suite • Internal Payment Voucher</p>
                 </div>
               </div>
-
-              {/* Voucher Details */}
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Paid To (Staff)</span>
-                  <div className="font-bold text-slate-900 mt-0.5">{receiptModalReq.staffName}</div>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Category</span>
-                  <div className="font-semibold text-slate-900 mt-0.5">{receiptModalReq.category}</div>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Approved By</span>
-                  <div className="font-semibold text-slate-900 mt-0.5">{receiptModalReq.decidedBy || 'Managing Director'}</div>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Transaction ID</span>
-                  <div className="font-mono text-slate-700 mt-0.5">{receiptModalReq.transactionId || 'CASH / WIRE'}</div>
-                </div>
-              </div>
-
-              {/* Item Breakdown Box */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs">
-                <div className="flex justify-between font-semibold text-slate-600">
-                  <span>Description</span>
-                  <span>Amount</span>
-                </div>
-                <div className="border-t border-slate-200 pt-2 flex justify-between font-bold text-slate-900 text-sm">
-                  <span>{receiptModalReq.title}</span>
-                  <span className="text-blue-600">{formatCurrency(receiptModalReq.amount, receiptModalReq.currency)}</span>
-                </div>
-                {receiptModalReq.description && (
-                  <p className="text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">{receiptModalReq.description}</p>
-                )}
-              </div>
-
-              {/* Stamp & Seal */}
-              <div className="pt-2 flex items-center justify-between text-[11px] text-slate-400">
-                <div className="flex items-center gap-1.5 text-emerald-600 font-bold">
-                  <ShieldCheck size={16} />
-                  <span>Verified & Disbursed By Accounts</span>
-                </div>
-                <div className="font-mono text-[10px]">AUTHORIZED SIGNATURE</div>
+              <div className="text-right">
+                <div className="text-xs font-mono font-bold text-blue-600">{receiptModalReq.receiptNumber}</div>
+                <div className="text-[10px] text-slate-400">{formatDate(receiptModalReq.completedAt || receiptModalReq.createdAt)}</div>
               </div>
             </div>
 
-            {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-2 pt-6 border-t border-slate-200 mt-6">
-              <button
-                type="button"
-                onClick={() => setReceiptModalReq(null)}
-                className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-50"
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs"
-              >
-                <Printer size={14} />
-                <span>Print Official Voucher</span>
-              </button>
+            {/* Voucher Details */}
+            <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50/70 p-3 rounded-xl border border-slate-200 print:bg-white">
+              <div>
+                <span className="text-[9px] font-bold text-slate-400 uppercase block">Paid To (Staff)</span>
+                <div className="font-bold text-slate-900 mt-0.5">{receiptModalReq.staffName}</div>
+              </div>
+              <div>
+                <span className="text-[9px] font-bold text-slate-400 uppercase block">Expense Category</span>
+                <div className="font-semibold text-slate-900 mt-0.5">{receiptModalReq.category}</div>
+              </div>
+              <div>
+                <span className="text-[9px] font-bold text-slate-400 uppercase block">Authorized Sign-off</span>
+                <div className="font-semibold text-slate-900 mt-0.5">{receiptModalReq.decidedBy || 'Managing Director'}</div>
+              </div>
+              <div>
+                <span className="text-[9px] font-bold text-slate-400 uppercase block">Bank Transaction ID</span>
+                <div className="font-mono text-slate-700 mt-0.5">{receiptModalReq.transactionId || 'CASH / WIRE'}</div>
+              </div>
+            </div>
+
+            {/* Item Breakdown Box */}
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-1.5 text-xs print:bg-white">
+              <div className="flex justify-between font-semibold text-slate-600 text-[11px]">
+                <span>Requisition Item Title</span>
+                <span>Disbursed Amount</span>
+              </div>
+              <div className="border-t border-slate-200 pt-1.5 flex justify-between font-bold text-slate-900 text-sm">
+                <span>{receiptModalReq.title}</span>
+                <span className="text-blue-700 font-mono">{formatCurrency(receiptModalReq.amount, receiptModalReq.currency)}</span>
+              </div>
+              {receiptModalReq.description && (
+                <p className="text-[11px] text-slate-500 pt-1 border-t border-slate-200/60 leading-relaxed">{receiptModalReq.description}</p>
+              )}
+            </div>
+
+            {/* Stamp & Seal */}
+            <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-400">
+              <div className="flex items-center gap-1.5 text-emerald-600 font-bold">
+                <ShieldCheck size={16} />
+                <span>Verified &amp; Disbursed by Accounts</span>
+              </div>
+              <div className="font-mono text-[9px] border-t border-slate-300 pt-0.5">
+                EXECUTIVE AUTHORIZED SIGNATURE
+              </div>
             </div>
           </div>
+
+          {/* Modal Actions */}
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200 mt-4 print:hidden">
+            <button
+              type="button"
+              onClick={() => setReceiptModalReq(null)}
+              className="px-3.5 py-1.5 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 cursor-pointer"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="px-4 py-1.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <Printer size={13} />
+              <span>Print Official Voucher</span>
+            </button>
+          </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+  </>
+);
 }
