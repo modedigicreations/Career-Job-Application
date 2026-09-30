@@ -36,7 +36,7 @@ export default function Header() {
       {/* ======================================================== */}
       {/* MOBILE TOP BAR (Phone / Tablet < 1024px)                  */}
       {/* ======================================================== */}
-      <header className="lg:hidden h-14 bg-[#0B111E] text-white border-b border-slate-800/90 px-2.5 sm:px-4 flex items-center justify-between sticky top-0 z-40 shadow-xs w-full max-w-full">
+      <header className="lg:hidden h-14 bg-[#0B111E] text-white border-b border-slate-800/90 px-2.5 sm:px-4 flex items-center justify-between sticky top-0 z-40 shadow-xs w-full max-w-full print:hidden">
         {/* Left: Hamburger & Brand */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           <button
@@ -210,7 +210,7 @@ export default function Header() {
       {/* ======================================================== */}
       {/* DESKTOP HEADER (Screens >= 1024px)                       */}
       {/* ======================================================== */}
-      <header className="hidden lg:flex h-16 bg-white border-b border-slate-200/80 px-6 lg:px-8 items-center justify-between sticky top-0 z-20">
+      <header className="hidden lg:flex h-16 bg-white border-b border-slate-200/80 px-6 lg:px-8 items-center justify-between sticky top-0 z-20 print:hidden">
         {/* Search Input */}
         <div className="flex items-center gap-3 w-72 md:w-96">
           <div className="relative w-full">

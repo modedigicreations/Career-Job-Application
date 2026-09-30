@@ -364,7 +364,7 @@ export default function PayrollPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${selectedRecordForPayslip ? 'print:hidden' : ''}`}>
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -676,129 +676,132 @@ export default function PayrollPage() {
       {selectedRecordForPayslip && (() => {
         const p = selectedRecordForPayslip;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setSelectedRecordForPayslip(null)} />
-            <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 p-8 z-10 text-slate-800 my-8 max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto print:static print:p-0 print:m-0 print:overflow-visible print:bg-white print:block print:w-full">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs print:hidden" onClick={() => setSelectedRecordForPayslip(null)} />
+            <div
+              id="printable-payslip"
+              className="printable-sheet relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 z-10 text-slate-800 my-4 max-h-[90vh] overflow-y-auto print:p-0 print:my-0 print:max-w-full print:shadow-none print:border-none print:max-h-none print:overflow-visible print:rounded-none"
+            >
               {/* Official Header */}
-              <div className="flex items-center justify-between border-b pb-4 border-slate-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#0D52F8] text-white flex items-center justify-center font-black text-lg">
+              <div className="flex items-center justify-between border-b pb-3 border-slate-200">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#0D52F8] text-white flex items-center justify-center font-black text-sm">
                     M
                   </div>
                   <div>
-                    <h2 className="text-lg font-black tracking-tight text-slate-900">MODE DIGITAL CREATIONS</h2>
-                    <p className="text-[11px] text-slate-500">Corporate Headquarters • Technology & Enterprise Cloud</p>
+                    <h2 className="text-base font-black tracking-tight text-slate-900 leading-tight">MODE DIGITAL CREATIONS</h2>
+                    <p className="text-[10px] text-slate-500">Corporate Headquarters • Technology & Enterprise Cloud</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
                     Official Payslip
                   </span>
-                  <div className="text-xs font-bold text-slate-800 mt-1 font-mono">{p.period}</div>
-                  <div className="text-[10px] text-slate-400">Pay Date: {formatDate(p.payDate)}</div>
+                  <div className="text-xs font-bold text-slate-800 mt-0.5 font-mono">{p.period}</div>
+                  <div className="text-[9px] text-slate-400">Pay Date: {formatDate(p.payDate)}</div>
                 </div>
               </div>
 
               {/* Employee Meta Grid */}
-              <div className="my-5 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="my-3 p-2.5 bg-slate-50/80 border border-slate-200 rounded-xl text-xs grid grid-cols-2 sm:grid-cols-4 print:grid-cols-4 gap-2">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Employee Name</span>
-                  <div className="font-bold text-slate-900 mt-0.5">{p.staffName}</div>
-                  <div className="text-[10px] text-slate-500">{p.staffEmail}</div>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Employee</span>
+                  <div className="font-bold text-slate-900 text-xs mt-0.5">{p.staffName}</div>
+                  {p.staffEmail && <div className="text-[9px] text-slate-500">{p.staffEmail}</div>}
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Department</span>
-                  <div className="font-bold text-slate-900 mt-0.5">{p.department}</div>
-                  <div className="text-[10px] text-slate-500">{p.jobTitle}</div>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Position</span>
+                  <div className="font-bold text-slate-900 text-xs mt-0.5">{p.jobTitle || p.department}</div>
+                  <div className="text-[9px] text-slate-500">{p.department}</div>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Bank Name</span>
-                  <div className="font-bold text-slate-900 mt-0.5">{p.bankName || 'Bank Transfer'}</div>
-                  <div className="text-[10px] font-mono text-slate-500">Acc: {p.accountNumber || 'N/A'}</div>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Bank Details</span>
+                  <div className="font-bold text-slate-900 text-xs mt-0.5">{p.bankName || 'Bank Wire'}</div>
+                  <div className="text-[9px] font-mono text-slate-500">{p.accountNumber ? `Acc: ${p.accountNumber}` : 'Direct Transfer'}</div>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Disbursement Status</span>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Disbursement</span>
                   <div className="mt-0.5">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase">
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 uppercase">
                       {p.status === 'paid' ? 'DISBURSED' : p.status}
                     </span>
                   </div>
                   {p.approvedBy && (
-                    <div className="text-[9px] text-slate-400 mt-0.5">By: {p.approvedBy}</div>
+                    <div className="text-[8px] text-slate-400 mt-0.5 font-medium">By: {p.approvedBy}</div>
                   )}
                 </div>
               </div>
 
-              {/* Earnings & Deductions Breakdown */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              {/* Earnings & Deductions Breakdown (Strictly Side-by-Side in Print) */}
+              <div className="grid grid-cols-2 print:grid-cols-2 gap-3 text-xs">
                 {/* Earnings Column */}
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                  <div className="font-bold text-slate-900 pb-1 border-b border-slate-200 uppercase text-[10px] tracking-wider text-blue-600">
+                <div className="p-3 bg-slate-50/80 border border-slate-200 rounded-xl space-y-1.5 print:bg-white print:border-slate-300">
+                  <div className="font-bold text-slate-900 pb-1 border-b border-slate-200 uppercase text-[9px] tracking-wider text-blue-600">
                     Gross Earnings & Allowances
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-600">Basic Base Salary</span>
+                  <div className="flex justify-between py-0.5 border-b border-slate-100 text-xs">
+                    <span className="text-slate-600">Base Salary</span>
                     <span className="font-mono font-semibold">{formatCurrency(p.baseSalary, p.currency)}</span>
                   </div>
                   {p.allowances?.housing && p.allowances.housing > 0 ? (
-                    <div className="flex justify-between py-1 border-b border-slate-100">
+                    <div className="flex justify-between py-0.5 border-b border-slate-100 text-xs">
                       <span className="text-slate-600">Housing Allowance</span>
                       <span className="font-mono font-semibold">{formatCurrency(p.allowances.housing, p.currency)}</span>
                     </div>
                   ) : null}
                   {p.allowances?.transport && p.allowances.transport > 0 ? (
-                    <div className="flex justify-between py-1 border-b border-slate-100">
+                    <div className="flex justify-between py-0.5 border-b border-slate-100 text-xs">
                       <span className="text-slate-600">Transport Allowance</span>
                       <span className="font-mono font-semibold">{formatCurrency(p.allowances.transport, p.currency)}</span>
                     </div>
                   ) : null}
                   {p.allowances?.utility && p.allowances.utility > 0 ? (
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <span className="text-slate-600">Utility / Phone / Internet</span>
+                    <div className="flex justify-between py-0.5 border-b border-slate-100 text-xs">
+                      <span className="text-slate-600">Utility / Data</span>
                       <span className="font-mono font-semibold">{formatCurrency(p.allowances.utility, p.currency)}</span>
                     </div>
                   ) : null}
                   {p.bonuses > 0 ? (
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <span className="text-slate-600">Performance Bonus & Commissions</span>
+                    <div className="flex justify-between py-0.5 border-b border-slate-100 text-xs">
+                      <span className="text-slate-600">Bonus & Commissions</span>
                       <span className="font-mono font-semibold text-emerald-700">+{formatCurrency(p.bonuses, p.currency)}</span>
                     </div>
                   ) : null}
-                  <div className="flex justify-between font-extrabold text-slate-900 pt-2 border-t border-slate-200">
+                  <div className="flex justify-between font-extrabold text-slate-900 pt-1.5 border-t border-slate-200 text-xs">
                     <span>Total Gross Earnings</span>
                     <span className="font-mono">{formatCurrency(p.grossPay, p.currency)}</span>
                   </div>
                 </div>
 
                 {/* Deductions Column */}
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                  <div className="font-bold text-slate-900 pb-1 border-b border-slate-200 uppercase text-[10px] tracking-wider text-rose-600">
+                <div className="p-3 bg-slate-50/80 border border-slate-200 rounded-xl space-y-1.5 print:bg-white print:border-slate-300">
+                  <div className="font-bold text-slate-900 pb-1 border-b border-slate-200 uppercase text-[9px] tracking-wider text-rose-600">
                     Statutory & Voluntary Deductions
                   </div>
                   {p.deductions?.tax && p.deductions.tax > 0 ? (
-                    <div className="flex justify-between py-1 border-b border-slate-100">
+                    <div className="flex justify-between py-0.5 border-b border-slate-100 text-xs">
                       <span className="text-slate-600">PAYE Income Tax</span>
                       <span className="font-mono font-semibold text-rose-700">-{formatCurrency(p.deductions.tax, p.currency)}</span>
                     </div>
                   ) : null}
                   {p.deductions?.pension && p.deductions.pension > 0 ? (
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <span className="text-slate-600">Employee Pension Contribution (8%)</span>
+                    <div className="flex justify-between py-0.5 border-b border-slate-100 text-xs">
+                      <span className="text-slate-600">Pension (8%)</span>
                       <span className="font-mono font-semibold text-rose-700">-{formatCurrency(p.deductions.pension, p.currency)}</span>
                     </div>
                   ) : null}
                   {p.deductions?.healthInsurance && p.deductions.healthInsurance > 0 ? (
-                    <div className="flex justify-between py-1 border-b border-slate-100">
+                    <div className="flex justify-between py-0.5 border-b border-slate-100 text-xs">
                       <span className="text-slate-600">Health Insurance / NHIS</span>
                       <span className="font-mono font-semibold text-rose-700">-{formatCurrency(p.deductions.healthInsurance, p.currency)}</span>
                     </div>
                   ) : null}
                   {(!p.deductions?.tax && !p.deductions?.pension && !p.deductions?.healthInsurance) || p.totalDeductions === 0 ? (
-                    <div className="py-2 text-[11px] text-slate-400 italic">
+                    <div className="py-2 text-[10px] text-slate-400 italic">
                       No statutory or voluntary deductions withheld.
                     </div>
                   ) : null}
-                  <div className="flex justify-between font-extrabold text-rose-800 pt-2 border-t border-slate-200">
+                  <div className="flex justify-between font-extrabold text-rose-800 pt-1.5 border-t border-slate-200 text-xs">
                     <span>Total Deductions</span>
                     <span className="font-mono">-{formatCurrency(p.totalDeductions, p.currency)}</span>
                   </div>
@@ -806,56 +809,56 @@ export default function PayrollPage() {
               </div>
 
               {/* Net Pay Banner */}
-              <div className="my-5 p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+              <div className="my-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">Net Take-Home Pay</span>
-                  <div className="text-2xl font-black text-emerald-950 font-mono mt-0.5">
+                  <span className="text-[9px] font-bold text-emerald-800 uppercase tracking-wider block">Net Take-Home Pay</span>
+                  <div className="text-xl font-black text-emerald-950 font-mono mt-0.5">
                     {formatCurrency(p.netPay, p.currency)}
                   </div>
                 </div>
-                <div className="text-right text-[11px] text-emerald-800 font-semibold">
-                  <span>Processed via ACH Bank Wire</span>
-                  <p className="text-[10px] text-emerald-600 font-normal">Electronic Funds Transfer Confirmed</p>
+                <div className="text-right text-[10px] text-emerald-800 font-semibold">
+                  <span>ACH Corporate Bank Wire</span>
+                  <p className="text-[9px] text-emerald-600 font-normal">Disbursed &amp; Reconciled</p>
                 </div>
               </div>
 
               {/* Authorization & Signatures */}
-              <div className="pt-4 border-t border-slate-200 grid grid-cols-2 gap-6 text-[11px] text-slate-500">
+              <div className="pt-3 border-t border-slate-200 grid grid-cols-2 gap-4 text-[10px] text-slate-500">
                 <div>
                   <div className="font-semibold text-slate-700">Executive Authorization</div>
-                  <div className="h-10 flex items-end">
+                  <div className="h-8 flex items-end">
                     <span className="font-serif italic font-bold text-blue-900 text-sm">Davids Ogan</span>
                   </div>
-                  <div className="border-t border-slate-300 pt-1 text-[10px]">
+                  <div className="border-t border-slate-300 pt-1 text-[9px]">
                     Managing Director &amp; Founder • MODE Digital Creations
                   </div>
                 </div>
                 <div>
                   <div className="font-semibold text-slate-700">Employee Acknowledgment</div>
-                  <div className="h-10 flex items-end">
-                    <span className="text-[10px] text-slate-400 italic">Digitally Verified &amp; Accepted</span>
+                  <div className="h-8 flex items-end">
+                    <span className="text-[9px] text-slate-400 italic">Digitally Verified &amp; Accepted</span>
                   </div>
-                  <div className="border-t border-slate-300 pt-1 text-[10px]">
+                  <div className="border-t border-slate-300 pt-1 text-[9px]">
                     {p.staffName} ({p.staffEmail})
                   </div>
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex items-center justify-end gap-2 pt-6 border-t border-slate-200 mt-6">
+              {/* Action Buttons (Strictly Hidden on Print) */}
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200 mt-4 print:hidden">
                 <button
                   type="button"
                   onClick={() => setSelectedRecordForPayslip(null)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl text-xs font-semibold cursor-pointer"
+                  className="px-3.5 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl text-xs font-semibold cursor-pointer"
                 >
                   Close
                 </button>
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  className="px-4 py-1.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
                 >
-                  <Printer size={14} />
+                  <Printer size={13} />
                   <span>Print Official Payslip</span>
                 </button>
               </div>
