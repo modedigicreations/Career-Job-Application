@@ -201,7 +201,7 @@ export default function LoginPage() {
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
                   <span>Provided Company Email *</span>
-                  <span className="text-[10px] text-blue-400 font-mono font-medium">@modewebhost.com.ng / @modedigital.ng</span>
+                  <span className="text-[10px] text-blue-400 font-mono font-medium">@modedigitalcreations.ng / @modewebhost.com.ng</span>
                 </label>
                 <div className="relative">
                   <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -210,7 +210,7 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="e.g. admin@modewebhost.com.ng or chioma@modedigital.ng"
+                    placeholder="e.g. staff@modedigitalcreations.ng or admin@modewebhost.com.ng"
                     className="w-full pl-10 pr-3 py-2.5 bg-slate-900/90 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                   />
                 </div>
@@ -330,7 +330,7 @@ export default function LoginPage() {
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
                   <span>Company Email Address *</span>
-                  <span className="text-[10px] text-blue-400 font-mono font-medium">@modewebhost.com.ng / @modedigital.ng</span>
+                  <span className="text-[10px] text-blue-400 font-mono font-medium">@modedigitalcreations.ng / @modewebhost.com.ng</span>
                 </label>
                 <div className="relative">
                   <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -339,7 +339,7 @@ export default function LoginPage() {
                     required
                     value={changeEmail}
                     onChange={(e) => setChangeEmail(e.target.value)}
-                    placeholder="e.g. admin@modewebhost.com.ng or yourname@modedigital.ng"
+                    placeholder="e.g. staff@modedigitalcreations.ng or admin@modewebhost.com.ng"
                     className="w-full pl-10 pr-3 py-2.5 bg-slate-900/90 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                   />
                 </div>

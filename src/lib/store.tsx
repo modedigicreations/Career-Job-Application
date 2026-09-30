@@ -867,6 +867,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // Company email domain check
     const isCompanyDomain = 
+      cleanEmail.endsWith('@modedigitalcreations.ng') ||
       cleanEmail.endsWith('@modewebhost.com.ng') ||
       cleanEmail.endsWith('@modedigital.ng') || 
       cleanEmail.endsWith('@modedigitalcreations.com') ||
@@ -875,7 +876,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!isCompanyDomain) {
       return {
         success: false,
-        message: 'Access Restricted: Staff members can only log in with their provided company email address (@modewebhost.com.ng or @modedigital.ng).'
+        message: 'Access Restricted: Staff members can only log in with their provided company email address (@modedigitalcreations.ng, @modewebhost.com.ng, or @modedigital.ng).'
       };
     }
 
@@ -987,6 +988,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // Company email domain check
     const isCompanyDomain = 
+      cleanEmail.endsWith('@modedigitalcreations.ng') ||
       cleanEmail.endsWith('@modewebhost.com.ng') ||
       cleanEmail.endsWith('@modedigital.ng') || 
       cleanEmail.endsWith('@modedigitalcreations.com') ||
@@ -995,7 +997,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!isCompanyDomain) {
       return {
         success: false,
-        message: 'Access Restricted: Please enter a valid company email address (@modewebhost.com.ng or @modedigital.ng).'
+        message: 'Access Restricted: Please enter a valid company email address (@modedigitalcreations.ng, @modewebhost.com.ng, or @modedigital.ng).'
       };
     }
 
