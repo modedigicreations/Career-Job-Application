@@ -201,7 +201,7 @@ export default function LoginPage() {
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
                   <span>Provided Company Email *</span>
-                  <span className="text-[10px] text-blue-400 font-mono font-medium">@modedigital.ng only</span>
+                  <span className="text-[10px] text-blue-400 font-mono font-medium">@modewebhost.com.ng / @modedigital.ng</span>
                 </label>
                 <div className="relative">
                   <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -210,7 +210,7 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="e.g. chioma@modedigital.ng"
+                    placeholder="e.g. admin@modewebhost.com.ng or chioma@modedigital.ng"
                     className="w-full pl-10 pr-3 py-2.5 bg-slate-900/90 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                   />
                 </div>
@@ -289,8 +289,8 @@ export default function LoginPage() {
                 <div className="text-[10px] uppercase font-bold tracking-wider text-slate-500 text-center">
                   Quick Staff Login (Provided Accounts)
                 </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {users.slice(0, 4).map((u) => (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {users.slice(0, 6).map((u) => (
                     <button
                       key={u.id}
                       type="button"
@@ -328,7 +328,10 @@ export default function LoginPage() {
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Company Email Address *</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span>Company Email Address *</span>
+                  <span className="text-[10px] text-blue-400 font-mono font-medium">@modewebhost.com.ng / @modedigital.ng</span>
+                </label>
                 <div className="relative">
                   <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
@@ -336,7 +339,7 @@ export default function LoginPage() {
                     required
                     value={changeEmail}
                     onChange={(e) => setChangeEmail(e.target.value)}
-                    placeholder="e.g. yourname@modedigital.ng"
+                    placeholder="e.g. admin@modewebhost.com.ng or yourname@modedigital.ng"
                     className="w-full pl-10 pr-3 py-2.5 bg-slate-900/90 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                   />
                 </div>

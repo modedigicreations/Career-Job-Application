@@ -10,6 +10,7 @@ export const initialProfiles: UserProfile[] = [
   { id: 'u3', email: 'emeka@modedigital.ng', password: 'password123', full_name: 'Emeka Nwosu', role: 'developer', department: 'Engineering', job_title: 'Senior Full-Stack Engineer', phone: '+234 803 456 7890', is_active: true },
   { id: 'u4', email: 'fatima@modedigital.ng', password: 'password123', full_name: 'Fatima Bello', role: 'manager', department: 'Operations', job_title: 'Operations & Project Manager', phone: '+234 804 567 8901', is_active: true },
   { id: 'u5', email: 'ibrahim@modedigital.ng', password: 'password123', full_name: 'Ibrahim Musa', role: 'accounts', department: 'Finance & Support', job_title: 'Finance & Client Support Lead', phone: '+234 805 678 9012', is_active: true, hasPayrollAccess: true },
+  { id: 'u6', email: 'admin@modewebhost.com.ng', password: 'password123', full_name: 'Mode Web Host Admin', role: 'managing_director', department: 'Executive & Systems', job_title: 'Super Admin & Lead Hostmaster', phone: '+234 801 888 9999', is_active: true, hasPayrollAccess: true },
 ];
 
 export const initialLeads: Lead[] = [
