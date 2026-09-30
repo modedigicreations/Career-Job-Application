@@ -273,7 +273,7 @@ export default function Sidebar() {
       )}
 
       {/* Desktop Persistent Sidebar */}
-      <aside className="hidden lg:block w-64 h-screen sticky top-0 shrink-0 border-r border-slate-800/80 z-30">
+      <aside className="hidden lg:block w-64 h-screen sticky top-0 shrink-0 border-r border-slate-800/80 z-30 print:hidden">
         {navContent}
       </aside>
     </>
