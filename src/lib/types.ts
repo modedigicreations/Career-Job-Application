@@ -1,6 +1,7 @@
 export type Currency = 'NGN' | 'GBP' | 'USD';
 
 export type UserRole = 
+  | 'super_admin'
   | 'managing_director'
   | 'manager'
   | 'employee'
@@ -21,6 +22,7 @@ export interface UserProfile {
   phone?: string;
   avatar_url?: string;
   is_active?: boolean;
+  hasPayrollAccess?: boolean;
   created_at?: string;
 }
 
@@ -204,6 +206,7 @@ export interface Invoice {
   issueDate: string;
   dueDate: string;
   notes?: string;
+  logoUrl?: string;
   createdAt: string;
 }
 
@@ -327,4 +330,50 @@ export interface ActivityItem {
   entity_id: string;
   user_name: string;
   created_at: string;
+}
+
+// ==========================================
+// PAYROLL TYPES
+// ==========================================
+export type PayrollStatus = 'draft' | 'pending_approval' | 'approved' | 'paid';
+
+export interface PayrollRecord {
+  id: string;
+  staffId: string;
+  staffName: string;
+  staffEmail: string;
+  department: string;
+  jobTitle: string;
+  period: string; // e.g. "October 2026"
+  payDate: string;
+  currency: Currency;
+  baseSalary: number;
+  allowances: {
+    housing?: number;
+    transport?: number;
+    utility?: number;
+    medical?: number;
+    other?: number;
+  };
+  bonuses: number;
+  grossPay: number;
+  deductions: {
+    tax?: number; // PAYE
+    pension?: number;
+    healthInsurance?: number;
+    loan?: number;
+    other?: number;
+  };
+  totalDeductions: number;
+  netPay: number;
+  paymentMethod: 'bank_transfer' | 'cash' | 'check';
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  status: PayrollStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  paidAt?: string;
+  notes?: string;
+  createdAt: string;
 }
