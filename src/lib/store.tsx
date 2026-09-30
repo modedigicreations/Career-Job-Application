@@ -129,8 +129,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const parsed = JSON.parse(saved);
           const existingIds = new Set(parsed.map((u: UserProfile) => u.id));
           const merged = parsed.map((u: UserProfile) => {
-            if (u.id === 'u1' && (u.full_name?.includes('Adewale') || u.email?.includes('adewale'))) {
-              return { ...u, full_name: 'Davids Ogan', email: 'davids@modedigital.ng' };
+            if (u.id === 'u1') {
+              return { ...u, full_name: 'Davids Ogan', email: 'info@modedigitalcreations.ng', job_title: 'Managing Director & Super Admin' };
+            }
+            if (u.email && u.email.endsWith('@modedigital.ng')) {
+              return { ...u, email: u.email.replace('@modedigital.ng', '@modedigitalcreations.ng') };
             }
             return u;
           });
@@ -152,8 +155,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (savedUser) {
         try {
           const u = JSON.parse(savedUser);
-          if (u.id === 'u1' && (u.full_name?.includes('Adewale') || u.email?.includes('adewale'))) {
-            return { ...u, full_name: 'Davids Ogan', email: 'davids@modedigital.ng' };
+          if (u.id === 'u1') {
+            return { ...u, full_name: 'Davids Ogan', email: 'info@modedigitalcreations.ng', job_title: 'Managing Director & Super Admin' };
+          }
+          if (u.email && u.email.endsWith('@modedigital.ng')) {
+            return { ...u, email: u.email.replace('@modedigital.ng', '@modedigitalcreations.ng') };
           }
           return u;
         } catch {}
@@ -354,7 +360,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setCurrentUserRole = (role: UserRole) => {
     const found = users.find(u => u.role === role) || {
       id: `u-${role}`,
-      email: `${role}@modedigital.ng`,
+      email: role === 'managing_director' ? 'info@modedigitalcreations.ng' : `${role}@modedigitalcreations.ng`,
       full_name: role.replace('_', ' ').toUpperCase(),
       role,
       department: 'Operations',
@@ -865,23 +871,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const login = (email: string, password: string): { success: boolean; message?: string } => {
     const cleanEmail = email.trim().toLowerCase();
 
-    // Company email domain check
+    // Company email domain check - STRICTLY @modedigitalcreations.ng and @modewebhost.com.ng only
     const isCompanyDomain = 
       cleanEmail.endsWith('@modedigitalcreations.ng') ||
-      cleanEmail.endsWith('@modewebhost.com.ng') ||
-      cleanEmail.endsWith('@modedigital.ng') || 
-      cleanEmail.endsWith('@modedigitalcreations.com') ||
-      cleanEmail.endsWith('@mode-ops.com');
+      cleanEmail.endsWith('@modewebhost.com.ng');
 
     if (!isCompanyDomain) {
       return {
         success: false,
-        message: 'Access Restricted: Staff members can only log in with their provided company email address (@modedigitalcreations.ng, @modewebhost.com.ng, or @modedigital.ng).'
+        message: 'Access Restricted: Only official @modedigitalcreations.ng and @modewebhost.com.ng company email addresses are allowed.'
       };
     }
 
     const matchedUser = 
       users.find(u => u.email.toLowerCase() === cleanEmail) ||
+      (cleanEmail === 'info@modedigitalcreations.ng' ? users.find(u => u.id === 'u1') : undefined) ||
       users.find(u => {
         const uPrefix = u.email.split('@')[0].toLowerCase();
         const inputPrefix = cleanEmail.split('@')[0].toLowerCase();
@@ -986,23 +990,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const changeUserPassword = (email: string, newPassword: string): { success: boolean; message: string } => {
     const cleanEmail = email.trim().toLowerCase();
 
-    // Company email domain check
+    // Company email domain check - STRICTLY @modedigitalcreations.ng and @modewebhost.com.ng only
     const isCompanyDomain = 
       cleanEmail.endsWith('@modedigitalcreations.ng') ||
-      cleanEmail.endsWith('@modewebhost.com.ng') ||
-      cleanEmail.endsWith('@modedigital.ng') || 
-      cleanEmail.endsWith('@modedigitalcreations.com') ||
-      cleanEmail.endsWith('@mode-ops.com');
+      cleanEmail.endsWith('@modewebhost.com.ng');
 
     if (!isCompanyDomain) {
       return {
         success: false,
-        message: 'Access Restricted: Please enter a valid company email address (@modedigitalcreations.ng, @modewebhost.com.ng, or @modedigital.ng).'
+        message: 'Access Restricted: Only official @modedigitalcreations.ng and @modewebhost.com.ng company email addresses are allowed.'
       };
     }
 
     const target = 
       users.find(u => u.email.toLowerCase() === cleanEmail) ||
+      (cleanEmail === 'info@modedigitalcreations.ng' ? users.find(u => u.id === 'u1') : undefined) ||
       users.find(u => {
         const uPrefix = u.email.split('@')[0].toLowerCase();
         const inputPrefix = cleanEmail.split('@')[0].toLowerCase();

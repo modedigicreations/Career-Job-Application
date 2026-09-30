@@ -22,7 +22,7 @@ export default function SettingsPage() {
   
   // Executive profile fields
   const [execName, setExecName] = useState(currentUser.full_name || 'Davids Ogan');
-  const [execEmail, setExecEmail] = useState(currentUser.email || 'davids@modedigital.ng');
+  const [execEmail, setExecEmail] = useState(currentUser.email || 'info@modedigitalcreations.ng');
   const [execTitle, setExecTitle] = useState(currentUser.job_title || 'Managing Director & Founder');
   const [execPhone, setExecPhone] = useState(currentUser.phone || '+234 801 234 5678');
   
