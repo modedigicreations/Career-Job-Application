@@ -261,7 +261,8 @@ export default function InvoicesPage() {
   };
 
   return (
-    <div className={`space-y-6 ${selectedInvoiceForPrint ? 'print:hidden' : ''}`}>
+    <>
+      <div className={`space-y-6 ${selectedInvoiceForPrint ? 'print:hidden' : ''}`}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -509,206 +510,6 @@ export default function InvoicesPage() {
           </div>
         </div>
       )}
-
-      {/* Invoice Printable View Modal */}
-      {selectedInvoiceForPrint && (() => {
-        const inv = selectedInvoiceForPrint;
-        const totalPaid = inv.amountPaid || 0;
-        const balanceDue = Math.max(0, inv.total - totalPaid);
-        const invPayments = payments.filter(p => p.invoiceId === inv.id);
-
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto print:static print:p-0 print:m-0 print:overflow-visible print:bg-white print:block print:w-full">
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs print:hidden" onClick={() => setSelectedInvoiceForPrint(null)} />
-            <div
-              id="printable-invoice"
-              className="printable-sheet relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 z-10 text-slate-800 my-4 max-h-[90vh] overflow-y-auto print:p-0 print:my-0 print:max-w-full print:shadow-none print:border-none print:max-h-none print:overflow-visible print:rounded-none"
-            >
-              {/* Header with Logo */}
-              <div className="flex items-center justify-between border-b pb-3 border-slate-200 gap-3">
-                <div>
-                  {inv.logoUrl ? (
-                    <div className="flex items-center gap-2.5">
-                      <img
-                        src={inv.logoUrl}
-                        alt="Company Logo"
-                        className="max-h-10 max-w-36 object-contain rounded-md border border-slate-100 p-0.5 bg-white"
-                      />
-                      <div>
-                        <span className="text-sm font-black tracking-tight text-slate-900 block leading-tight">MODE DIGITAL CREATIONS</span>
-                        <p className="text-[9px] text-slate-500">Technology, Cloud & Educational Platforms</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-[#0D52F8] text-white flex items-center justify-center font-bold text-xs">M</div>
-                        <span className="text-sm font-black tracking-tight text-slate-900">MODE DIGITAL CREATIONS</span>
-                      </div>
-                      <p className="text-[9px] text-slate-500 mt-0.5">Technology, Cloud & Educational Platforms</p>
-                    </div>
-                  )}
-                </div>
-                <div className="text-right shrink-0">
-                  <div className="text-xs font-mono font-black text-blue-600">{inv.invoiceNumber}</div>
-                  <div className="text-[9px] text-slate-400">Issue: {formatDate(inv.issueDate)}</div>
-                  <div className="text-[9px] text-rose-500 font-semibold">Due: {formatDate(inv.dueDate)}</div>
-                </div>
-              </div>
-
-              {/* Client & Status Meta */}
-              <div className="my-3 grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Billed To</span>
-                  <div className="font-bold text-slate-900 text-xs mt-0.5">{inv.clientName}</div>
-                  {inv.clientEmail && <div className="text-slate-500 text-[10px] mt-0.5">{inv.clientEmail}</div>}
-                </div>
-                <div className="text-right">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Payment Status</span>
-                  <div className="mt-0.5">
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize ${
-                      inv.status === 'paid' || balanceDue === 0
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : inv.status === 'partially-paid' || totalPaid > 0
-                        ? 'bg-blue-50 text-blue-700 border-blue-200'
-                        : 'bg-amber-50 text-amber-700 border-amber-200'
-                    }`}>
-                      {balanceDue === 0 ? 'PAID IN FULL' : inv.status.replace('-', ' ')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Itemized Line Items */}
-              <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200 text-xs space-y-1.5 print:bg-white print:border-slate-300 print:p-2">
-                <div className="flex justify-between font-bold text-slate-500 pb-1 border-b border-slate-200 text-[10px] uppercase tracking-wider">
-                  <span>Description</span>
-                  <span>Amount</span>
-                </div>
-                {inv.items?.map((item, idx) => (
-                  <div key={idx} className="flex justify-between py-1 border-b border-slate-100 text-xs">
-                    <div>
-                      <span className="font-medium text-slate-800">{item.description}</span>
-                      <span className="text-slate-400 font-mono text-[10px] ml-1.5">(x{item.quantity})</span>
-                    </div>
-                    <span className="font-semibold text-slate-900 font-mono">{formatCurrency(item.total, inv.currency)}</span>
-                  </div>
-                ))}
-
-                {/* Subtotal & Tax Breakdown */}
-                <div className="pt-1.5 border-t border-slate-200 space-y-1 text-xs">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Subtotal</span>
-                    <span className="font-semibold font-mono">{formatCurrency(inv.subtotal || inv.total, inv.currency)}</span>
-                  </div>
-                  {inv.tax > 0 && (
-                    <div className="flex justify-between text-slate-600">
-                      <span>VAT / Tax</span>
-                      <span className="font-semibold font-mono">{formatCurrency(inv.tax, inv.currency)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-bold text-slate-900 pt-1 border-t border-slate-200">
-                    <span>Total Invoiced</span>
-                    <span className="font-mono text-sm">{formatCurrency(inv.total, inv.currency)}</span>
-                  </div>
-
-                  {/* Part Payments Recorded */}
-                  {totalPaid > 0 && (
-                    <div className="flex justify-between font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg text-xs">
-                      <span className="flex items-center gap-1.5">
-                        <CheckCircle2 size={12} className="text-emerald-600" />
-                        <span>Payments Received / Part Payments</span>
-                      </span>
-                      <span className="font-mono">-{formatCurrency(totalPaid, inv.currency)}</span>
-                    </div>
-                  )}
-
-                  {/* Net Balance Due */}
-                  <div className={`flex justify-between items-center font-extrabold px-3 py-2 rounded-lg border ${
-                    balanceDue <= 0
-                      ? 'bg-emerald-100/70 border-emerald-300 text-emerald-950'
-                      : 'bg-rose-50 border-rose-200 text-rose-950'
-                  }`}>
-                    <span className="text-[11px] uppercase tracking-wider">
-                      {balanceDue <= 0 ? 'Account Settled (Balance Due)' : 'Remaining Balance Due'}
-                    </span>
-                    <span className="text-sm font-mono font-bold">
-                      {formatCurrency(balanceDue, inv.currency)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Payment Receipts & Transaction Ledger (Only if actual payments exist) */}
-              {totalPaid > 0 && invPayments.length > 0 && (
-                <div className="mt-2.5 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs print:bg-white">
-                  <div className="flex items-center justify-between font-bold text-slate-800 mb-1.5">
-                    <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider">
-                      <Receipt size={12} className="text-emerald-600" />
-                      <span>Payment Receipt Ledger</span>
-                    </span>
-                    <span className="text-[9px] text-slate-500 font-semibold font-mono">
-                      Cleared: {formatCurrency(totalPaid, inv.currency)}
-                    </span>
-                  </div>
-                  <div className="space-y-1">
-                    {invPayments.map(p => (
-                      <div key={p.id} className="flex items-center justify-between py-1 px-2 bg-white rounded border border-slate-200/70 text-[10px]">
-                        <div>
-                          <span className="font-semibold text-slate-800">{formatDate(p.date)}</span>
-                          <span className="text-slate-300 mx-1">•</span>
-                          <span className="capitalize text-slate-600">{p.method.replace('-', ' ')}</span>
-                          {p.reference && <span className="font-mono text-slate-400 ml-1">({p.reference})</span>}
-                        </div>
-                        <span className="font-bold text-emerald-700 font-mono">+{formatCurrency(p.amount, p.currency)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Notes & Bank Details (Only if user actually provided notes) */}
-              {inv.notes && inv.notes.trim() !== '' && (
-                <div className="mt-2.5 p-2 bg-blue-50/50 border border-blue-100 rounded-lg text-[10px] text-slate-600 print:border-slate-300 print:bg-transparent">
-                  <span className="font-bold text-slate-800 block mb-0.5">Payment Terms & Instructions:</span>
-                  <p>{inv.notes}</p>
-                </div>
-              )}
-
-              {/* Action Buttons (Strictly Hidden on Print) */}
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200 mt-4 print:hidden">
-                <button
-                  type="button"
-                  onClick={() => setSelectedInvoiceForPrint(null)}
-                  className="px-3.5 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl text-xs font-semibold cursor-pointer"
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleOpenEditModal(inv);
-                    setSelectedInvoiceForPrint(null);
-                  }}
-                  className="px-3.5 py-1.5 border border-blue-200 text-blue-700 hover:bg-blue-50 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-                  title="Edit this invoice"
-                >
-                  <Edit size={13} />
-                  <span>Edit Invoice</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="px-4 py-1.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
-                >
-                  <Printer size={13} />
-                  <span>Print Official Invoice</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Create New Invoice Modal */}
       {isCreateModalOpen && (
@@ -1055,5 +856,206 @@ export default function InvoicesPage() {
         </div>
       )}
     </div>
-  );
+
+    {/* Invoice Printable View Modal (Outside the print:hidden dashboard) */}
+    {selectedInvoiceForPrint && (() => {
+      const inv = selectedInvoiceForPrint;
+      const totalPaid = inv.amountPaid || 0;
+      const balanceDue = Math.max(0, inv.total - totalPaid);
+      const invPayments = payments.filter(p => p.invoiceId === inv.id);
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto print:static print:p-0 print:m-0 print:overflow-visible print:bg-white print:block print:w-full">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs print:hidden" onClick={() => setSelectedInvoiceForPrint(null)} />
+          <div
+            id="printable-invoice"
+            className="printable-sheet relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 z-10 text-slate-800 my-4 max-h-[90vh] overflow-y-auto print:p-0 print:my-0 print:max-w-full print:shadow-none print:border-none print:max-h-none print:overflow-visible print:rounded-none"
+          >
+            {/* Header with Logo */}
+            <div className="flex items-center justify-between border-b pb-3 border-slate-200 gap-3">
+              <div>
+                {inv.logoUrl ? (
+                  <div className="flex items-center gap-2.5">
+                    <img
+                      src={inv.logoUrl}
+                      alt="Company Logo"
+                      className="max-h-10 max-w-36 object-contain rounded-md border border-slate-100 p-0.5 bg-white"
+                    />
+                    <div>
+                      <span className="text-sm font-black tracking-tight text-slate-900 block leading-tight">MODE DIGITAL CREATIONS</span>
+                      <p className="text-[9px] text-slate-500">Technology, Cloud & Educational Platforms</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-[#0D52F8] text-white flex items-center justify-center font-bold text-xs">M</div>
+                      <span className="text-sm font-black tracking-tight text-slate-900">MODE DIGITAL CREATIONS</span>
+                    </div>
+                    <p className="text-[9px] text-slate-500 mt-0.5">Technology, Cloud & Educational Platforms</p>
+                  </div>
+                )}
+              </div>
+              <div className="text-right shrink-0">
+                <div className="text-xs font-mono font-black text-blue-600">{inv.invoiceNumber}</div>
+                <div className="text-[9px] text-slate-400">Issue: {formatDate(inv.issueDate)}</div>
+                <div className="text-[9px] text-rose-500 font-semibold">Due: {formatDate(inv.dueDate)}</div>
+              </div>
+            </div>
+
+            {/* Client & Status Meta */}
+            <div className="my-3 grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Billed To</span>
+                <div className="font-bold text-slate-900 text-xs mt-0.5">{inv.clientName}</div>
+                {inv.clientEmail && <div className="text-slate-500 text-[10px] mt-0.5">{inv.clientEmail}</div>}
+              </div>
+              <div className="text-right">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Payment Status</span>
+                <div className="mt-0.5">
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize ${
+                    inv.status === 'paid' || balanceDue === 0
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : inv.status === 'partially-paid' || totalPaid > 0
+                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                  }`}>
+                    {balanceDue === 0 ? 'PAID IN FULL' : inv.status.replace('-', ' ')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Itemized Line Items */}
+            <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200 text-xs space-y-1.5 print:bg-white print:border-slate-300 print:p-2">
+              <div className="flex justify-between font-bold text-slate-500 pb-1 border-b border-slate-200 text-[10px] uppercase tracking-wider">
+                <span>Description</span>
+                <span>Amount</span>
+              </div>
+              {inv.items?.map((item, idx) => (
+                <div key={idx} className="flex justify-between py-1 border-b border-slate-100 text-xs">
+                  <div>
+                    <span className="font-medium text-slate-800">{item.description}</span>
+                    <span className="text-slate-400 font-mono text-[10px] ml-1.5">(x{item.quantity})</span>
+                  </div>
+                  <span className="font-semibold text-slate-900 font-mono">{formatCurrency(item.total, inv.currency)}</span>
+                </div>
+              ))}
+
+              {/* Subtotal & Tax Breakdown */}
+              <div className="pt-1.5 border-t border-slate-200 space-y-1 text-xs">
+                <div className="flex justify-between text-slate-600">
+                  <span>Subtotal</span>
+                  <span className="font-semibold font-mono">{formatCurrency(inv.subtotal || inv.total, inv.currency)}</span>
+                </div>
+                {inv.tax > 0 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>VAT / Tax</span>
+                    <span className="font-semibold font-mono">{formatCurrency(inv.tax, inv.currency)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-slate-900 pt-1 border-t border-slate-200">
+                  <span>Total Invoiced</span>
+                  <span className="font-mono text-sm">{formatCurrency(inv.total, inv.currency)}</span>
+                </div>
+
+                {/* Part Payments Recorded */}
+                {totalPaid > 0 && (
+                  <div className="flex justify-between font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 size={12} className="text-emerald-600" />
+                      <span>Payments Received / Part Payments</span>
+                    </span>
+                    <span className="font-mono">-{formatCurrency(totalPaid, inv.currency)}</span>
+                  </div>
+                )}
+
+                {/* Net Balance Due */}
+                <div className={`flex justify-between items-center font-extrabold px-3 py-2 rounded-lg border ${
+                  balanceDue <= 0
+                    ? 'bg-emerald-100/70 border-emerald-300 text-emerald-950'
+                    : 'bg-rose-50 border-rose-200 text-rose-950'
+                }`}>
+                  <span className="text-[11px] uppercase tracking-wider">
+                    {balanceDue <= 0 ? 'Account Settled (Balance Due)' : 'Remaining Balance Due'}
+                  </span>
+                  <span className="text-sm font-mono font-bold">
+                    {formatCurrency(balanceDue, inv.currency)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Receipts & Transaction Ledger (Only if actual payments exist) */}
+            {totalPaid > 0 && invPayments.length > 0 && (
+              <div className="mt-2.5 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs print:bg-white">
+                <div className="flex items-center justify-between font-bold text-slate-800 mb-1.5">
+                  <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider">
+                    <Receipt size={12} className="text-emerald-600" />
+                    <span>Payment Receipt Ledger</span>
+                  </span>
+                  <span className="text-[9px] text-slate-500 font-semibold font-mono">
+                    Cleared: {formatCurrency(totalPaid, inv.currency)}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {invPayments.map(p => (
+                    <div key={p.id} className="flex items-center justify-between py-1 px-2 bg-white rounded border border-slate-200/70 text-[10px]">
+                      <div>
+                        <span className="font-semibold text-slate-800">{formatDate(p.date)}</span>
+                        <span className="text-slate-300 mx-1">•</span>
+                        <span className="capitalize text-slate-600">{p.method.replace('-', ' ')}</span>
+                        {p.reference && <span className="font-mono text-slate-400 ml-1">({p.reference})</span>}
+                      </div>
+                      <span className="font-bold text-emerald-700 font-mono">+{formatCurrency(p.amount, p.currency)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Notes & Bank Details (Only if user actually provided notes) */}
+            {inv.notes && inv.notes.trim() !== '' && (
+              <div className="mt-2.5 p-2 bg-blue-50/50 border border-blue-100 rounded-lg text-[10px] text-slate-600 print:border-slate-300 print:bg-transparent">
+                <span className="font-bold text-slate-800 block mb-0.5">Payment Terms & Instructions:</span>
+                <p>{inv.notes}</p>
+              </div>
+            )}
+
+            {/* Action Buttons (Strictly Hidden on Print) */}
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200 mt-4 print:hidden">
+              <button
+                type="button"
+                onClick={() => setSelectedInvoiceForPrint(null)}
+                className="px-3.5 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleOpenEditModal(inv);
+                  setSelectedInvoiceForPrint(null);
+                }}
+                className="px-3.5 py-1.5 border border-blue-200 text-blue-700 hover:bg-blue-50 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                title="Edit this invoice"
+              >
+                <Edit size={13} />
+                <span>Edit Invoice</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-4 py-1.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Printer size={13} />
+                <span>Print Official Invoice</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
+  </>
+);
 }
