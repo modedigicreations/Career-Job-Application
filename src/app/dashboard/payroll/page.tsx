@@ -65,21 +65,21 @@ export default function PayrollPage() {
   const [formStaffId, setFormStaffId] = useState('');
   const [formStaffName, setFormStaffName] = useState('');
   const [formStaffEmail, setFormStaffEmail] = useState('');
-  const [formDepartment, setFormDepartment] = useState('Engineering');
+  const [formDepartment, setFormDepartment] = useState('');
   const [formJobTitle, setFormJobTitle] = useState('');
   const [formPeriod, setFormPeriod] = useState('September 2026');
   const [formPayDate, setFormPayDate] = useState('2026-09-28');
   const [formCurrency, setFormCurrency] = useState<Currency>('NGN');
-  const [formBaseSalary, setFormBaseSalary] = useState<number>(500000);
-  const [formHousing, setFormHousing] = useState<number>(100000);
-  const [formTransport, setFormTransport] = useState<number>(50000);
-  const [formUtility, setFormUtility] = useState<number>(15000);
+  const [formBaseSalary, setFormBaseSalary] = useState<number>(0);
+  const [formHousing, setFormHousing] = useState<number>(0);
+  const [formTransport, setFormTransport] = useState<number>(0);
+  const [formUtility, setFormUtility] = useState<number>(0);
   const [formBonus, setFormBonus] = useState<number>(0);
-  const [formTax, setFormTax] = useState<number>(40000);
-  const [formPension, setFormPension] = useState<number>(25000);
-  const [formHealth, setFormHealth] = useState<number>(10000);
-  const [formBankName, setFormBankName] = useState('Guaranty Trust Bank (GTB)');
-  const [formAccountNumber, setFormAccountNumber] = useState('0123456789');
+  const [formTax, setFormTax] = useState<number>(0);
+  const [formPension, setFormPension] = useState<number>(0);
+  const [formHealth, setFormHealth] = useState<number>(0);
+  const [formBankName, setFormBankName] = useState('');
+  const [formAccountNumber, setFormAccountNumber] = useState('');
   const [formAccountName, setFormAccountName] = useState('');
   const [formStatus, setFormStatus] = useState<PayrollStatus>('paid');
   const [formNotes, setFormNotes] = useState('');
@@ -195,25 +195,25 @@ export default function PayrollPage() {
 
   const handleOpenCreateModal = () => {
     setEditingRecordId(null);
-    setFormStaffId(users[0]?.id || 'u1');
-    setFormStaffName(users[0]?.full_name || 'Davids Ogan');
-    setFormStaffEmail(users[0]?.email || 'davids@modedigital.ng');
-    setFormDepartment(users[0]?.department || 'Executive');
-    setFormJobTitle(users[0]?.job_title || 'Managing Director');
+    setFormStaffId('');
+    setFormStaffName('');
+    setFormStaffEmail('');
+    setFormDepartment('');
+    setFormJobTitle('');
     setFormPeriod(selectedPeriod === 'all' ? 'September 2026' : selectedPeriod);
     setFormPayDate(new Date().toISOString().split('T')[0]);
     setFormCurrency('NGN');
-    setFormBaseSalary(500000);
-    setFormHousing(100000);
-    setFormTransport(50000);
-    setFormUtility(15000);
+    setFormBaseSalary(0);
+    setFormHousing(0);
+    setFormTransport(0);
+    setFormUtility(0);
     setFormBonus(0);
-    setFormTax(40000);
-    setFormPension(25000);
-    setFormHealth(10000);
-    setFormBankName('Guaranty Trust Bank (GTB)');
-    setFormAccountNumber('0123456789');
-    setFormAccountName(users[0]?.full_name || '');
+    setFormTax(0);
+    setFormPension(0);
+    setFormHealth(0);
+    setFormBankName('');
+    setFormAccountNumber('');
+    setFormAccountName('');
     setFormStatus('paid');
     setFormNotes('');
     setIsRecordModalOpen(true);
@@ -246,20 +246,77 @@ export default function PayrollPage() {
   };
 
   const handleStaffSelect = (staffId: string) => {
+    if (!staffId) {
+      setFormStaffId('');
+      setFormStaffName('');
+      setFormStaffEmail('');
+      setFormDepartment('');
+      setFormJobTitle('');
+      setFormAccountName('');
+      setFormBaseSalary(0);
+      setFormHousing(0);
+      setFormTransport(0);
+      setFormUtility(0);
+      setFormBonus(0);
+      setFormTax(0);
+      setFormPension(0);
+      setFormHealth(0);
+      setFormBankName('');
+      setFormAccountNumber('');
+      return;
+    }
+
     const selected = users.find(u => u.id === staffId);
     if (selected) {
       setFormStaffId(selected.id);
       setFormStaffName(selected.full_name);
       setFormStaffEmail(selected.email);
       setFormDepartment(selected.department || 'Operations');
-      setFormJobTitle(selected.job_title || 'Staff Specialist');
+      setFormJobTitle(selected.job_title || selected.role);
       setFormAccountName(selected.full_name);
+
+      // Check if this specific employee already has an established payroll profile
+      const existing = payrollRecords.find(r => r.staffId === selected.id || r.staffEmail === selected.email);
+      if (existing) {
+        // Load their specific actual compensation & bank setup
+        setFormBaseSalary(existing.baseSalary || 0);
+        setFormHousing(existing.allowances?.housing || 0);
+        setFormTransport(existing.allowances?.transport || 0);
+        setFormUtility(existing.allowances?.utility || 0);
+        setFormBonus(0);
+        setFormTax(existing.deductions?.tax || 0);
+        setFormPension(existing.deductions?.pension || 0);
+        setFormHealth(existing.deductions?.healthInsurance || 0);
+        setFormBankName(existing.bankName || '');
+        setFormAccountNumber(existing.accountNumber || '');
+        setFormCurrency(existing.currency || 'NGN');
+      } else {
+        // Clear all fields so no dummy numbers or accounts attach to this person
+        setFormBaseSalary(0);
+        setFormHousing(0);
+        setFormTransport(0);
+        setFormUtility(0);
+        setFormBonus(0);
+        setFormTax(0);
+        setFormPension(0);
+        setFormHealth(0);
+        setFormBankName('');
+        setFormAccountNumber('');
+      }
     }
   };
 
   const handleSaveRecordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formStaffName || !formPeriod) return;
+    if (!formStaffName.trim() || !formPeriod.trim()) {
+      alert('Please select an employee and provide a payroll period.');
+      return;
+    }
+
+    if (Number(formBaseSalary) <= 0) {
+      alert(`Please enter a valid base salary amount for ${formStaffName}.`);
+      return;
+    }
 
     const payload = {
       staffId: formStaffId || `u-${Date.now()}`,
@@ -718,18 +775,27 @@ export default function PayrollPage() {
                   <div className="font-bold text-slate-900 pb-1 border-b border-slate-200 uppercase text-[10px] tracking-wider text-rose-600">
                     Statutory & Voluntary Deductions
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-600">PAYE Income Tax</span>
-                    <span className="font-mono font-semibold text-rose-700">-{formatCurrency(p.deductions?.tax || 0, p.currency)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-600">Employee Pension Contribution (8%)</span>
-                    <span className="font-mono font-semibold text-rose-700">-{formatCurrency(p.deductions?.pension || 0, p.currency)}</span>
-                  </div>
-                  {p.deductions?.healthInsurance ? (
+                  {p.deductions?.tax && p.deductions.tax > 0 ? (
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span className="text-slate-600">PAYE Income Tax</span>
+                      <span className="font-mono font-semibold text-rose-700">-{formatCurrency(p.deductions.tax, p.currency)}</span>
+                    </div>
+                  ) : null}
+                  {p.deductions?.pension && p.deductions.pension > 0 ? (
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span className="text-slate-600">Employee Pension Contribution (8%)</span>
+                      <span className="font-mono font-semibold text-rose-700">-{formatCurrency(p.deductions.pension, p.currency)}</span>
+                    </div>
+                  ) : null}
+                  {p.deductions?.healthInsurance && p.deductions.healthInsurance > 0 ? (
                     <div className="flex justify-between py-1 border-b border-slate-100">
                       <span className="text-slate-600">Health Insurance / NHIS</span>
                       <span className="font-mono font-semibold text-rose-700">-{formatCurrency(p.deductions.healthInsurance, p.currency)}</span>
+                    </div>
+                  ) : null}
+                  {(!p.deductions?.tax && !p.deductions?.pension && !p.deductions?.healthInsurance) || p.totalDeductions === 0 ? (
+                    <div className="py-2 text-[11px] text-slate-400 italic">
+                      No statutory or voluntary deductions withheld.
                     </div>
                   ) : null}
                   <div className="flex justify-between font-extrabold text-rose-800 pt-2 border-t border-slate-200">
@@ -834,6 +900,7 @@ export default function PayrollPage() {
                     value={formStaffId}
                     className="px-2.5 py-1 text-xs bg-white border border-slate-200 rounded-lg font-semibold"
                   >
+                    <option value="">-- Select Employee to Pay --</option>
                     {users.map(u => (
                       <option key={u.id} value={u.id}>
                         {u.full_name} ({u.job_title || u.role})

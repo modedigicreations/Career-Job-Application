@@ -45,7 +45,7 @@ export default function InvoicesPage() {
   const [taxRate, setTaxRate] = useState<number>(0);
   const [initialAmountPaid, setInitialAmountPaid] = useState<number>(0);
   const [items, setItems] = useState<{ id: string; description: string; quantity: number; unitPrice: number; total: number }[]>([
-    { id: 'item-1', description: 'Web Application Development & UI Design', quantity: 1, unitPrice: 750000, total: 750000 }
+    { id: 'item-1', description: '', quantity: 1, unitPrice: 0, total: 0 }
   ]);
 
   // Record Payment Form State
@@ -130,11 +130,23 @@ export default function InvoicesPage() {
       setClientEmail(foundContact.email || '');
       return;
     }
-    const foundLead = leads.find(l => l.name === val || l.company === val);
+    const foundLead = leads.find(l => l.company === val || l.name === val);
     if (foundLead) {
-      setClientName(foundLead.company ? `${foundLead.company}` : foundLead.name);
+      setClientName(foundLead.company ? foundLead.company : foundLead.name);
       setClientEmail(foundLead.email || '');
       if (foundLead.currency) setCurrency(foundLead.currency);
+      if (items.length === 1 && !items[0].description.trim() && items[0].unitPrice === 0 && foundLead.serviceInterested) {
+        const serviceName = foundLead.serviceInterested.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        setItems([
+          {
+            id: `item-${Date.now()}-1`,
+            description: serviceName,
+            quantity: 1,
+            unitPrice: foundLead.estimatedValue || foundLead.budget || 0,
+            total: foundLead.estimatedValue || foundLead.budget || 0
+          }
+        ]);
+      }
       return;
     }
     setClientName(val);
@@ -159,7 +171,11 @@ export default function InvoicesPage() {
   };
 
   const handleRemoveItem = (id: string) => {
-    if (items.length <= 1) return;
+    if (items.length <= 1) {
+      // Clear the single row rather than leaving stale data
+      setItems([{ id: `item-${Date.now()}-1`, description: '', quantity: 1, unitPrice: 0, total: 0 }]);
+      return;
+    }
     setItems(prev => prev.filter(item => item.id !== id));
   };
 
@@ -169,27 +185,46 @@ export default function InvoicesPage() {
 
   const handleCreateInvoiceSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clientName || !invoiceNumber || items.length === 0) return;
+    if (!clientName.trim() || !invoiceNumber.trim()) {
+      alert('Please provide a client name and invoice number.');
+      return;
+    }
 
-    const formattedItems = items.map(it => ({
+    // Only attach items that were actually entered for this intended client
+    const validItems = items.filter(it => it.description.trim() !== '' || Number(it.unitPrice) > 0);
+    if (validItems.length === 0) {
+      alert('Please enter at least one billable item description and amount for this client.');
+      return;
+    }
+
+    const formattedItems = validItems.map(it => ({
       id: it.id,
-      description: it.description || 'Service Deliverable',
-      quantity: Number(it.quantity) || 1,
-      unitPrice: Number(it.unitPrice) || 0,
-      total: (Number(it.quantity) || 1) * (Number(it.unitPrice) || 0)
+      description: it.description.trim() || 'Service Item',
+      quantity: Math.max(1, Number(it.quantity) || 1),
+      unitPrice: Math.max(0, Number(it.unitPrice) || 0),
+      total: Math.max(1, Number(it.quantity) || 1) * Math.max(0, Number(it.unitPrice) || 0)
     }));
 
+    const calculatedSubtotal = formattedItems.reduce((acc, curr) => acc + curr.total, 0);
+    const calculatedTax = Math.round(calculatedSubtotal * (Number(taxRate || 0) / 100));
+    const calculatedTotal = calculatedSubtotal + calculatedTax;
+    const paidAmount = Number(initialAmountPaid) || 0;
+
     const invoicePayload = {
-      invoiceNumber,
-      clientName,
-      clientEmail,
+      invoiceNumber: invoiceNumber.trim(),
+      clientName: clientName.trim(),
+      clientEmail: clientEmail.trim(),
       items: formattedItems,
-      subtotal,
-      tax,
-      total,
-      amountPaid: Number(initialAmountPaid) || 0,
+      subtotal: calculatedSubtotal,
+      tax: calculatedTax,
+      total: calculatedTotal,
+      amountPaid: paidAmount,
       currency,
-      status: (Number(initialAmountPaid) >= total && total > 0 ? 'paid' : Number(initialAmountPaid) > 0 ? 'partially-paid' : invoiceStatus) as Invoice['status'],
+      status: (paidAmount >= calculatedTotal && calculatedTotal > 0
+        ? 'paid'
+        : paidAmount > 0
+        ? 'partially-paid'
+        : invoiceStatus) as Invoice['status'],
       issueDate: issueDate || new Date().toISOString().split('T')[0],
       dueDate: dueDate || new Date().toISOString().split('T')[0],
       notes,
@@ -575,13 +610,15 @@ export default function InvoicesPage() {
                   </div>
 
                   {/* Part Payments Recorded */}
-                  <div className="flex justify-between font-bold text-emerald-800 bg-emerald-50/90 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs">
-                    <span className="flex items-center gap-1.5">
-                      <CheckCircle2 size={13} className="text-emerald-600" />
-                      <span>Payments Received / Part Payments</span>
-                    </span>
-                    <span className="font-mono">-{formatCurrency(totalPaid, inv.currency)}</span>
-                  </div>
+                  {totalPaid > 0 && (
+                    <div className="flex justify-between font-bold text-emerald-800 bg-emerald-50/90 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 size={13} className="text-emerald-600" />
+                        <span>Payments Received / Part Payments</span>
+                      </span>
+                      <span className="font-mono">-{formatCurrency(totalPaid, inv.currency)}</span>
+                    </div>
+                  )}
 
                   {/* Net Balance Due */}
                   <div className={`flex justify-between items-center font-extrabold p-3 rounded-xl border ${
@@ -600,7 +637,7 @@ export default function InvoicesPage() {
               </div>
 
               {/* Payment Receipts & Transaction Ledger */}
-              {(invPayments.length > 0 || totalPaid > 0) && (
+              {totalPaid > 0 && (
                 <div className="mt-4 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
                   <div className="flex items-center justify-between font-bold text-slate-800 mb-2">
                     <span className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
