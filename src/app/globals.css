@@ -108,6 +108,11 @@ body {
     display: none !important;
   }
 
+  /* Prevent any clipping or zero-height containers in print */
+  div, main {
+    overflow: visible !important;
+  }
+
   /* Printable container strictly contained to 1 page */
   .printable-sheet {
     position: static !important;
