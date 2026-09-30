@@ -32,7 +32,7 @@ export default function HostingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPlan, setFilterPlan] = useState<string>('all');
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncNotice, setSyncNotice] = useState<{ type: 'success' | 'error'; title: string; message: string } | null>(null);
+  const [syncNotice, setSyncNotice] = useState<{ type: 'success' | 'error'; title: string; message: string; detectedIp?: string } | null>(null);
   const [isWhmcsModalOpen, setIsWhmcsModalOpen] = useState(false);
 
   // WHMCS Config Modal Form State
@@ -41,7 +41,8 @@ export default function HostingPage() {
   const [modalSecret, setModalSecret] = useState(whmcsConfig.secret && whmcsConfig.secret !== '••••••••••••••••' ? whmcsConfig.secret : '');
   const [modalAuthMethod, setModalAuthMethod] = useState<'api_credentials' | 'admin_login'>('api_credentials');
   const [isTestingConn, setIsTestingConn] = useState(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string; detectedIp?: string } | null>(null);
+  const [copiedIp, setCopiedIp] = useState(false);
 
   const filteredAccounts = hostingAccounts.filter(h => {
     if (searchTerm && !h.domainName.toLowerCase().includes(searchTerm.toLowerCase()) && !h.clientName.toLowerCase().includes(searchTerm.toLowerCase())) {
@@ -73,7 +74,8 @@ export default function HostingPage() {
         setSyncNotice({
           type: 'error',
           title: 'WHMCS Sync Failed',
-          message: res.message || 'Unable to fetch data from WHMCS. Check your API credentials and IP restrictions.'
+          message: res.message || 'Unable to fetch data from WHMCS. Check your API credentials and IP restrictions.',
+          detectedIp: res.detectedIp
         });
       }
     } catch (err: any) {
@@ -121,7 +123,8 @@ export default function HostingPage() {
       } else {
         setTestResult({
           success: false,
-          message: data.message || data.error || 'Authentication failed. Please check your credentials.'
+          message: data.message || data.error || 'Authentication failed. Please check your credentials.',
+          detectedIp: data.detectedIp
         });
       }
     } catch (err: any) {
@@ -132,6 +135,12 @@ export default function HostingPage() {
     } finally {
       setIsTestingConn(false);
     }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIp(true);
+    setTimeout(() => setCopiedIp(false), 3000);
   };
 
   const handleSaveWhmcsConfig = async (e: React.FormEvent) => {
@@ -225,6 +234,18 @@ export default function HostingPage() {
             <div>
               <div className="font-bold text-xs">{syncNotice.title}</div>
               <div className="mt-0.5 text-[11px] leading-relaxed opacity-90">{syncNotice.message}</div>
+              {syncNotice.detectedIp && (
+                <div className="mt-2.5 p-2.5 rounded-lg bg-white/90 border border-rose-300 text-rose-950 font-mono text-[11px] flex items-center justify-between gap-2">
+                  <span>Server IP to Whitelist: <strong>{syncNotice.detectedIp}</strong></span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(syncNotice.detectedIp!)}
+                    className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded font-sans text-[10px] font-bold transition"
+                  >
+                    {copiedIp ? 'Copied!' : 'Copy IP'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
           <button onClick={() => setSyncNotice(null)} className="p-1 opacity-70 hover:opacity-100">
@@ -493,6 +514,18 @@ export default function HostingPage() {
                     <div>
                       <span className="font-bold block">{testResult.success ? 'Connection Successful' : 'Connection Failed'}</span>
                       <span>{testResult.message}</span>
+                      {testResult.detectedIp && (
+                        <div className="mt-2.5 p-2 rounded-lg bg-white/90 border border-rose-300 text-rose-950 font-mono text-[11px] flex items-center justify-between gap-2">
+                          <span>Server IP: <strong>{testResult.detectedIp}</strong></span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(testResult.detectedIp!)}
+                            className="px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded font-sans text-[10px] font-bold transition"
+                          >
+                            {copiedIp ? 'Copied!' : 'Copy IP'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
