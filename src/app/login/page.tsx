@@ -290,7 +290,7 @@ export default function LoginPage() {
                   Quick Staff Login (Provided Accounts)
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                  {users.slice(0, 6).map((u) => (
+                  {users.slice(0, 9).map((u) => (
                     <button
                       key={u.id}
                       type="button"
@@ -312,7 +312,7 @@ export default function LoginPage() {
           {activeTab === 'changepass' && (
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-300 text-xs leading-relaxed">
-                Staff members can reset or update their password here using their company email address.
+                Staff members can activate their account, reset, or update their password here using their official company email address.
               </div>
 
               {changeError && (
@@ -341,7 +341,7 @@ export default function LoginPage() {
                     required
                     value={changeEmail}
                     onChange={(e) => setChangeEmail(e.target.value)}
-                    placeholder="e.g. info@modedigitalcreations.ng or staff@modedigitalcreations.ng"
+                    placeholder="e.g. ben@modewebhost.com.ng or info@modedigitalcreations.ng"
                     className="w-full pl-10 pr-3 py-2.5 bg-slate-900/90 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                   />
                 </div>

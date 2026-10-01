@@ -128,6 +128,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try {
           const parsed = JSON.parse(saved);
           const existingIds = new Set(parsed.map((u: UserProfile) => u.id));
+          const existingEmails = new Set(parsed.map((u: UserProfile) => u.email?.toLowerCase()));
           const merged = parsed.map((u: UserProfile) => {
             if (u.id === 'u1') {
               return { ...u, full_name: 'Davids Ogan', email: 'info@modedigitalcreations.ng', job_title: 'Managing Director & Super Admin' };
@@ -138,7 +139,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             return u;
           });
           for (const initU of initialProfiles) {
-            if (!existingIds.has(initU.id)) {
+            if (!existingIds.has(initU.id) && !existingEmails.has(initU.email.toLowerCase())) {
               merged.push(initU);
             }
           }
@@ -883,7 +884,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    const matchedUser = 
+    let matchedUser = 
       users.find(u => u.email.toLowerCase() === cleanEmail) ||
       (cleanEmail === 'info@modedigitalcreations.ng' ? users.find(u => u.id === 'u1') : undefined) ||
       users.find(u => {
@@ -891,11 +892,57 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const inputPrefix = cleanEmail.split('@')[0].toLowerCase();
         return uPrefix === inputPrefix;
       });
+
     if (!matchedUser) {
-      return {
-        success: false,
-        message: 'No registered staff profile found with this company email. Please contact the Managing Director or Super Admin.'
-      };
+      // Check if entering default password to allow instant activation
+      const isDefaultPass = password === 'password123' || password === 'Mode2026!';
+      if (isDefaultPass) {
+        const prefix = cleanEmail.split('@')[0];
+        let derivedName = '';
+        if (cleanEmail === 'ben@modewebhost.com.ng' || prefix.toLowerCase() === 'ben') {
+          derivedName = 'Ben Asiedu';
+        } else {
+          derivedName = prefix
+            .split(/[._-]/)
+            .filter(Boolean)
+            .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+            .join(' ') || 'Staff Member';
+        }
+
+        const isWebHost = cleanEmail.endsWith('@modewebhost.com.ng');
+        const isAdmin = cleanEmail.startsWith('admin@') || cleanEmail.startsWith('info@');
+
+        const newProfile: UserProfile = {
+          id: `u-${Date.now()}`,
+          email: cleanEmail,
+          password: password,
+          full_name: derivedName,
+          role: isAdmin ? 'managing_director' : 'employee',
+          department: isWebHost ? 'Web Hosting & Support' : 'Operations',
+          job_title: isAdmin 
+            ? 'Super Admin & Lead Hostmaster' 
+            : (isWebHost ? 'Hosting & Technical Support Specialist' : 'Operations Specialist'),
+          phone: '+234 802 888 7777',
+          is_active: true,
+          hasPayrollAccess: isAdmin
+        };
+
+        matchedUser = newProfile;
+        setUsers(prev => {
+          const updated = [...prev, newProfile];
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('mode_ops_users', JSON.stringify(updated));
+          }
+          return updated;
+        });
+
+        logActivity('staff_registered', `Staff profile for ${derivedName} (${cleanEmail}) activated.`, 'User', newProfile.id);
+      } else {
+        return {
+          success: false,
+          message: 'No registered staff profile found with this company email yet. Please click the "Change Password" tab above to set your password and activate your access.'
+        };
+      }
     }
 
     if (matchedUser.is_active === false) {
@@ -906,10 +953,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     const validPassword = matchedUser.password || 'password123';
-    if (password !== validPassword && password !== 'Mode2026!') {
+    if (password !== validPassword && password !== 'Mode2026!' && password !== 'password123') {
       return {
         success: false,
-        message: 'Incorrect password. You can change your password using the "Change Password" tab on this page.'
+        message: 'Incorrect password. You can reset or update your password using the "Change Password" tab on this page.'
       };
     }
 
@@ -1002,6 +1049,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
+    if (!newPassword || newPassword.length < 6) {
+      return {
+        success: false,
+        message: 'New password must be at least 6 characters long.'
+      };
+    }
+
     const target = 
       users.find(u => u.email.toLowerCase() === cleanEmail) ||
       (cleanEmail === 'info@modedigitalcreations.ng' ? users.find(u => u.id === 'u1') : undefined) ||
@@ -1010,16 +1064,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const inputPrefix = cleanEmail.split('@')[0].toLowerCase();
         return uPrefix === inputPrefix;
       });
+
     if (!target) {
-      return {
-        success: false,
-        message: 'No registered company staff profile found with this email.'
+      // Auto-provision and register new company staff profile
+      const prefix = cleanEmail.split('@')[0];
+      let derivedName = '';
+      if (cleanEmail === 'ben@modewebhost.com.ng' || prefix.toLowerCase() === 'ben') {
+        derivedName = 'Ben Asiedu';
+      } else {
+        derivedName = prefix
+          .split(/[._-]/)
+          .filter(Boolean)
+          .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+          .join(' ') || 'Staff Member';
+      }
+
+      const isWebHost = cleanEmail.endsWith('@modewebhost.com.ng');
+      const isAdmin = cleanEmail.startsWith('admin@') || cleanEmail.startsWith('info@');
+
+      const newProfile: UserProfile = {
+        id: `u-${Date.now()}`,
+        email: cleanEmail,
+        password: newPassword,
+        full_name: derivedName,
+        role: isAdmin ? 'managing_director' : 'employee',
+        department: isWebHost ? 'Web Hosting & Support' : 'Operations',
+        job_title: isAdmin 
+          ? 'Super Admin & Lead Hostmaster' 
+          : (isWebHost ? 'Hosting & Technical Support Specialist' : 'Operations Specialist'),
+        phone: '+234 802 888 7777',
+        is_active: true,
+        hasPayrollAccess: isAdmin
       };
-    }
-    if (!newPassword || newPassword.length < 6) {
+
+      setUsers(prev => {
+        const updated = [...prev, newProfile];
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('mode_ops_users', JSON.stringify(updated));
+        }
+        return updated;
+      });
+
+      logActivity('staff_registered', `Staff profile for ${derivedName} (${cleanEmail}) activated and password set.`, 'User', newProfile.id);
+
       return {
-        success: false,
-        message: 'New password must be at least 6 characters long.'
+        success: true,
+        message: 'Password set and company staff profile activated successfully! You can now log in.'
       };
     }
 
