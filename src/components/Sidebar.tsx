@@ -28,7 +28,8 @@ import {
   ShieldCheck,
   ArrowRightLeft,
   Clock,
-  LogOut
+  LogOut,
+  Megaphone
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
@@ -48,12 +49,21 @@ export default function Sidebar() {
     mobileSidebarOpen,
     setMobileSidebarOpen,
     activeShift,
-    logout
+    logout,
+    memos
   } = useAppStore();
 
   const unreadNotifs = notifications.filter(n => !n.read).length;
   const pendingRequisitions = requisitions.filter(r => r.status === 'Pending').length;
   const activeLeads = leads.filter(l => l.status !== 'won' && l.status !== 'lost').length;
+
+  const unreadMemos = memos.filter(m => {
+    const isTarget = m.targetAudience === 'all' ||
+      (m.targetAudience === 'department' && m.targetDepartment?.toLowerCase() === currentUser.department?.toLowerCase()) ||
+      (m.targetAudience === 'specific_staff' && m.targetStaffIds?.includes(currentUser.id)) ||
+      m.senderId === currentUser.id;
+    return isTarget && !m.readBy?.[currentUser.id];
+  }).length;
 
   const roles: { role: UserRole; label: string; desc: string }[] = [
     { role: 'managing_director', label: 'Managing Director (MD)', desc: 'Executive visibility, all approvals & strategy' },
@@ -76,6 +86,13 @@ export default function Sidebar() {
       title: 'OVERVIEW',
       items: [
         { href: '/dashboard', label: 'Executive Cockpit', icon: LayoutDashboard },
+        { 
+          href: '/dashboard/memos', 
+          label: 'Staff Memos', 
+          icon: Megaphone, 
+          badge: unreadMemos > 0 ? `${unreadMemos}` : undefined,
+          badgeColor: 'bg-rose-500 text-white'
+        },
       ],
     },
     {

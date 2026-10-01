@@ -124,3 +124,38 @@ export function formatMailtoUrl(email?: string, subject?: string, body?: string)
   if (body) params.push(`body=${encodeURIComponent(body)}`);
   return `mailto:${email}${params.length > 0 ? `?${params.join('&')}` : ''}`;
 }
+
+export function isManagementUser(role?: string): boolean {
+  if (!role) return false;
+  return role === 'managing_director' || role === 'manager' || role === 'super_admin' || role === 'admin';
+}
+
+export function getMemoPriorityBadge(priority: string) {
+  switch (priority) {
+    case 'urgent':
+      return 'bg-rose-50 text-rose-700 border-rose-200';
+    case 'policy':
+      return 'bg-amber-50 text-amber-700 border-amber-200';
+    case 'announcement':
+      return 'bg-blue-50 text-blue-700 border-blue-200';
+    case 'normal':
+    default:
+      return 'bg-slate-50 text-slate-700 border-slate-200';
+  }
+}
+
+export function getMemoCategoryBadge(category: string) {
+  switch (category) {
+    case 'urgent_notice':
+      return 'bg-rose-100 text-rose-800';
+    case 'policy':
+      return 'bg-amber-100 text-amber-800';
+    case 'operations':
+      return 'bg-emerald-100 text-emerald-800';
+    case 'event':
+      return 'bg-purple-100 text-purple-800';
+    case 'general':
+    default:
+      return 'bg-slate-100 text-slate-800';
+  }
+}

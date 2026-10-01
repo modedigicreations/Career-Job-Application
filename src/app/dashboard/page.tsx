@@ -17,10 +17,16 @@ import {
   Users,
   ChevronRight,
   ShieldCheck,
-  Building
+  Building,
+  Megaphone,
+  Check,
+  Eye,
+  X,
+  FileText
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
-import { formatCurrency, formatDate, getDaysUntil, getUrgencyBadge, getRequisitionStatusBadge } from '@/lib/utils';
+import { formatCurrency, formatDate, getDaysUntil, getUrgencyBadge, getRequisitionStatusBadge, isManagementUser, getMemoPriorityBadge, getMemoCategoryBadge } from '@/lib/utils';
+import type { StaffMemo } from '@/lib/types';
 
 export default function ExecutiveCockpitPage() {
   const {
@@ -32,8 +38,27 @@ export default function ExecutiveCockpitPage() {
     activities,
     currentUser,
     updateRequisitionDecision,
-    shifts
+    shifts,
+    memos,
+    markMemoAsRead,
+    acknowledgeMemo
   } = useAppStore();
+
+  const [dashboardMemoModal, setDashboardMemoModal] = React.useState<StaffMemo | null>(null);
+
+  // Memos relevant to the active staff user
+  const isManager = isManagementUser(currentUser.role);
+  const userMemos = memos.filter(m => {
+    if (m.senderId === currentUser.id) return true;
+    if (m.targetAudience === 'all') return true;
+    if (m.targetAudience === 'department' && m.targetDepartment?.toLowerCase() === currentUser.department?.toLowerCase()) return true;
+    if (m.targetAudience === 'specific_staff' && m.targetStaffIds?.includes(currentUser.id)) return true;
+    if (isManager) return true;
+    return false;
+  });
+
+  const unreadMemos = userMemos.filter(m => !m.readBy?.[currentUser.id]);
+  const unreadUrgentMemo = userMemos.find(m => m.priority === 'urgent' && !m.readBy?.[currentUser.id]);
 
   // Metrics computation
   const activeDeals = leads.filter(l => l.status !== 'won' && l.status !== 'lost');
@@ -90,6 +115,45 @@ export default function ExecutiveCockpitPage() {
         {/* Ambient background blur */}
         <div className="absolute right-0 top-0 w-48 h-48 sm:w-96 sm:h-96 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
       </div>
+
+      {/* Urgent Management Directive Alert Banner (if unread urgent memo exists) */}
+      {unreadUrgentMemo && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-rose-950 via-rose-900 to-rose-800 text-white shadow-lg border border-rose-500/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-white/10 text-rose-200 border border-white/20 flex items-center justify-center shrink-0">
+              <AlertTriangle size={20} className="text-rose-300" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider bg-rose-500/40 text-rose-200 px-2 py-0.5 rounded-full border border-rose-400/40">
+                  Urgent Directive From Management
+                </span>
+                <span className="text-xs text-rose-300 font-mono">{unreadUrgentMemo.memoNumber}</span>
+              </div>
+              <h3 className="font-extrabold text-sm sm:text-base text-white mt-0.5">
+                {unreadUrgentMemo.title}
+              </h3>
+              <p className="text-xs text-rose-100/80 mt-0.5">
+                Issued by {unreadUrgentMemo.senderName} ({unreadUrgentMemo.senderDepartment || 'Executive'}). Immediate staff action &amp; acknowledgment required.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 self-start md:self-auto">
+            <button
+              type="button"
+              onClick={() => {
+                markMemoAsRead(unreadUrgentMemo.id);
+                setDashboardMemoModal(unreadUrgentMemo);
+              }}
+              className="px-4 py-2 rounded-xl bg-white text-rose-950 font-bold text-xs hover:bg-rose-50 transition shadow-sm flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>Review &amp; Sign-off</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Live Staff on Shift Widget */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -204,6 +268,122 @@ export default function ExecutiveCockpitPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column (2 Cols) */}
         <div className="lg:col-span-2 space-y-6 min-w-0">
+          {/* Official Management Directives & Staff Memos */}
+          <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+                  <Megaphone size={18} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-slate-900">Official Management Directives</h2>
+                    {unreadMemos.length > 0 && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500 text-white animate-pulse">
+                        {unreadMemos.length} New
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500">Executive circulars, company policies, and operational notices</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {isManager && (
+                  <Link
+                    href="/dashboard/memos?action=create"
+                    className="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs transition flex items-center gap-1"
+                  >
+                    <span>+ Issue Memo</span>
+                  </Link>
+                )}
+                <Link href="/dashboard/memos" className="text-xs font-semibold text-[#0D52F8] hover:underline flex items-center gap-0.5">
+                  <span>View All ({userMemos.length})</span>
+                  <ChevronRight size={14} />
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {userMemos.length === 0 ? (
+                <div className="text-center py-6 text-slate-400 text-xs">
+                  <CheckCircle2 size={24} className="mx-auto mb-1 text-emerald-500" />
+                  No active management directives at this time.
+                </div>
+              ) : (
+                userMemos.slice(0, 3).map(memo => {
+                  const isRead = !!memo.readBy[currentUser.id];
+                  const isAck = !!memo.acknowledgedBy[currentUser.id];
+                  const needsAck = memo.requiresAcknowledgment && !isAck;
+
+                  return (
+                    <div
+                      key={memo.id}
+                      className={`p-3.5 rounded-xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                        !isRead
+                          ? 'border-blue-400 bg-blue-50/30'
+                          : needsAck
+                          ? 'border-amber-300 bg-amber-50/20'
+                          : 'border-slate-200/80 bg-slate-50/50 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-[10px] font-bold text-slate-400">{memo.memoNumber}</span>
+                          <span className="font-bold text-xs text-slate-900">{memo.title}</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${getMemoPriorityBadge(memo.priority)}`}>
+                            {memo.priority.toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">
+                          <span>From <strong className="text-slate-700">{memo.senderName}</strong></span>
+                          <span>•</span>
+                          <span>To: {memo.targetAudience === 'all' ? 'All Staff' : memo.targetDepartment || 'Direct'}</span>
+                          <span>•</span>
+                          <span>{formatDate(memo.createdAt)}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
+                        {isAck ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                            <CheckCircle2 size={11} />
+                            <span>Acknowledged</span>
+                          </span>
+                        ) : needsAck ? (
+                          <button
+                            type="button"
+                            onClick={() => acknowledgeMemo(memo.id)}
+                            className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition flex items-center gap-1 cursor-pointer"
+                          >
+                            <Check size={12} />
+                            <span>Acknowledge</span>
+                          </button>
+                        ) : isRead ? (
+                          <span className="text-[10px] text-slate-400 font-medium">Read</span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-blue-600">New</span>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            markMemoAsRead(memo.id);
+                            setDashboardMemoModal(memo);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <Eye size={12} />
+                          <span>Read</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
           {/* Quick Pending Requisitions Approvals (for MD & Managers) */}
           <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -431,6 +611,147 @@ export default function ExecutiveCockpitPage() {
           </div>
         </div>
       </div>
+      {/* Quick Dashboard Memo Reader Modal */}
+      {dashboardMemoModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-6 animate-scale-up">
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-[#0B1A3F] to-[#0D52F8] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-white/10 text-white">
+                  <Megaphone size={18} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-blue-200 font-bold">{dashboardMemoModal.memoNumber}</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getMemoPriorityBadge(dashboardMemoModal.priority)}`}>
+                      {dashboardMemoModal.priority.toUpperCase()}
+                    </span>
+                  </div>
+                  <h2 className="text-sm sm:text-base font-extrabold tracking-tight mt-0.5">
+                    Official Management Memorandum
+                  </h2>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDashboardMemoModal(null)}
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-5 sm:p-6 space-y-5 text-xs">
+              <div className="border-b-2 border-slate-900 pb-3 flex items-center justify-between">
+                <div>
+                  <h3 className="font-black text-sm tracking-tight text-slate-900 uppercase">
+                    MODE DIGITAL CREATIONS / MODE WEB HOST
+                  </h3>
+                  <p className="text-[10px] text-slate-500">Corporate Management Memorandum</p>
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${getMemoCategoryBadge(dashboardMemoModal.category)}`}>
+                  {dashboardMemoModal.category.toUpperCase().replace('_', ' ')}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 font-mono text-[11px]">
+                <div>
+                  <span className="text-slate-400 font-bold block text-[10px]">MEMO REF:</span>
+                  <span className="font-bold text-slate-900">{dashboardMemoModal.memoNumber}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-bold block text-[10px]">DATE:</span>
+                  <span className="text-slate-700">{formatDate(dashboardMemoModal.createdAt)}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-bold block text-[10px]">FROM:</span>
+                  <span className="font-bold text-slate-900">{dashboardMemoModal.senderName}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-bold block text-[10px]">DISTRIBUTION:</span>
+                  <span className="text-slate-700 uppercase">
+                    {dashboardMemoModal.targetAudience === 'all' ? 'ALL STAFF' : dashboardMemoModal.targetDepartment || 'DIRECT'}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
+                  Subject Directive
+                </span>
+                <h4 className="text-base font-extrabold text-slate-900 leading-snug mt-0.5">
+                  {dashboardMemoModal.title}
+                </h4>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-200/90 bg-white text-xs text-slate-800 leading-relaxed whitespace-pre-wrap min-h-[140px]">
+                {dashboardMemoModal.content}
+              </div>
+
+              {dashboardMemoModal.requiresAcknowledgment && (
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                      <ShieldCheck size={15} className="text-blue-600" />
+                      <span>Staff Acknowledgment Verification</span>
+                    </span>
+                    {dashboardMemoModal.acknowledgedBy[currentUser.id] ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        <CheckCircle2 size={12} />
+                        <span>Signed &amp; Confirmed</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                        <AlertTriangle size={12} />
+                        <span>Action Required</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {dashboardMemoModal.acknowledgedBy[currentUser.id] ? (
+                    <div className="text-[11px] text-slate-500">
+                      Acknowledged by <strong>{currentUser.full_name}</strong> on {new Date(dashboardMemoModal.acknowledgedBy[currentUser.id]).toLocaleString()}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                      <p className="text-[11px] text-slate-600">
+                        Clicking acknowledge confirms you have received and read this directive.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          acknowledgeMemo(dashboardMemoModal.id);
+                          setDashboardMemoModal({
+                            ...dashboardMemoModal,
+                            acknowledgedBy: {
+                              ...dashboardMemoModal.acknowledgedBy,
+                              [currentUser.id]: new Date().toISOString()
+                            }
+                          });
+                        }}
+                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs"
+                      >
+                        <Check size={13} />
+                        <span>Acknowledge Receipt</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setDashboardMemoModal(null)}
+                className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import type {
   UserProfile, Lead, Contact, Company, Project, Task, Service, HostingAccount,
   Invoice, Payment, Ticket, ActivityItem, Requisition, Goal, Feedback, AppNotification,
-  PayrollRecord, StaffShift
+  PayrollRecord, StaffShift, StaffMemo
 } from './types';
 
 export const initialProfiles: UserProfile[] = [
@@ -552,6 +552,82 @@ export const initialShifts: StaffShift[] = [
     status: 'completed',
     hourlyRate: 2500,
     notes: 'Standard shift: Monthly payroll dispatches, bank reconciliations.'
+  }
+];
+
+export const initialMemos: StaffMemo[] = [
+  {
+    id: 'memo-001',
+    memoNumber: 'MEMO-2026-001',
+    title: 'URGENT: Public Holiday Office Schedule & Emergency Standby Rotations',
+    content: `All Team Members,\n\nPlease be informed of our operational schedule for the upcoming public holiday. While physical operations will observe the national holiday, the Web Hosting Infrastructure and Client Support desk will maintain active on-call coverage to guarantee 99.9% uptime for all client portals and WHMCS provisioning.\n\nKey Directives:\n1. Technical Support & Systems Specialists (Ben Asiedu & Emeka Nwosu) will monitor automated server health alerts on rotating shifts.\n2. Any emergency client escalations received via WhatsApp or support ticket must be responded to within 30 minutes.\n3. Daily shift clock-in remains mandatory for staff working remote standby.\n\nPlease read and acknowledge this memo below immediately.`,
+    senderId: 'u1',
+    senderName: 'Davids Ogan',
+    senderRole: 'managing_director',
+    senderDepartment: 'Executive',
+    targetAudience: 'all',
+    priority: 'urgent',
+    category: 'urgent_notice',
+    requiresAcknowledgment: true,
+    readBy: {
+      'u1': '2026-09-30T08:00:00Z',
+      'u4': '2026-09-30T09:15:00Z',
+      'u5': '2026-09-30T10:00:00Z'
+    },
+    acknowledgedBy: {
+      'u1': '2026-09-30T08:00:00Z',
+      'u4': '2026-09-30T09:20:00Z'
+    },
+    createdAt: '2026-09-30T07:45:00Z'
+  },
+  {
+    id: 'memo-002',
+    memoNumber: 'MEMO-2026-002',
+    title: 'Standard Operating Procedures for Client Hosting & Server Deployments',
+    content: `Attention All Engineering & Hosting Staff,\n\nEffective immediately, the following protocol must be strictly observed prior to deploying updates or provisioning live hosting accounts for corporate clients:\n\n1. Staging Verification: All website and web application code must undergo end-to-end testing in the local/staging environment before pushing to client production servers.\n2. WHMCS Synchronization: Domain registrations, SSL certificate certificates, and monthly renewals must be reconciled via the MODE Ops WHMCS live API integration.\n3. Zero Unscheduled Downtime: Maintenance windows must be announced to clients with at least 48 hours prior notification.\n\nManagement expects strict compliance from all technical personnel.`,
+    senderId: 'u4',
+    senderName: 'Fatima Bello',
+    senderRole: 'manager',
+    senderDepartment: 'Operations',
+    targetAudience: 'all',
+    priority: 'policy',
+    category: 'policy',
+    requiresAcknowledgment: true,
+    readBy: {
+      'u1': '2026-09-28T11:00:00Z',
+      'u3': '2026-09-28T14:30:00Z',
+      'u7': '2026-09-28T16:00:00Z'
+    },
+    acknowledgedBy: {
+      'u1': '2026-09-28T11:05:00Z',
+      'u3': '2026-09-28T14:45:00Z'
+    },
+    createdAt: '2026-09-28T10:00:00Z'
+  },
+  {
+    id: 'memo-003',
+    memoNumber: 'MEMO-2026-003',
+    title: 'Q4 2026 Operations & Client Deliverables Strategic Alignment',
+    content: `Dear Team,\n\nAs we enter the final quarter of 2026, I want to commend the entire MODE Digital Creations & Mode Web Host team for our stellar client delivery and expanded sales pipeline.\n\nOur top priorities for Q4:\n• Accelerate close rate on active corporate proposals (TechVenture, Sahara Logistics, EduFirst).\n• Maintain strict adherence to daily shift attendance logging; verified shift hours directly feed into your monthly payroll disbursement.\n• Ensure prompt processing of office expense requisitions with valid vendor receipts.\n\nManagement has instituted end-of-year performance bonuses tied to goal completions logged through our One-Minute Leadership framework. Let us stay focused and close the year with excellence!`,
+    senderId: 'u1',
+    senderName: 'Davids Ogan',
+    senderRole: 'managing_director',
+    senderDepartment: 'Executive',
+    targetAudience: 'all',
+    priority: 'announcement',
+    category: 'operations',
+    requiresAcknowledgment: false,
+    readBy: {
+      'u1': '2026-09-25T09:00:00Z',
+      'u2': '2026-09-25T11:20:00Z',
+      'u3': '2026-09-25T12:00:00Z',
+      'u4': '2026-09-25T13:40:00Z'
+    },
+    acknowledgedBy: {
+      'u1': '2026-09-25T09:00:00Z',
+      'u2': '2026-09-25T11:25:00Z'
+    },
+    createdAt: '2026-09-25T08:30:00Z'
   }
 ];
 
