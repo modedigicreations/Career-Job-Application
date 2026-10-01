@@ -396,3 +396,32 @@ export interface PayrollRecord {
   notes?: string;
   createdAt: string;
 }
+
+// ==========================================
+// INTERNAL MEMOS & EXECUTIVE ANNOUNCEMENTS
+// ==========================================
+export type MemoPriority = 'normal' | 'urgent' | 'announcement' | 'policy';
+export type MemoTargetAudience = 'all' | 'department' | 'specific_staff';
+export type MemoCategory = 'general' | 'policy' | 'operations' | 'urgent_notice' | 'event';
+
+export interface StaffMemo {
+  id: string;
+  memoNumber: string;
+  title: string;
+  content: string;
+  senderId: string;
+  senderName: string;
+  senderRole: string;
+  senderAvatar?: string;
+  senderDepartment?: string;
+  targetAudience: MemoTargetAudience;
+  targetDepartment?: string;
+  targetStaffIds?: string[];
+  priority: MemoPriority;
+  category: MemoCategory;
+  requiresAcknowledgment?: boolean;
+  readBy: { [staffId: string]: string }; // staffId -> ISO timestamp
+  acknowledgedBy: { [staffId: string]: string }; // staffId -> ISO timestamp
+  createdAt: string;
+  updatedAt?: string;
+}

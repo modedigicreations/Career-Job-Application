@@ -5,14 +5,14 @@ import type {
   UserProfile, Lead, Contact, Company, Project, Task, Service, HostingAccount,
   Invoice, Payment, Ticket, ActivityItem, Requisition, Goal, Feedback, AppNotification,
   UserRole, LeadStatus, RequisitionStatus, GoalStatus, WhmcsConfig, PayrollRecord,
-  StaffShift
+  StaffShift, StaffMemo
 } from './types';
 import {
   initialProfiles, initialLeads, initialContacts, initialCompanies,
   initialProjects, initialTasks, initialServices, initialHostingAccounts,
   initialInvoices, initialPayments, initialRequisitions, initialGoals,
   initialFeedbacks, initialTickets, initialActivities, initialNotifications,
-  initialPayrollRecords, initialShifts
+  initialPayrollRecords, initialShifts, initialMemos
 } from './seed-data';
 import { generateReceiptNumber } from './utils';
 
@@ -111,6 +111,22 @@ interface AppContextType {
   activities: ActivityItem[];
   notifications: AppNotification[];
   markNotificationAsRead: (id: string) => void;
+
+  // Internal Memos & Executive Announcements
+  memos: StaffMemo[];
+  sendMemo: (data: {
+    title: string;
+    content: string;
+    priority?: StaffMemo['priority'];
+    category?: StaffMemo['category'];
+    targetAudience?: StaffMemo['targetAudience'];
+    targetDepartment?: string;
+    targetStaffIds?: string[];
+    requiresAcknowledgment?: boolean;
+  }) => { success: boolean; memoId: string; message: string };
+  markMemoAsRead: (memoId: string, staffId?: string) => void;
+  acknowledgeMemo: (memoId: string, staffId?: string) => void;
+  deleteMemo: (memoId: string) => void;
 
   // Mobile Navigation
   mobileSidebarOpen: boolean;
@@ -321,6 +337,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return initialShifts;
   });
 
+  const [memos, setMemos] = useState<StaffMemo[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mode_ops_memos');
+      if (saved) try { return JSON.parse(saved); } catch {}
+    }
+    return initialMemos;
+  });
+
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const auth = localStorage.getItem('mode_ops_auth');
@@ -354,8 +378,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('mode_ops_notifications', JSON.stringify(notifications));
       localStorage.setItem('mode_ops_payroll', JSON.stringify(payrollRecords));
       localStorage.setItem('mode_ops_shifts', JSON.stringify(shifts));
+      localStorage.setItem('mode_ops_memos', JSON.stringify(memos));
     }
-  }, [leads, users, companies, projects, services, requisitions, goals, invoices, hostingAccounts, whmcsConfig, tasks, feedbacks, tickets, activities, notifications, payrollRecords, shifts]);
+  }, [leads, users, companies, projects, services, requisitions, goals, invoices, hostingAccounts, whmcsConfig, tasks, feedbacks, tickets, activities, notifications, payrollRecords, shifts, memos]);
 
   // Switch Role
   const setCurrentUserRole = (role: UserRole) => {
@@ -868,6 +893,123 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
+  // Staff Memos Actions
+  const sendMemo = (data: {
+    title: string;
+    content: string;
+    priority?: StaffMemo['priority'];
+    category?: StaffMemo['category'];
+    targetAudience?: StaffMemo['targetAudience'];
+    targetDepartment?: string;
+    targetStaffIds?: string[];
+    requiresAcknowledgment?: boolean;
+  }): { success: boolean; memoId: string; message: string } => {
+    const priority = data.priority || 'normal';
+    const category = data.category || 'general';
+    const targetAudience = data.targetAudience || 'all';
+    const nowIso = new Date().toISOString();
+    const memoNumber = `MEMO-2026-${String(memos.length + 1).padStart(3, '0')}`;
+    const newMemoId = `memo-${Date.now()}`;
+
+    const newMemo: StaffMemo = {
+      id: newMemoId,
+      memoNumber,
+      title: data.title.trim(),
+      content: data.content.trim(),
+      senderId: currentUser.id,
+      senderName: currentUser.full_name,
+      senderRole: currentUser.role,
+      senderDepartment: currentUser.department || 'Management',
+      targetAudience,
+      targetDepartment: data.targetDepartment,
+      targetStaffIds: data.targetStaffIds,
+      priority,
+      category,
+      requiresAcknowledgment: data.requiresAcknowledgment ?? (priority === 'urgent' || priority === 'policy'),
+      readBy: { [currentUser.id]: nowIso },
+      acknowledgedBy: { [currentUser.id]: nowIso },
+      createdAt: nowIso,
+    };
+
+    setMemos(prev => [newMemo, ...prev]);
+
+    // Send notifications to all recipients
+    const targetStaff = users.filter(u => {
+      if (u.id === currentUser.id) return false;
+      if (targetAudience === 'all') return true;
+      if (targetAudience === 'department' && data.targetDepartment) {
+        return u.department?.toLowerCase() === data.targetDepartment.toLowerCase();
+      }
+      if (targetAudience === 'specific_staff' && data.targetStaffIds) {
+        return data.targetStaffIds.includes(u.id);
+      }
+      return true;
+    });
+
+    const newNotifications: AppNotification[] = targetStaff.map(u => ({
+      id: `notif-memo-${Date.now()}-${u.id}`,
+      user_id: u.id,
+      type: 'memo',
+      title: `${priority === 'urgent' ? '🚨 URGENT MEMO' : '📄 Management Memo'}: ${data.title}`,
+      message: `${currentUser.full_name} (${currentUser.job_title || currentUser.role}) issued an official memo to ${targetAudience === 'all' ? 'all staff' : (data.targetDepartment || 'you')}.`,
+      link_url: '/dashboard/memos',
+      read: false,
+      created_at: nowIso,
+    }));
+
+    if (newNotifications.length > 0) {
+      setNotifications(prev => [...newNotifications, ...prev]);
+    }
+
+    logActivity('memo_broadcast', `Management memo issued: "${newMemo.title}" (${memoNumber}) by ${currentUser.full_name}`, 'StaffMemo', newMemo.id);
+
+    return {
+      success: true,
+      memoId: newMemo.id,
+      message: `Memo ${memoNumber} broadcasted successfully to ${targetStaff.length} staff member${targetStaff.length === 1 ? '' : 's'}.`
+    };
+  };
+
+  const markMemoAsRead = (memoId: string, staffId: string = currentUser.id) => {
+    const nowIso = new Date().toISOString();
+    setMemos(prev => prev.map(m => {
+      if (m.id === memoId && !m.readBy[staffId]) {
+        return {
+          ...m,
+          readBy: { ...m.readBy, [staffId]: nowIso }
+        };
+      }
+      return m;
+    }));
+  };
+
+  const acknowledgeMemo = (memoId: string, staffId: string = currentUser.id) => {
+    const nowIso = new Date().toISOString();
+    const targetMemo = memos.find(m => m.id === memoId);
+    setMemos(prev => prev.map(m => {
+      if (m.id === memoId) {
+        return {
+          ...m,
+          readBy: { ...m.readBy, [staffId]: m.readBy[staffId] || nowIso },
+          acknowledgedBy: { ...m.acknowledgedBy, [staffId]: nowIso }
+        };
+      }
+      return m;
+    }));
+
+    if (targetMemo) {
+      logActivity('memo_acknowledged', `${currentUser.full_name} acknowledged receipt of memo "${targetMemo.title}" (${targetMemo.memoNumber})`, 'StaffMemo', memoId);
+    }
+  };
+
+  const deleteMemo = (memoId: string) => {
+    const target = memos.find(m => m.id === memoId);
+    setMemos(prev => prev.filter(m => m.id !== memoId));
+    if (target) {
+      logActivity('memo_deleted', `Management memo retracted: "${target.title}" (${target.memoNumber})`, 'StaffMemo', memoId);
+    }
+  };
+
   // Authentication & Shift Actions
   const login = (email: string, password: string): { success: boolean; message?: string } => {
     const cleanEmail = email.trim().toLowerCase();
@@ -1291,6 +1433,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         activities,
         notifications,
         markNotificationAsRead,
+        memos,
+        sendMemo,
+        markMemoAsRead,
+        acknowledgeMemo,
+        deleteMemo,
         mobileSidebarOpen,
         setMobileSidebarOpen,
         toggleMobileSidebar,

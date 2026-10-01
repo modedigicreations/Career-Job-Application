@@ -15,11 +15,12 @@ import {
   X,
   Clock,
   LogOut,
-  User
+  User,
+  Megaphone
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
-import { formatDate } from '@/lib/utils';
+import { formatDate, isManagementUser } from '@/lib/utils';
 
 export default function Header() {
   const router = useRouter();
@@ -128,6 +129,16 @@ export default function Header() {
                   <Target size={15} className="text-purple-600" />
                   <span>Set 1-Minute Goal</span>
                 </Link>
+                {isManagementUser(currentUser.role) && (
+                  <Link
+                    href="/dashboard/memos?action=create"
+                    onClick={() => setQuickCreateOpen(false)}
+                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition"
+                  >
+                    <Megaphone size={15} className="text-rose-600" />
+                    <span>Send Staff Memo</span>
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -276,6 +287,16 @@ export default function Header() {
                   <Target size={14} className="text-purple-600" />
                   <span>Set 1-Minute Goal</span>
                 </Link>
+                {isManagementUser(currentUser.role) && (
+                  <Link
+                    href="/dashboard/memos?action=create"
+                    onClick={() => setQuickCreateOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg"
+                  >
+                    <Megaphone size={14} className="text-rose-600" />
+                    <span>Send Staff Memo</span>
+                  </Link>
+                )}
               </div>
             )}
           </div>
