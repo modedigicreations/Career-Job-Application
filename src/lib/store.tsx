@@ -349,9 +349,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             return parsed.map((inv: any) => {
               let total = inv.total;
               let subtotal = inv.subtotal;
-              if (inv.currency === 'GBP' && total <= 10000) {
-                total = total * 1000;
-                subtotal = (subtotal || total) * 1000;
+              if ((inv.currency === 'GBP' || inv.currency === 'USD') && total <= 10000) {
+                total = total * 1250;
+                subtotal = (subtotal || total) * 1250;
               }
               return {
                 ...inv,
@@ -360,8 +360,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 subtotal,
                 items: (inv.items || []).map((it: any) => ({
                   ...it,
-                  unitPrice: inv.currency === 'GBP' && it.unitPrice <= 10000 ? it.unitPrice * 1000 : it.unitPrice,
-                  total: inv.currency === 'GBP' && it.total <= 10000 ? it.total * 1000 : it.total
+                  unitPrice: (inv.currency === 'GBP' || inv.currency === 'USD') && it.unitPrice <= 10000 ? it.unitPrice * 1250 : it.unitPrice,
+                  total: (inv.currency === 'GBP' || inv.currency === 'USD') && it.total <= 10000 ? it.total * 1250 : it.total
                 }))
               };
             });
@@ -383,9 +383,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [requisitions, setRequisitions] = useState<Requisition[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('mode_ops_requisitions');
-      if (saved) try { return JSON.parse(saved); } catch {}
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((r: any) => ({ ...r, currency: 'NGN' as Currency }));
+          }
+        } catch {}
+      }
     }
-    return initialRequisitions;
+    return initialRequisitions.map(r => ({ ...r, currency: 'NGN' as Currency }));
   });
 
   const [goals, setGoals] = useState<Goal[]>(() => {
@@ -431,9 +438,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('mode_ops_payroll');
-      if (saved) try { return JSON.parse(saved); } catch {}
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((p: any) => ({ ...p, currency: 'NGN' as Currency }));
+          }
+        } catch {}
+      }
     }
-    return initialPayrollRecords;
+    return initialPayrollRecords.map(p => ({ ...p, currency: 'NGN' as Currency }));
   });
 
   const [shifts, setShifts] = useState<StaffShift[]>(() => {
@@ -525,30 +539,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Sync to localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('mode_ops_leads', JSON.stringify(leads));
-      localStorage.setItem('mode_ops_users', JSON.stringify(users));
-      localStorage.setItem('mode_ops_companies', JSON.stringify(companies));
-      localStorage.setItem('mode_ops_projects', JSON.stringify(projects));
-      localStorage.setItem('mode_ops_services', JSON.stringify(services));
-      localStorage.setItem('mode_ops_requisitions', JSON.stringify(requisitions));
-      localStorage.setItem('mode_ops_goals', JSON.stringify(goals));
-      localStorage.setItem('mode_ops_invoices', JSON.stringify(invoices));
-      localStorage.setItem('mode_ops_hosting', JSON.stringify(hostingAccounts));
-      localStorage.setItem('mode_ops_whmcs_config', JSON.stringify(whmcsConfig));
-      localStorage.setItem('mode_ops_tasks', JSON.stringify(tasks));
-      localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(shiftTasks));
-      localStorage.setItem('mode_ops_feedbacks', JSON.stringify(feedbacks));
-      localStorage.setItem('mode_ops_tickets', JSON.stringify(tickets));
-      localStorage.setItem('mode_ops_activities', JSON.stringify(activities));
-      localStorage.setItem('mode_ops_notifications', JSON.stringify(notifications));
-      localStorage.setItem('mode_ops_payroll', JSON.stringify(payrollRecords));
-      localStorage.setItem('mode_ops_shifts', JSON.stringify(shifts));
-      localStorage.setItem('mode_ops_memos', JSON.stringify(memos));
-    }
-  }, [leads, users, companies, projects, services, requisitions, goals, invoices, hostingAccounts, whmcsConfig, tasks, shiftTasks, feedbacks, tickets, activities, notifications, payrollRecords, shifts, memos]);
+  // Optimized granular persistence to localStorage (only writes the slice that actually changed)
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_leads', JSON.stringify(leads)); }, [leads]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_users', JSON.stringify(users)); }, [users]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_companies', JSON.stringify(companies)); }, [companies]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_projects', JSON.stringify(projects)); }, [projects]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_services', JSON.stringify(services)); }, [services]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_requisitions', JSON.stringify(requisitions)); }, [requisitions]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_goals', JSON.stringify(goals)); }, [goals]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_invoices', JSON.stringify(invoices)); }, [invoices]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_hosting', JSON.stringify(hostingAccounts)); }, [hostingAccounts]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_whmcs_config', JSON.stringify(whmcsConfig)); }, [whmcsConfig]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_tasks', JSON.stringify(tasks)); }, [tasks]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(shiftTasks)); }, [shiftTasks]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_feedbacks', JSON.stringify(feedbacks)); }, [feedbacks]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_tickets', JSON.stringify(tickets)); }, [tickets]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_activities', JSON.stringify(activities)); }, [activities]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_notifications', JSON.stringify(notifications)); }, [notifications]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_payroll', JSON.stringify(payrollRecords)); }, [payrollRecords]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_shifts', JSON.stringify(shifts)); }, [shifts]);
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_memos', JSON.stringify(memos)); }, [memos]);
 
   // Cross-device & Multi-tab Server Sync Hook
   useEffect(() => {
@@ -969,6 +979,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addLead = (leadData: Omit<Lead, 'id' | 'createdAt'>) => {
     const newLead: Lead = {
       ...leadData,
+      currency: 'NGN',
       id: `l-${Date.now()}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
@@ -1049,6 +1060,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addProject = (projectData: Omit<Project, 'id' | 'createdAt'>) => {
     const newProject: Project = {
       ...projectData,
+      currency: 'NGN',
       id: `p-${Date.now()}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
@@ -1345,6 +1357,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addInvoice = (invoiceData: Omit<Invoice, 'id' | 'createdAt'>) => {
     const newInvoice: Invoice = {
       ...invoiceData,
+      currency: 'NGN',
       id: `inv-${Date.now()}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
@@ -1401,6 +1414,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addPayrollRecord = (recordData: Omit<PayrollRecord, 'id' | 'createdAt'>) => {
     const newRecord: PayrollRecord = {
       ...recordData,
+      currency: 'NGN',
       id: `payr-${Date.now()}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
@@ -1465,7 +1479,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       title,
       description,
       amount,
-      currency,
+      currency: 'NGN',
       category,
       urgency,
       status: 'Pending',

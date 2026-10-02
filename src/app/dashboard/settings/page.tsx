@@ -146,11 +146,10 @@ export default function SettingsPage() {
                 <select
                   value={defaultCurrency}
                   onChange={e => setDefaultCurrency(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50 text-slate-700 cursor-not-allowed"
+                  disabled
                 >
-                  <option value="NGN">Nigerian Naira (NGN ₦)</option>
-                  <option value="GBP">British Pound (GBP £)</option>
-                  <option value="USD">US Dollar (USD $)</option>
+                  <option value="NGN">Nigerian Naira (NGN ₦ - Standard Company Currency)</option>
                 </select>
               </div>
             </div>

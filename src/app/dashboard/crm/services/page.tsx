@@ -330,11 +330,10 @@ export default function ServicesPage() {
                   <select
                     value={currency}
                     onChange={e => setCurrency(e.target.value as Currency)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold bg-slate-50 text-slate-700 cursor-not-allowed"
+                    disabled
                   >
-                    <option value="NGN">NGN (₦ - Naira)</option>
-                    <option value="USD">USD ($)</option>
-                    <option value="GBP">GBP (£)</option>
+                    <option value="NGN">NGN (₦ - Nigerian Naira)</option>
                   </select>
                 </div>
               </div>
