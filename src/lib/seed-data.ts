@@ -510,11 +510,11 @@ export const initialShifts: StaffShift[] = [
     jobTitle: 'Head of Sales',
     date: '2026-09-30',
     clockInTime: '2026-09-30T08:15:00Z',
-    clockOutTime: null,
-    durationHours: 7.25,
-    status: 'active',
+    clockOutTime: '2026-09-30T16:30:00Z',
+    durationHours: 8.25,
+    status: 'completed',
     hourlyRate: 2800,
-    notes: 'In-office active shift: Client proposal closing calls & pipeline review.'
+    notes: 'Shift completed: Client proposal closing calls & pipeline review.'
   },
   {
     id: 'shift-102',
@@ -525,11 +525,11 @@ export const initialShifts: StaffShift[] = [
     jobTitle: 'Senior Full-Stack Engineer',
     date: '2026-09-30',
     clockInTime: '2026-09-30T08:30:00Z',
-    clockOutTime: null,
-    durationHours: 7.0,
-    status: 'active',
+    clockOutTime: '2026-09-30T16:30:00Z',
+    durationHours: 8.0,
+    status: 'completed',
     hourlyRate: 3500,
-    notes: 'Active shift: ModeCBT testing engine deployment & Next.js Turbopack fixes.'
+    notes: 'Shift completed: ModeCBT testing engine deployment & Next.js Turbopack fixes.'
   },
   {
     id: 'shift-103',
@@ -540,26 +540,26 @@ export const initialShifts: StaffShift[] = [
     jobTitle: 'Operations & Project Manager',
     date: '2026-09-30',
     clockInTime: '2026-09-30T08:45:00Z',
-    clockOutTime: null,
-    durationHours: 6.75,
-    status: 'active',
+    clockOutTime: '2026-09-30T16:30:00Z',
+    durationHours: 7.75,
+    status: 'completed',
     hourlyRate: 3000,
-    notes: 'Active shift: Operations sync, staff goals vetting, and sprint milestones.'
+    notes: 'Shift completed: Operations sync, staff goals vetting, and sprint milestones.'
   },
   {
     id: 'shift-104',
     staffId: 'u5',
     staffName: 'Ibrahim Musa',
-    staffEmail: 'ibrahim@modedigitalcreations.ng',
+    staffEmail: 'admin@modedigitalcreations.ng',
     department: 'Administration',
     jobTitle: 'Administration & Finance Lead',
     date: '2026-09-30',
     clockInTime: '2026-09-30T09:00:00Z',
-    clockOutTime: null,
-    durationHours: 6.5,
-    status: 'active',
+    clockOutTime: '2026-09-30T17:00:00Z',
+    durationHours: 8.0,
+    status: 'completed',
     hourlyRate: 2500,
-    notes: 'Active shift: Office administration, requisition disbursement, vouchers and accounts audit.'
+    notes: 'Shift completed: Office administration, requisition disbursement, vouchers and accounts audit.'
   },
   {
     id: 'shift-105',
@@ -570,9 +570,9 @@ export const initialShifts: StaffShift[] = [
     jobTitle: 'Managing Director & Founder',
     date: '2026-09-30',
     clockInTime: '2026-09-30T07:45:00Z',
-    clockOutTime: null,
-    durationHours: 7.75,
-    status: 'active',
+    clockOutTime: '2026-09-30T16:30:00Z',
+    durationHours: 8.75,
+    status: 'completed',
     hourlyRate: 5000,
     notes: 'Managing Director daily executive shift & corporate governance.'
   },

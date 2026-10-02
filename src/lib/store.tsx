@@ -381,7 +381,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (saved) {
         try {
           const parsed: StaffShift[] = JSON.parse(saved);
-          return parsed.map(s => {
+          const today = new Date().toISOString().split('T')[0];
+          const updated = parsed.map(s => {
+            // Auto-complete any active shift that was started on a prior day (e.g. seed data or past unclosed shifts)
+            if (s.status === 'active' && s.date < today) {
+              const startMs = Date.parse(s.clockInTime);
+              const mockEnd = isNaN(startMs) ? Date.now() : startMs + 8 * 3600 * 1000;
+              return {
+                ...s,
+                status: 'completed' as const,
+                clockOutTime: new Date(mockEnd).toISOString(),
+                durationHours: s.durationHours || 8.0,
+                notes: `${s.notes || ''} (Auto-closed past day shift)`.trim()
+              };
+            }
             if (s.staffId === 'u5' || s.staffEmail?.includes('accounts')) {
               return {
                 ...s,
@@ -394,6 +407,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
             return s;
           });
+          localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
+          return updated;
         } catch {}
       }
     }
@@ -540,8 +555,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateUserProfile = (id: string, updates: Partial<UserProfile>) => {
+    let resolvedName = updates.full_name;
     setUsers(prev => {
-      const updated = prev.map(u => u.id === id ? { ...u, ...updates } : u);
+      const updated = prev.map(u => {
+        if (u.id === id) {
+          const next = { ...u, ...updates };
+          resolvedName = next.full_name;
+          return next;
+        }
+        return u;
+      });
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_users', JSON.stringify(updated));
       }
@@ -558,7 +581,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
     }
 
-    logActivity('user_profile_update', `Executive updated profile for ${updates.full_name || id}`, 'User', id);
+    // Cascade name, job title, department, hourly rate to all shift records
+    setShifts(prev => {
+      const updated = prev.map(s => {
+        if (s.staffId === id || (updates.email && s.staffEmail?.toLowerCase() === updates.email.toLowerCase())) {
+          return {
+            ...s,
+            staffName: updates.full_name || s.staffName,
+            staffEmail: updates.email || s.staffEmail,
+            department: updates.department || s.department,
+            jobTitle: updates.job_title || s.jobTitle,
+            hourlyRate: updates.hourly_rate !== undefined ? updates.hourly_rate : s.hourlyRate
+          };
+        }
+        return s;
+      });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    // Cascade name to shift checklist tasks
+    setShiftTasks(prev => {
+      const updated = prev.map(st => {
+        if (st.staffId === id) {
+          return {
+            ...st,
+            staffName: updates.full_name || st.staffName
+          };
+        }
+        return st;
+      });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    logActivity('user_profile_update', `Executive updated profile for ${resolvedName || id}`, 'User', id);
   };
 
   const addUserProfile = (profileData: Omit<UserProfile, 'id'>) => {
@@ -582,6 +643,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const updated = prev.filter(u => u.id !== id);
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_users', JSON.stringify(updated));
+      }
+      return updated;
+    });
+    // Remove active shifts for deleted profile
+    setShifts(prev => {
+      const updated = prev.filter(s => s.staffId !== id || s.status === 'completed');
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
       }
       return updated;
     });
