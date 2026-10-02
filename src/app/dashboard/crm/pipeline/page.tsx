@@ -10,7 +10,6 @@ import {
   XCircle,
   MoreVertical,
   Filter,
-  DollarSign,
   User,
   Building,
   Calendar,

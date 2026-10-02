@@ -11,7 +11,6 @@ import {
   Mail,
   Phone,
   Building,
-  DollarSign,
   Kanban
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';

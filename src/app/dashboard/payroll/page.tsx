@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import {
   Banknote,
-  DollarSign,
   ShieldCheck,
   CheckCircle2,
   Clock,
@@ -641,7 +640,7 @@ export default function PayrollPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-            <DollarSign size={20} />
+            <span className="text-lg font-black leading-none select-none">₦</span>
           </div>
           <div>
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Gross Payroll</span>
@@ -969,7 +968,7 @@ export default function PayrollPage() {
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-                <DollarSign size={20} />
+                <span className="text-lg font-black leading-none select-none">₦</span>
               </div>
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Calculated Shift Pay Cost</span>
