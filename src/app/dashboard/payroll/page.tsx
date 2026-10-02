@@ -26,7 +26,7 @@ import {
   Check
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
-import type { PayrollRecord, PayrollStatus, Currency, UserProfile } from '@/lib/types';
+import type { PayrollRecord, PayrollStatus, Currency, UserProfile, UserRole, StaffShift } from '@/lib/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
 export default function PayrollPage() {
@@ -34,6 +34,9 @@ export default function PayrollPage() {
     currentUser,
     setCurrentUserRole,
     users,
+    updateUserProfile,
+    addUserProfile,
+    deleteUserProfile,
     payrollRecords,
     addPayrollRecord,
     updatePayrollRecord,
@@ -65,6 +68,98 @@ export default function PayrollPage() {
   const [syncToast, setSyncToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
   const [manualClockInModalOpen, setManualClockInModalOpen] = useState(false);
   const [manualStaffId, setManualStaffId] = useState('');
+
+  // Staff Roster & Profile Editing State
+  const [staffRosterModalOpen, setStaffRosterModalOpen] = useState(false);
+  const [editingStaffMember, setEditingStaffMember] = useState<UserProfile | null>(null);
+  const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState(false);
+
+  // Form State for Staff Member
+  const [staffFormName, setStaffFormName] = useState('');
+  const [staffFormEmail, setStaffFormEmail] = useState('');
+  const [staffFormRole, setStaffFormRole] = useState<UserRole>('employee');
+  const [staffFormDept, setStaffFormDept] = useState('Operations');
+  const [staffFormJob, setStaffFormJob] = useState('Operations Specialist');
+  const [staffFormHourlyRate, setStaffFormHourlyRate] = useState<number>(2500);
+  const [staffFormPhone, setStaffFormPhone] = useState('');
+
+  const openEditStaffModal = (u: UserProfile) => {
+    setEditingStaffMember(u);
+    setStaffFormName(u.full_name || '');
+    setStaffFormEmail(u.email || '');
+    setStaffFormRole(u.role);
+    setStaffFormDept(u.department || 'Operations');
+    setStaffFormJob(u.job_title || '');
+    setStaffFormHourlyRate(u.hourly_rate || (u.role === 'managing_director' ? 5000 : u.role === 'administration' ? 6500 : u.role === 'developer' ? 3500 : u.role === 'sales' ? 2800 : u.role === 'manager' ? 3000 : 2500));
+    setStaffFormPhone(u.phone || '');
+  };
+
+  const openAddStaffModal = () => {
+    setEditingStaffMember(null);
+    setStaffFormName('');
+    setStaffFormEmail('');
+    setStaffFormRole('employee');
+    setStaffFormDept('Operations');
+    setStaffFormJob('Operations Specialist');
+    setStaffFormHourlyRate(2500);
+    setStaffFormPhone('');
+    setIsAddStaffModalOpen(true);
+  };
+
+  const handleSaveStaffMember = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!staffFormName.trim() || !staffFormEmail.trim()) return;
+
+    if (editingStaffMember) {
+      updateUserProfile(editingStaffMember.id, {
+        full_name: staffFormName.trim(),
+        email: staffFormEmail.trim().toLowerCase(),
+        role: staffFormRole,
+        department: staffFormDept.trim(),
+        job_title: staffFormJob.trim(),
+        hourly_rate: Number(staffFormHourlyRate) || 2500,
+        phone: staffFormPhone.trim(),
+      });
+      setEditingStaffMember(null);
+      setSyncToast({
+        message: `Successfully updated staff profile for "${staffFormName.trim()}". All shift records and tracking cards updated!`,
+        type: 'success'
+      });
+      setTimeout(() => setSyncToast(null), 4000);
+    } else {
+      addUserProfile({
+        full_name: staffFormName.trim(),
+        email: staffFormEmail.trim().toLowerCase(),
+        role: staffFormRole,
+        department: staffFormDept.trim(),
+        job_title: staffFormJob.trim() || 'Staff Member',
+        hourly_rate: Number(staffFormHourlyRate) || 2500,
+        phone: staffFormPhone.trim(),
+        is_active: true,
+      });
+      setIsAddStaffModalOpen(false);
+      setSyncToast({
+        message: `Successfully registered new staff member "${staffFormName.trim()}"!`,
+        type: 'success'
+      });
+      setTimeout(() => setSyncToast(null), 4000);
+    }
+  };
+
+  // Helper to dynamically resolve actual staff name, role, department from `users`
+  const getShiftStaffDetails = (s: StaffShift) => {
+    const matched = users.find(
+      u => u.id === s.staffId || u.email?.toLowerCase() === s.staffEmail?.toLowerCase()
+    );
+    return {
+      staffName: matched?.full_name || s.staffName,
+      staffEmail: matched?.email || s.staffEmail,
+      department: matched?.department || s.department,
+      jobTitle: matched?.job_title || s.jobTitle,
+      hourlyRate: matched?.hourly_rate || s.hourlyRate || 2500,
+      user: matched
+    };
+  };
 
   // Selected Period Filter
   const [selectedPeriod, setSelectedPeriod] = useState<string>('September 2026');
@@ -803,6 +898,15 @@ export default function PayrollPage() {
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
             type="button"
+            onClick={() => setStaffRosterModalOpen(true)}
+            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+          >
+            <Users size={14} />
+            <span>Manage Staff Profiles &amp; Names ({users.length})</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setManualClockInModalOpen(true)}
             className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
@@ -907,6 +1011,7 @@ export default function PayrollPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {shifts.filter(s => s.status === 'active').map(s => {
+              const details = getShiftStaffDetails(s);
               const start = new Date(s.clockInTime);
               const elapsedMs = Date.now() - start.getTime();
               const elapsedHours = Math.max(0.1, Math.round((elapsedMs / (1000 * 60 * 60)) * 10) / 10);
@@ -914,18 +1019,45 @@ export default function PayrollPage() {
               return (
                 <div key={s.id} className="p-3.5 rounded-xl border border-emerald-100 bg-emerald-50/40 space-y-2.5">
                   <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
-                        {s.staffName ? s.staffName[0] : 'S'}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                        {details.staffName ? details.staffName[0] : 'S'}
                       </div>
-                      <div>
-                        <div className="font-bold text-slate-900 text-xs">{s.staffName}</div>
-                        <div className="text-[10px] text-slate-500">{s.jobTitle} • {s.department}</div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900 text-xs truncate">{details.staffName}</div>
+                        <div className="text-[10px] text-slate-500 truncate">{details.jobTitle} • {details.department}</div>
                       </div>
                     </div>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      ON SHIFT
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        ON SHIFT
+                      </span>
+                      {hasPayrollAccess && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (details.user) {
+                              openEditStaffModal(details.user);
+                            } else {
+                              openEditStaffModal({
+                                id: s.staffId,
+                                full_name: details.staffName,
+                                email: details.staffEmail,
+                                department: details.department,
+                                job_title: details.jobTitle,
+                                role: 'employee',
+                                hourly_rate: details.hourlyRate,
+                                is_active: true
+                              });
+                            }
+                          }}
+                          className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-white transition cursor-pointer"
+                          title="Edit staff name & profile"
+                        >
+                          <Edit size={12} />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-[11px] bg-white p-2 rounded-lg border border-emerald-100/80">
@@ -944,13 +1076,13 @@ export default function PayrollPage() {
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-[10px] text-slate-500">
-                      Rate: {formatCurrency(s.hourlyRate || 2500, 'NGN')}/hr
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      Rate: {formatCurrency(details.hourlyRate, 'NGN')}/hr
                     </span>
                     <button
                       type="button"
                       onClick={() => {
-                        if (confirm(`Clock out ${s.staffName} and close their daily shift?`)) {
+                        if (confirm(`Clock out ${details.staffName} and close their daily shift?`)) {
                           clockOutStaff(s.id);
                         }
                       }}
@@ -1029,6 +1161,7 @@ export default function PayrollPage() {
             <tbody className="divide-y divide-slate-100">
               {shifts
                 .filter(s => {
+                  const details = getShiftStaffDetails(s);
                   if (shiftStaffFilter !== 'all' && s.staffId !== shiftStaffFilter) return false;
                   if (shiftDateFilter === 'today' && s.date !== new Date().toISOString().split('T')[0]) return false;
                   if (shiftDateFilter === 'yesterday') {
@@ -1037,30 +1170,31 @@ export default function PayrollPage() {
                   }
                   if (shiftSearchTerm) {
                     const q = shiftSearchTerm.toLowerCase();
-                    if (!s.staffName.toLowerCase().includes(q) && !s.staffEmail.toLowerCase().includes(q) && !s.department.toLowerCase().includes(q)) {
+                    if (!details.staffName.toLowerCase().includes(q) && !details.staffEmail.toLowerCase().includes(q) && !details.department.toLowerCase().includes(q)) {
                       return false;
                     }
                   }
                   return true;
                 })
                 .map(s => {
-                  const computedPay = Math.round((s.durationHours || 0) * (s.hourlyRate || 2500));
+                  const details = getShiftStaffDetails(s);
+                  const computedPay = Math.round((s.durationHours || 0) * (details.hourlyRate || s.hourlyRate || 2500));
 
                   return (
                     <tr key={s.id} className="hover:bg-slate-50/80 transition">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2.5">
                           <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                            {s.staffName ? s.staffName[0] : 'S'}
+                            {details.staffName ? details.staffName[0] : 'S'}
                           </div>
                           <div>
-                            <span className="font-bold text-slate-900 block">{s.staffName}</span>
-                            <span className="text-[10px] text-slate-500 font-mono">{s.staffEmail}</span>
+                            <span className="font-bold text-slate-900 block">{details.staffName}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">{details.staffEmail}</span>
                           </div>
                         </div>
                       </td>
                       <td className="py-3 px-3 text-slate-600 font-medium">
-                        {s.department}
+                        {details.department}
                       </td>
                       <td className="py-3 px-3 font-mono text-slate-600">
                         {s.date}
@@ -1075,7 +1209,7 @@ export default function PayrollPage() {
                         {s.status === 'active' ? 'Active' : `${s.durationHours} hrs`}
                       </td>
                       <td className="py-3 px-3 text-right font-mono text-slate-600">
-                        {formatCurrency(s.hourlyRate || 2500, 'NGN')}/hr
+                        {formatCurrency(details.hourlyRate, 'NGN')}/hr
                       </td>
                       <td className="py-3 px-3 text-right font-mono font-extrabold text-blue-700">
                         {formatCurrency(computedPay, 'NGN')}
@@ -1092,34 +1226,62 @@ export default function PayrollPage() {
                         )}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        {s.status === 'active' ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (confirm(`Clock out ${s.staffName}?`)) {
-                                clockOutStaff(s.id);
-                              }
-                            }}
-                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold cursor-pointer"
-                          >
-                            Clock Out
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              applyShiftHoursToPayroll(s.staffId, selectedPeriod !== 'all' ? selectedPeriod : 'September 2026');
-                              setSyncToast({
-                                message: `Synced ${s.durationHours} hrs (${formatCurrency(computedPay, 'NGN')}) for ${s.staffName} into payroll!`,
-                                type: 'success'
-                              });
-                              setTimeout(() => setSyncToast(null), 4000);
-                            }}
-                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold cursor-pointer"
-                          >
-                            Reconcile
-                          </button>
-                        )}
+                        <div className="flex items-center justify-end gap-1.5">
+                          {s.status === 'active' ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm(`Clock out ${details.staffName}?`)) {
+                                  clockOutStaff(s.id);
+                                }
+                              }}
+                              className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold cursor-pointer"
+                            >
+                              Clock Out
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                applyShiftHoursToPayroll(s.staffId, selectedPeriod !== 'all' ? selectedPeriod : 'September 2026');
+                                setSyncToast({
+                                  message: `Synced ${s.durationHours} hrs (${formatCurrency(computedPay, 'NGN')}) for ${details.staffName} into payroll!`,
+                                  type: 'success'
+                                });
+                                setTimeout(() => setSyncToast(null), 4000);
+                              }}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold cursor-pointer"
+                            >
+                              Reconcile
+                            </button>
+                          )}
+
+                          {hasPayrollAccess && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (details.user) {
+                                  openEditStaffModal(details.user);
+                                } else {
+                                  openEditStaffModal({
+                                    id: s.staffId,
+                                    full_name: details.staffName,
+                                    email: details.staffEmail,
+                                    department: details.department,
+                                    job_title: details.jobTitle,
+                                    role: 'employee',
+                                    hourly_rate: details.hourlyRate,
+                                    is_active: true
+                                  });
+                                }
+                              }}
+                              className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition"
+                              title="Edit staff profile"
+                            >
+                              <Edit size={13} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1776,6 +1938,281 @@ export default function PayrollPage() {
         </div>
       );
     })()}
+
+      {/* Staff Roster & Profile Management Modal */}
+      {staffRosterModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setStaffRosterModalOpen(false)} />
+          <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 z-10 text-xs animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black text-slate-900">Company Staff Roster &amp; Profiles</h3>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-mono">
+                    {users.length} Registered Staff
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Update actual staff names, job titles, and departments. Edits instantly reflect on live shift clock-in cards, shift reports, and payroll.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStaffRosterModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">All Registered Employees</span>
+              <button
+                type="button"
+                onClick={openAddStaffModal}
+                className="px-3 py-1.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Plus size={13} />
+                <span>+ Add Staff Member</span>
+              </button>
+            </div>
+
+            <div className="space-y-2.5 max-h-[55vh] overflow-y-auto pr-1">
+              {users.map(u => {
+                const isSuper = u.role === 'managing_director' || u.role === 'super_admin';
+                const activeShiftForUser = shifts.find(
+                  s => (s.staffId === u.id || s.staffEmail?.toLowerCase() === u.email?.toLowerCase()) && s.status === 'active'
+                );
+
+                return (
+                  <div
+                    key={u.id}
+                    className="p-3.5 bg-slate-50/70 border border-slate-200/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white hover:border-blue-300 transition"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                        {u.full_name ? u.full_name[0] : 'S'}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-extrabold text-slate-900 text-xs">{u.full_name}</span>
+                          {isSuper && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-700">
+                              Super Admin
+                            </span>
+                          )}
+                          {activeShiftForUser ? (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1 font-mono">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              ON SHIFT
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-slate-100 text-slate-500 font-mono">
+                              Off Duty
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-0.5 truncate">
+                          {u.job_title || u.role} • <strong className="text-slate-600 font-medium">{u.department || 'Operations'}</strong>
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                          {u.email} • Rate: {formatCurrency(u.hourly_rate || (u.role === 'managing_director' ? 5000 : u.role === 'administration' ? 6500 : u.role === 'developer' ? 3500 : u.role === 'sales' ? 2800 : u.role === 'manager' ? 3000 : 2500), 'NGN')}/hr
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => openEditStaffModal(u)}
+                        className="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Edit size={12} />
+                        <span>Edit Name &amp; Profile</span>
+                      </button>
+
+                      {!isSuper && u.id !== currentUser.id && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm(`Remove ${u.full_name} from company staff directory?`)) {
+                              deleteUserProfile(u.id);
+                            }
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                          title="Remove Staff"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 pt-3 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setStaffRosterModalOpen(false)}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit / Add Staff Profile Modal */}
+      {(editingStaffMember !== null || isAddStaffModalOpen) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs"
+            onClick={() => {
+              setEditingStaffMember(null);
+              setIsAddStaffModalOpen(false);
+            }}
+          />
+          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 z-10 text-xs animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div>
+                <h3 className="text-base font-black text-slate-900">
+                  {editingStaffMember ? `Edit Staff Profile: ${editingStaffMember.full_name}` : 'Register New Staff Member'}
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Update actual staff identity. All live and recorded shifts will immediately reflect this name.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingStaffMember(null);
+                  setIsAddStaffModalOpen(false);
+                }}
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveStaffMember} className="space-y-3.5">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Actual Staff Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Babatunde Alabi, Ngozi Okonjo"
+                  value={staffFormName}
+                  onChange={e => setStaffFormName(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Company Email *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="staff@modedigitalcreations.ng"
+                    value={staffFormEmail}
+                    onChange={e => setStaffFormEmail(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Department *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Sales & Growth, Engineering, Administration"
+                    value={staffFormDept}
+                    onChange={e => setStaffFormDept(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Job Title / Designation *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Head of Sales, Lead Frontend Engineer"
+                    value={staffFormJob}
+                    onChange={e => setStaffFormJob(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Operational Role</label>
+                  <select
+                    value={staffFormRole}
+                    onChange={e => setStaffFormRole(e.target.value as UserRole)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-800"
+                  >
+                    <option value="employee">Employee / Officer</option>
+                    <option value="manager">Manager / Supervisor</option>
+                    <option value="developer">Developer / Engineer</option>
+                    <option value="sales">Sales &amp; Growth</option>
+                    <option value="administration">Administration / Finance</option>
+                    <option value="managing_director">Managing Director</option>
+                    <option value="super_admin">Super Admin</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Shift Hourly Rate (₦/hr)</label>
+                  <input
+                    type="number"
+                    min="500"
+                    step="100"
+                    value={staffFormHourlyRate}
+                    onChange={e => setStaffFormHourlyRate(Number(e.target.value))}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Phone Number (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="+234 800 000 0000"
+                    value={staffFormPhone}
+                    onChange={e => setStaffFormPhone(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingStaffMember(null);
+                    setIsAddStaffModalOpen(false);
+                  }}
+                  className="px-3.5 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Check size={14} />
+                  <span>{editingStaffMember ? 'Save Staff Changes' : 'Register Staff Member'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
   </>
 );
 }
