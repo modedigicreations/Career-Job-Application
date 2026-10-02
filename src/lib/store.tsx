@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type {
   UserProfile, Lead, Contact, Company, Project, Task, Service, HostingAccount,
   Invoice, Payment, Ticket, ActivityItem, Requisition, Goal, Feedback, AppNotification,
@@ -508,6 +508,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [shiftReviewModalOpen, setShiftReviewModalOpen] = useState(false);
   const [resumeShiftModalOpen, setResumeShiftModalOpen] = useState(false);
 
+  const lastLocalEditRef = useRef<{ [key: string]: number }>({});
+
+  const syncEntityToServer = async (entity: string, data: any) => {
+    try {
+      lastLocalEditRef.current[entity] = Date.now();
+      if (typeof window !== 'undefined') {
+        await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entity, data })
+        });
+      }
+    } catch {
+      // background sync deferred
+    }
+  };
+
   // Sync to localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -549,67 +566,89 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           
           // Sync services catalog
           if (Array.isArray(serverDb.services) && serverDb.services.length > 0) {
-            setServices(prev => {
-              const prevStr = JSON.stringify(prev);
-              const serverStr = JSON.stringify(serverDb.services);
-              if (prevStr !== serverStr) {
-                localStorage.setItem('mode_ops_services', serverStr);
-                return serverDb.services.map((s: any) => ({ ...s, currency: 'NGN' }));
-              }
-              return prev;
-            });
+            const timeSinceEdit = Date.now() - (lastLocalEditRef.current['services'] || 0);
+            if (timeSinceEdit > 15000) {
+              setServices(prev => {
+                const prevStr = JSON.stringify(prev);
+                const serverStr = JSON.stringify(serverDb.services);
+                if (prevStr !== serverStr) {
+                  localStorage.setItem('mode_ops_services', serverStr);
+                  return serverDb.services.map((s: any) => ({ ...s, currency: 'NGN' }));
+                }
+                return prev;
+              });
+            }
           }
 
           // Sync staff shifts
           if (Array.isArray(serverDb.shifts) && serverDb.shifts.length > 0) {
-            setShifts(prev => {
-              const prevStr = JSON.stringify(prev);
-              const serverStr = JSON.stringify(serverDb.shifts);
-              if (prevStr !== serverStr) {
-                localStorage.setItem('mode_ops_shifts', serverStr);
-                return serverDb.shifts;
-              }
-              return prev;
-            });
+            const timeSinceEdit = Date.now() - (lastLocalEditRef.current['shifts'] || 0);
+            if (timeSinceEdit > 15000) {
+              setShifts(prev => {
+                const prevStr = JSON.stringify(prev);
+                const serverStr = JSON.stringify(serverDb.shifts);
+                if (prevStr !== serverStr) {
+                  localStorage.setItem('mode_ops_shifts', serverStr);
+                  return serverDb.shifts;
+                }
+                return prev;
+              });
+            }
           }
 
           // Sync shift tasks
           if (Array.isArray(serverDb.shiftTasks) && serverDb.shiftTasks.length > 0) {
-            setShiftTasks(prev => {
-              const prevStr = JSON.stringify(prev);
-              const serverStr = JSON.stringify(serverDb.shiftTasks);
-              if (prevStr !== serverStr) {
-                localStorage.setItem('mode_ops_shift_tasks', serverStr);
-                return serverDb.shiftTasks;
-              }
-              return prev;
-            });
+            const timeSinceEdit = Date.now() - (lastLocalEditRef.current['shiftTasks'] || 0);
+            if (timeSinceEdit > 15000) {
+              setShiftTasks(prev => {
+                const prevStr = JSON.stringify(prev);
+                const serverStr = JSON.stringify(serverDb.shiftTasks);
+                if (prevStr !== serverStr) {
+                  localStorage.setItem('mode_ops_shift_tasks', serverStr);
+                  return serverDb.shiftTasks;
+                }
+                return prev;
+              });
+            }
           }
 
           // Sync staff memos
           if (Array.isArray(serverDb.memos) && serverDb.memos.length > 0) {
-            setMemos(prev => {
-              const prevStr = JSON.stringify(prev);
-              const serverStr = JSON.stringify(serverDb.memos);
-              if (prevStr !== serverStr) {
-                localStorage.setItem('mode_ops_memos', serverStr);
-                return serverDb.memos;
-              }
-              return prev;
-            });
+            const timeSinceEdit = Date.now() - (lastLocalEditRef.current['memos'] || 0);
+            if (timeSinceEdit > 15000) {
+              setMemos(prev => {
+                const prevStr = JSON.stringify(prev);
+                const serverStr = JSON.stringify(serverDb.memos);
+                if (prevStr !== serverStr) {
+                  localStorage.setItem('mode_ops_memos', serverStr);
+                  return serverDb.memos;
+                }
+                return prev;
+              });
+            }
           }
 
           // Sync staff profiles / users
           if (Array.isArray(serverDb.users) && serverDb.users.length > 0) {
-            setUsers(prev => {
-              const prevStr = JSON.stringify(prev);
-              const serverStr = JSON.stringify(serverDb.users);
-              if (prevStr !== serverStr) {
-                localStorage.setItem('mode_ops_users', serverStr);
-                return serverDb.users;
-              }
-              return prev;
-            });
+            const timeSinceEdit = Date.now() - (lastLocalEditRef.current['users'] || 0);
+            if (timeSinceEdit > 15000) {
+              setUsers(prev => {
+                const prevStr = JSON.stringify(prev);
+                const serverStr = JSON.stringify(serverDb.users);
+                if (prevStr !== serverStr) {
+                  // Protect local custom edits against default server seed data
+                  const isServerDefault = JSON.stringify(serverDb.users) === JSON.stringify(initialProfiles);
+                  const isPrevCustom = JSON.stringify(prev) !== JSON.stringify(initialProfiles);
+                  if (isServerDefault && isPrevCustom) {
+                    syncEntityToServer('users', prev);
+                    return prev;
+                  }
+                  localStorage.setItem('mode_ops_users', serverStr);
+                  return serverDb.users;
+                }
+                return prev;
+              });
+            }
           }
         }
       } catch {}
@@ -643,6 +682,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (Array.isArray(parsed)) setMemos(parsed);
         } catch {}
       }
+      if (e.key === 'mode_ops_users' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) setUsers(parsed);
+        } catch {}
+      }
     };
 
     const handleCustomServicesChange = (e: any) => {
@@ -651,8 +696,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    const handleCustomUsersChange = (e: any) => {
+      if (e.detail && Array.isArray(e.detail)) {
+        setUsers(e.detail);
+      }
+    };
+
+    const handleCustomShiftsChange = (e: any) => {
+      if (e.detail && Array.isArray(e.detail)) {
+        setShifts(e.detail);
+      }
+    };
+
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('mode_ops_services_changed', handleCustomServicesChange);
+    window.addEventListener('mode_ops_users_changed', handleCustomUsersChange);
+    window.addEventListener('mode_ops_shifts_changed', handleCustomShiftsChange);
     window.addEventListener('focus', pullServerState);
 
     // Poll every 5s for cross-device live sync
@@ -662,6 +721,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       isSubscribed = false;
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('mode_ops_services_changed', handleCustomServicesChange);
+      window.removeEventListener('mode_ops_users_changed', handleCustomUsersChange);
+      window.removeEventListener('mode_ops_shifts_changed', handleCustomShiftsChange);
       window.removeEventListener('focus', pullServerState);
       clearInterval(pollTimer);
     };
@@ -751,6 +812,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateUserProfile = (id: string, updates: Partial<UserProfile>) => {
     let resolvedName = updates.full_name;
+    let nextUsers: UserProfile[] = [];
     setUsers(prev => {
       const updated = prev.map(u => {
         if (u.id === id) {
@@ -760,11 +822,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         return u;
       });
+      nextUsers = updated;
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_users', JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updated }));
       }
       return updated;
     });
+
+    if (nextUsers.length > 0) {
+      syncEntityToServer('users', nextUsers);
+    }
 
     if (currentUser.id === id) {
       setCurrentUser(prev => {
@@ -777,6 +845,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Cascade name, job title, department, hourly rate to all shift records
+    let nextShifts: StaffShift[] = [];
     setShifts(prev => {
       const updated = prev.map(s => {
         if (s.staffId === id || (updates.email && s.staffEmail?.toLowerCase() === updates.email.toLowerCase())) {
@@ -791,13 +860,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         return s;
       });
+      nextShifts = updated;
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: updated }));
       }
       return updated;
     });
 
+    if (nextShifts.length > 0) {
+      syncEntityToServer('shifts', nextShifts);
+    }
+
     // Cascade name to shift checklist tasks
+    let nextTasks: ShiftTask[] = [];
     setShiftTasks(prev => {
       const updated = prev.map(st => {
         if (st.staffId === id) {
@@ -808,11 +884,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         return st;
       });
+      nextTasks = updated;
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
       }
       return updated;
     });
+
+    if (nextTasks.length > 0) {
+      syncEntityToServer('shiftTasks', nextTasks);
+    }
 
     logActivity('user_profile_update', `Executive updated profile for ${resolvedName || id}`, 'User', id);
   };
@@ -823,32 +904,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `u-${Date.now()}`,
       is_active: profileData.is_active ?? true,
     };
+    let nextUsers: UserProfile[] = [];
     setUsers(prev => {
       const updated = [...prev, newUser];
+      nextUsers = updated;
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_users', JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updated }));
       }
       return updated;
     });
+    if (nextUsers.length > 0) {
+      syncEntityToServer('users', nextUsers);
+    }
     logActivity('user_create', `Added staff member: ${newUser.full_name} (${newUser.job_title || newUser.role})`, 'User', newUser.id);
   };
 
   const deleteUserProfile = (id: string) => {
+    let nextUsers: UserProfile[] = [];
     setUsers(prev => {
       const updated = prev.filter(u => u.id !== id);
+      nextUsers = updated;
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_users', JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updated }));
       }
       return updated;
     });
+    if (nextUsers.length > 0) {
+      syncEntityToServer('users', nextUsers);
+    }
     // Remove active shifts for deleted profile
+    let nextShifts: StaffShift[] = [];
     setShifts(prev => {
       const updated = prev.filter(s => s.staffId !== id || s.status === 'completed');
+      nextShifts = updated;
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: updated }));
       }
       return updated;
     });
+    if (nextShifts.length > 0) {
+      syncEntityToServer('shifts', nextShifts);
+    }
     logActivity('user_delete', `Removed staff member profile (${id})`, 'User', id);
   };
 
@@ -1138,20 +1237,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     logActivity('shift_review_completed', `Completed shift work plan review: ${completedTaskIds.length} accomplished, ${carriedForwardCount} carried forward`, 'StaffShift', staffId);
 
     return { accomplishedCount, carriedForwardCount };
-  };
-
-  const syncEntityToServer = async (entity: string, data: any) => {
-    try {
-      if (typeof window !== 'undefined') {
-        await fetch('/api/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ entity, data })
-        });
-      }
-    } catch {
-      // background sync deferred
-    }
   };
 
   const addService = (serviceData: Omit<Service, 'id'>) => {
@@ -1691,13 +1776,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         };
 
         matchedUser = newProfile;
+        let nextUsers: UserProfile[] = [];
         setUsers(prev => {
           const updated = [...prev, newProfile];
+          nextUsers = updated;
           if (typeof window !== 'undefined') {
             localStorage.setItem('mode_ops_users', JSON.stringify(updated));
+            window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updated }));
           }
           return updated;
         });
+        if (nextUsers.length > 0) {
+          syncEntityToServer('users', nextUsers);
+        }
 
         logActivity('staff_registered', `Staff profile for ${derivedName} (${cleanEmail}) activated.`, 'User', newProfile.id);
       } else {
@@ -1754,10 +1845,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         hourlyRate: matchedUser.hourly_rate || (matchedUser.role === 'managing_director' ? 5000 : matchedUser.role === 'administration' || matchedUser.role === 'accounts' ? 6500 : matchedUser.role === 'developer' ? 3500 : matchedUser.role === 'sales' ? 2800 : matchedUser.role === 'manager' ? 3000 : 2500),
         notes: `Clocked in for regular shift at ${new Date().toLocaleTimeString()}`
       };
+      const nextShifts = [newShift, ...prev];
       if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_shifts', JSON.stringify([newShift, ...prev]));
+        localStorage.setItem('mode_ops_shifts', JSON.stringify(nextShifts));
+        window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: nextShifts }));
       }
-      return [newShift, ...prev];
+      syncEntityToServer('shifts', nextShifts);
+      return nextShifts;
     });
 
     logActivity('staff_login', `${matchedUser.full_name} (${matchedUser.job_title || matchedUser.role}) logged in — Shift started.`, 'StaffShift', matchedUser.id);
@@ -1860,13 +1954,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         hasPayrollAccess: isAdmin
       };
 
+      let nextUsers: UserProfile[] = [];
       setUsers(prev => {
         const updated = [...prev, newProfile];
+        nextUsers = updated;
         if (typeof window !== 'undefined') {
           localStorage.setItem('mode_ops_users', JSON.stringify(updated));
+          window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updated }));
         }
         return updated;
       });
+      if (nextUsers.length > 0) {
+        syncEntityToServer('users', nextUsers);
+      }
 
       logActivity('staff_registered', `Staff profile for ${derivedName} (${cleanEmail}) activated and password set.`, 'User', newProfile.id);
 
@@ -1876,13 +1976,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
+    let nextUsers: UserProfile[] = [];
     setUsers(prev => {
       const updated = prev.map(u => u.id === target.id ? { ...u, password: newPassword } : u);
+      nextUsers = updated;
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_users', JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updated }));
       }
       return updated;
     });
+    if (nextUsers.length > 0) {
+      syncEntityToServer('users', nextUsers);
+    }
 
     logActivity('password_change', `Staff member ${target.full_name} changed their password.`, 'User', target.id);
 
