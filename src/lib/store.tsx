@@ -302,7 +302,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed.map((s: any) => ({ ...s, currency: 'NGN' as Currency }));
+            // Merge initialServices so all catalog solutions (including new ones) are present
+            const savedMap = new Map(parsed.map((s: any) => [s.id, s]));
+            const merged = initialServices.map(initS => {
+              const savedItem = savedMap.get(initS.id);
+              return savedItem ? { ...initS, ...savedItem, currency: 'NGN' as Currency } : initS;
+            });
+            // Also append any custom added services
+            parsed.forEach((p: any) => {
+              if (!initialServices.some(initS => initS.id === p.id)) {
+                merged.push({ ...p, currency: 'NGN' as Currency });
+              }
+            });
+            return merged;
           }
         } catch {}
       }
@@ -579,13 +591,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // Sync services catalog
           if (Array.isArray(serverDb.services) && serverDb.services.length > 0) {
             const timeSinceEdit = Date.now() - (lastLocalEditRef.current['services'] || 0);
-            if (timeSinceEdit > 15000) {
+            if (timeSinceEdit > 10000) {
               setServices(prev => {
+                // Preserve any local services not present on the server
+                const localExtra = prev.filter(p => !serverDb.services.some((s: any) => s.id === p.id));
+                const merged = [
+                  ...serverDb.services.map((s: any) => ({ ...s, currency: 'NGN' })),
+                  ...localExtra
+                ];
+                if (localExtra.length > 0) {
+                  syncEntityToServer('services', merged);
+                }
                 const prevStr = JSON.stringify(prev);
-                const serverStr = JSON.stringify(serverDb.services);
-                if (prevStr !== serverStr) {
-                  localStorage.setItem('mode_ops_services', serverStr);
-                  return serverDb.services.map((s: any) => ({ ...s, currency: 'NGN' }));
+                const mergedStr = JSON.stringify(merged);
+                if (prevStr !== mergedStr) {
+                  localStorage.setItem('mode_ops_services', mergedStr);
+                  return merged;
                 }
                 return prev;
               });
@@ -1259,41 +1280,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `s-${Date.now()}`,
       currency: 'NGN',
     };
+    let updatedList: Service[] = [];
     setServices(prev => {
       const updated = [newService, ...prev];
+      updatedList = updated;
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_services', JSON.stringify(updated));
         window.dispatchEvent(new CustomEvent('mode_ops_services_changed', { detail: updated }));
       }
-      syncEntityToServer('services', updated);
       return updated;
     });
+    syncEntityToServer('services', updatedList.length > 0 ? updatedList : [newService, ...services]);
     logActivity('crm_service', `Added service catalog solution: ${newService.name}`, 'Service', newService.id);
   };
 
   const updateService = (id: string, updates: Partial<Service>) => {
+    let updatedList: Service[] = [];
     setServices(prev => {
       const updated = prev.map(s => s.id === id ? { ...s, ...updates, currency: 'NGN' as Currency } : s);
+      updatedList = updated;
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_services', JSON.stringify(updated));
         window.dispatchEvent(new CustomEvent('mode_ops_services_changed', { detail: updated }));
       }
-      syncEntityToServer('services', updated);
       return updated;
     });
+    syncEntityToServer('services', updatedList.length > 0 ? updatedList : services.map(s => s.id === id ? { ...s, ...updates } : s));
     logActivity('crm_service', `Updated service solution: ${updates.name || id}`, 'Service', id);
   };
 
   const deleteService = (id: string) => {
+    let updatedList: Service[] = [];
     setServices(prev => {
       const updated = prev.filter(s => s.id !== id);
+      updatedList = updated;
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_services', JSON.stringify(updated));
         window.dispatchEvent(new CustomEvent('mode_ops_services_changed', { detail: updated }));
       }
-      syncEntityToServer('services', updated);
       return updated;
     });
+    syncEntityToServer('services', updatedList.length > 0 ? updatedList : services.filter(s => s.id !== id));
     logActivity('crm_service', `Deleted service solution (${id})`, 'Service', id);
   };
 

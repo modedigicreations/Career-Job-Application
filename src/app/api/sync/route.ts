@@ -70,8 +70,11 @@ function readDb(): ServerState {
     return {
       ...getInitialDbState(),
       ...parsed,
-      services: (parsed.services && parsed.services.length > 0) 
-        ? parsed.services.map((s: any) => ({ ...s, currency: 'NGN' }))
+      services: (parsed.services && Array.isArray(parsed.services))
+        ? [
+            ...parsed.services.map((s: any) => ({ ...s, currency: 'NGN' })),
+            ...initialServices.filter(initS => !parsed.services.some((ps: any) => ps.id === initS.id)).map(s => ({ ...s, currency: 'NGN' }))
+          ]
         : initialServices.map(s => ({ ...s, currency: 'NGN' })),
       leads: (parsed.leads && parsed.leads.length > 0)
         ? parsed.leads.map((l: any) => ({ ...l, currency: 'NGN' }))

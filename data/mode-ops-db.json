@@ -95,6 +95,88 @@
         "Automated Tests",
         "Cloud Deployment"
       ]
+    },
+    {
+      "id": "s7",
+      "name": "MODE Schools",
+      "type": "custom-software",
+      "description": "All-in-one School Management ERP with Student Information System, fee invoicing, and grade books",
+      "basePrice": 1500000,
+      "currency": "NGN",
+      "isActive": true,
+      "features": [
+        "Student Information System (SIS)",
+        "Termly Report Card Generator",
+        "Online Fee Payment & Receipts",
+        "Attendance & Staff Roster Tracking",
+        "Parent Portal & SMS Alerts",
+        "ModeCBT Platform Integration"
+      ]
+    },
+    {
+      "id": "s8",
+      "name": "Domain Registration (.com)",
+      "type": "domain-registration",
+      "description": "Global commercial domain name registration with automated DNS management and free WHOIS privacy",
+      "basePrice": 25000,
+      "currency": "NGN",
+      "isActive": true,
+      "features": [
+        "Instant Automated Activation",
+        "Free DNS Management Zone",
+        "WHOIS Privacy Protection",
+        "Domain & Email Forwarding",
+        "2FA Domain Lock Security"
+      ]
+    },
+    {
+      "id": "s9",
+      "name": "Domain Registration (.ng)",
+      "type": "domain-registration",
+      "description": "Official Nigerian national ccTLD domain with accredited NiRA registry routing and high local SEO ranking",
+      "basePrice": 18000,
+      "currency": "NGN",
+      "isActive": true,
+      "features": [
+        "Official NiRA Registry Accreditation",
+        "Instant DNS Propagation",
+        "Premium Nigerian Brand Identity",
+        "Anycast Nameserver Network",
+        "Seamless Hosting Linking"
+      ]
+    },
+    {
+      "id": "s10",
+      "name": "Domain Registration (.com.ng)",
+      "type": "domain-registration",
+      "description": "Cost-effective Nigerian business domain registration with complete DNS control and automated renewal",
+      "basePrice": 8500,
+      "currency": "NGN",
+      "isActive": true,
+      "features": [
+        "Affordable Local Business Identity",
+        "Instant Registry Verification",
+        "Free DNS & Zone Management",
+        "Email Forwarding Aliases",
+        "1-Click WHMCS Provisioning"
+      ]
+    },
+    {
+      "id": "s11",
+      "name": "CPanel Unlimited Hosting",
+      "type": "web-hosting",
+      "description": "Unlimited cPanel cloud hosting with unmetered NVMe SSD storage, unlimited databases, and corporate email accounts",
+      "basePrice": 65000,
+      "currency": "NGN",
+      "isActive": true,
+      "features": [
+        "Unmetered NVMe SSD Storage",
+        "Unlimited Business Email Accounts",
+        "Free AutoSSL Security Certificates",
+        "Unlimited MySQL Databases",
+        "1-Click Softaculous App Installer",
+        "Daily Automated Remote Backups"
+      ]
     }
   ],
   "shifts": [],
@@ -985,5 +1067,5 @@
       "createdAt": "2026-06-01"
     }
   ],
-  "lastUpdated": "2026-10-02T18:28:26.819Z"
+  "lastUpdated": "2026-10-02T23:48:36.988Z"
 }
