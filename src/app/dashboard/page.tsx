@@ -22,7 +22,10 @@ import {
   Check,
   Eye,
   X,
-  FileText
+  FileText,
+  UserCheck,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { formatCurrency, formatDate, getDaysUntil, getUrgencyBadge, getRequisitionStatusBadge, isManagementUser, getMemoPriorityBadge, getMemoCategoryBadge } from '@/lib/utils';
@@ -37,14 +40,19 @@ export default function ExecutiveCockpitPage() {
     goals,
     activities,
     currentUser,
+    users,
     updateRequisitionDecision,
     shifts,
+    clockInStaff,
+    clockOutStaff,
     memos,
     markMemoAsRead,
     acknowledgeMemo
   } = useAppStore();
 
   const [dashboardMemoModal, setDashboardMemoModal] = React.useState<StaffMemo | null>(null);
+  const [showStaffRoster, setShowStaffRoster] = React.useState(true);
+  const [rosterFilter, setRosterFilter] = React.useState<'active' | 'all'>('active');
 
   // Memos relevant to the active staff user
   const isManager = isManagementUser(currentUser.role);
@@ -155,43 +163,199 @@ export default function ExecutiveCockpitPage() {
         </div>
       )}
 
-      {/* Live Staff on Shift Widget */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
-            <Clock size={20} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-extrabold text-slate-900 text-sm">Today&apos;s Daily Staff Shifts</h3>
-              <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>{shifts.filter(s => s.status === 'active').length} Staff Clocked In</span>
-              </span>
-            </div>
-            <p className="text-slate-500 text-xs mt-0.5">
-              Staff shifts are actively logged for today to compute work hours and compensation.
-            </p>
-          </div>
-        </div>
+      {/* Live Staff on Shift & Realtime Attendance Roster */}
+      {(() => {
+        const activeShifts = shifts.filter(s => s.status === 'active');
+        const activeStaffIds = new Set(activeShifts.map(s => s.staffId));
+        const activeStaffEmails = new Set(activeShifts.map(s => s.staffEmail?.toLowerCase()));
 
-        <div className="flex items-center gap-2.5 self-start md:self-auto">
-          <div className="flex -space-x-2 overflow-hidden">
-            {shifts.filter(s => s.status === 'active').slice(0, 4).map(s => (
-              <div key={s.id} className="w-7 h-7 rounded-full bg-slate-900 text-white border-2 border-white flex items-center justify-center text-[10px] font-bold shadow-xs" title={`${s.staffName} (${s.jobTitle})`}>
-                {s.staffName[0]}
+        const displayedStaff = users.filter(u => {
+          if (rosterFilter === 'active') {
+            return activeStaffIds.has(u.id) || activeStaffEmails.has(u.email?.toLowerCase());
+          }
+          return true;
+        });
+
+        return (
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 bg-gradient-to-r from-slate-50/60 to-white">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+                  <Clock size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-extrabold text-slate-900 text-sm">Live Staff Attendance &amp; Shift Sessions</h3>
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>{activeShifts.length} Staff On Duty</span>
+                    </span>
+                  </div>
+                  <p className="text-slate-500 text-xs mt-0.5">
+                    Real-time attendance tracking across Administration, Engineering, Sales &amp; Operations.
+                  </p>
+                </div>
               </div>
-            ))}
+
+              <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+                <div className="bg-slate-100 p-0.5 rounded-xl flex items-center text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setRosterFilter('active')}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer text-xs ${
+                      rosterFilter === 'active' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Active Shifts ({activeShifts.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRosterFilter('all')}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer text-xs ${
+                      rosterFilter === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    All Staff ({users.length})
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowStaffRoster(!showStaffRoster)}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold transition cursor-pointer flex items-center gap-1"
+                >
+                  {showStaffRoster ? (
+                    <>
+                      <span>Collapse</span>
+                      <ChevronUp size={13} />
+                    </>
+                  ) : (
+                    <>
+                      <span>View Roster</span>
+                      <ChevronDown size={13} />
+                    </>
+                  )}
+                </button>
+
+                <Link
+                  href="/dashboard/payroll"
+                  className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <span>Payroll Cockpit</span>
+                  <ChevronRight size={13} />
+                </Link>
+              </div>
+            </div>
+
+            {showStaffRoster && (
+              <div className="p-4 sm:p-5 bg-slate-50/40">
+                {displayedStaff.length === 0 ? (
+                  <div className="text-center py-8 bg-white rounded-xl border border-dashed border-slate-200">
+                    <Clock size={32} className="mx-auto text-slate-300 mb-2" />
+                    <p className="text-xs font-bold text-slate-700">No staff members currently clocked in</p>
+                    <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
+                      Switch to the &quot;All Staff&quot; tab above to view every registered team member or start a manual shift session.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setRosterFilter('all')}
+                      className="mt-3 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition cursor-pointer"
+                    >
+                      Show All Staff Directory
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {displayedStaff.map(member => {
+                      const activeS = shifts.find(
+                        s => (s.staffId === member.id || s.staffEmail?.toLowerCase() === member.email?.toLowerCase()) && s.status === 'active'
+                      );
+                      const isSuper = currentUser.role === 'managing_director' || currentUser.role === 'super_admin';
+
+                      return (
+                        <div
+                          key={member.id}
+                          className={`p-3.5 rounded-xl border transition flex flex-col justify-between gap-3 ${
+                            activeS
+                              ? 'bg-white border-emerald-200 shadow-xs'
+                              : 'bg-white/80 border-slate-200/80 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2.5">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 text-white shadow-xs ${
+                                activeS ? 'bg-emerald-600 ring-2 ring-emerald-100' : 'bg-slate-800'
+                              }`}>
+                                {member.full_name ? member.full_name[0] : 'U'}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold text-slate-900 truncate">
+                                  {member.full_name}
+                                </div>
+                                <div className="text-[11px] text-slate-500 truncate">
+                                  {member.job_title || member.role.replace('_', ' ')}
+                                </div>
+                              </div>
+                            </div>
+
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                              member.department?.toLowerCase() === 'administration'
+                                ? 'bg-purple-100 text-purple-800 border border-purple-200 font-semibold'
+                                : member.department?.toLowerCase() === 'executive'
+                                ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                : 'bg-slate-100 text-slate-700'
+                            }`}>
+                              {member.department || 'Operations'}
+                            </span>
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+                            {activeS ? (
+                              <>
+                                <div className="flex items-center gap-1.5 text-emerald-700 text-[11px] font-medium">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                  <span>In: {new Date(activeS.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                                {isSuper && (
+                                  <button
+                                    type="button"
+                                    onClick={() => clockOutStaff(activeS.id)}
+                                    className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[10px] font-bold transition cursor-pointer"
+                                    title="Close shift session"
+                                  >
+                                    Clock Out
+                                  </button>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                                  <Clock size={11} />
+                                  <span>Shift Inactive</span>
+                                </span>
+                                {(isSuper || currentUser.id === member.id) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => clockInStaff(member.id)}
+                                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center gap-1"
+                                  >
+                                    <UserCheck size={11} />
+                                    <span>Clock In</span>
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <Link
-            href="/dashboard/payroll"
-            className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer ml-1"
-          >
-            <span>Shift &amp; Payroll Cockpit</span>
-            <ChevronRight size={13} />
-          </Link>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Top Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
