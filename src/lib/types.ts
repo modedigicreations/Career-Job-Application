@@ -9,7 +9,8 @@ export type UserRole =
   | 'sales'
   | 'support'
   | 'developer'
-  | 'accounts';
+  | 'accounts'
+  | 'administration';
 
 export interface UserProfile {
   id: string;
@@ -24,6 +25,8 @@ export interface UserProfile {
   avatar_url?: string;
   is_active?: boolean;
   hasPayrollAccess?: boolean;
+  hourly_rate?: number;
+  currency?: Currency;
   created_at?: string;
 }
 

@@ -30,6 +30,7 @@ export default function Header() {
     currentUser,
     toggleMobileSidebar,
     activeShift,
+    clockInStaff,
     logout
   } = useAppStore();
   const [notifOpen, setNotifOpen] = useState(false);
@@ -353,10 +354,15 @@ export default function Header() {
               <span>Shift Active: {new Date(activeShift.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
           ) : (
-            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-[11px] text-slate-600">
-              <Clock size={12} className="text-slate-400" />
-              <span>Shift Inactive</span>
-            </div>
+            <button
+              type="button"
+              onClick={() => clockInStaff(currentUser.id)}
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-300 text-[11px] text-amber-900 font-semibold cursor-pointer transition shadow-xs"
+              title="Click to clock in and start your shift"
+            >
+              <Clock size={12} className="text-amber-600 animate-pulse" />
+              <span>Shift Inactive — Click to Clock In</span>
+            </button>
           )}
 
           {/* User Profile & Logout Popover */}
@@ -407,9 +413,22 @@ export default function Header() {
                       Clocked in at {new Date(activeShift.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Clocking out will compute shift hours for payroll.
                     </p>
                   ) : (
-                    <p className="text-[10px] text-slate-500 leading-tight mt-1">
-                      Not currently on an active shift.
-                    </p>
+                    <div className="mt-1">
+                      <p className="text-[10px] text-slate-500 leading-tight">
+                        Not currently on an active shift.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clockInStaff(currentUser.id);
+                          setUserMenuOpen(false);
+                        }}
+                        className="mt-2 w-full py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-center transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs text-xs"
+                      >
+                        <Clock size={12} />
+                        <span>Clock In &amp; Start Shift</span>
+                      </button>
+                    </div>
                   )}
                 </div>
 

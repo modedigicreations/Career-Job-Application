@@ -269,7 +269,7 @@ export default function StaffAllocationPage() {
                     <option value="managing_director">Managing Director (MD)</option>
                     <option value="manager">Operations Manager</option>
                     <option value="sales">Sales & Growth Lead</option>
-                    <option value="accounts">Finance & Accounts</option>
+                    <option value="administration">Administration</option>
                     <option value="developer">Engineering Lead</option>
                     <option value="employee">Staff Member</option>
                   </select>

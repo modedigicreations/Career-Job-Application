@@ -46,11 +46,13 @@ export default function PayrollPage() {
     applyShiftHoursToPayroll
   } = useAppStore();
 
-  // Access Control: Super Admin, Managing Director, Admin, or staff explicitly assigned payroll access
+  // Access Control: Super Admin, Managing Director, Admin, Administration, or staff explicitly assigned payroll access
   const isSuperAdminOrMD =
     currentUser.role === 'super_admin' ||
     currentUser.role === 'managing_director' ||
-    currentUser.role === 'admin';
+    currentUser.role === 'admin' ||
+    currentUser.role === 'administration' ||
+    currentUser.role === 'accounts';
   const hasPayrollAccess = isSuperAdminOrMD || currentUser.hasPayrollAccess === true;
 
   // Main Module Tab: Payroll vs Shifts
@@ -165,13 +167,13 @@ export default function PayrollPage() {
               <button
                 type="button"
                 onClick={() => {
-                  // Switch to accounts role which has payroll access
-                  setCurrentUserRole('accounts');
+                  // Switch to administration role which has payroll access
+                  setCurrentUserRole('administration');
                 }}
                 className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
               >
                 <UserCheck size={14} />
-                <span>Switch to Accounts Lead</span>
+                <span>Switch to Administration Lead</span>
               </button>
             </div>
           </div>

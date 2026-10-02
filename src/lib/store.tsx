@@ -149,6 +149,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (u.id === 'u1') {
               return { ...u, full_name: 'Davids Ogan', email: 'info@modedigitalcreations.ng', job_title: 'Managing Director & Super Admin' };
             }
+            if (u.id === 'u5' || u.role === 'accounts') {
+              return {
+                ...u,
+                id: 'u5',
+                full_name: u.full_name || 'Ibrahim Musa',
+                role: 'administration' as UserRole,
+                department: 'Administration',
+                job_title: 'Administration & Finance Lead',
+                email: (u.email && u.email.includes('mode')) ? 'admin@modedigitalcreations.ng' : (u.email || 'admin@modedigitalcreations.ng'),
+                hourly_rate: u.hourly_rate || 6500,
+                hasPayrollAccess: true,
+              };
+            }
             if (u.email && u.email.endsWith('@modedigital.ng')) {
               return { ...u, email: u.email.replace('@modedigital.ng', '@modedigitalcreations.ng') };
             }
@@ -174,6 +187,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const u = JSON.parse(savedUser);
           if (u.id === 'u1') {
             return { ...u, full_name: 'Davids Ogan', email: 'info@modedigitalcreations.ng', job_title: 'Managing Director & Super Admin' };
+          }
+          if (u.id === 'u5' || u.role === 'accounts') {
+            return {
+              ...u,
+              id: 'u5',
+              full_name: u.full_name || 'Ibrahim Musa',
+              role: 'administration' as UserRole,
+              department: 'Administration',
+              job_title: 'Administration & Finance Lead',
+              email: (u.email && u.email.includes('mode')) ? 'admin@modedigitalcreations.ng' : (u.email || 'admin@modedigitalcreations.ng'),
+              hourly_rate: u.hourly_rate || 6500,
+              hasPayrollAccess: true,
+            };
           }
           if (u.email && u.email.endsWith('@modedigital.ng')) {
             return { ...u, email: u.email.replace('@modedigital.ng', '@modedigitalcreations.ng') };
@@ -332,7 +358,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [shifts, setShifts] = useState<StaffShift[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('mode_ops_shifts');
-      if (saved) try { return JSON.parse(saved); } catch {}
+      if (saved) {
+        try {
+          const parsed: StaffShift[] = JSON.parse(saved);
+          return parsed.map(s => {
+            if (s.staffId === 'u5' || s.staffEmail?.includes('accounts')) {
+              return {
+                ...s,
+                staffId: 'u5',
+                staffName: s.staffName || 'Ibrahim Musa',
+                staffEmail: 'admin@modedigitalcreations.ng',
+                department: 'Administration',
+                jobTitle: 'Administration & Finance Lead',
+              };
+            }
+            return s;
+          });
+        } catch {}
+      }
     }
     return initialShifts;
   });
@@ -353,7 +396,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return true; // Default during SSR
   });
 
-  const activeShift = shifts.find(s => s.staffId === currentUser.id && s.status === 'active') || null;
+  const activeShift = shifts.find(s => (s.staffId === currentUser.id || s.staffEmail === currentUser.email) && s.status === 'active') || null;
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const toggleMobileSidebar = () => setMobileSidebarOpen(prev => !prev);
@@ -384,15 +427,84 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Switch Role
   const setCurrentUserRole = (role: UserRole) => {
-    const found = users.find(u => u.role === role) || {
-      id: `u-${role}`,
-      email: role === 'managing_director' ? 'info@modedigitalcreations.ng' : `${role}@modedigitalcreations.ng`,
-      full_name: role.replace('_', ' ').toUpperCase(),
-      role,
-      department: 'Operations',
-      job_title: `${role.toUpperCase()} Lead`,
-    };
+    let targetUser: UserProfile | undefined = users.find(u => {
+      if (role === 'administration' || role === 'accounts') {
+        return u.role === 'administration' || u.role === 'accounts' || u.id === 'u5';
+      }
+      return u.role === role;
+    });
+
+    if (!targetUser) {
+      if (role === 'administration' || role === 'accounts') {
+        targetUser = {
+          id: 'u5',
+          email: 'admin@modedigitalcreations.ng',
+          full_name: 'Ibrahim Musa',
+          role: 'administration',
+          department: 'Administration',
+          job_title: 'Administration & Finance Lead',
+          avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+          hourly_rate: 6500,
+          currency: 'NGN',
+          hasPayrollAccess: true,
+        };
+      } else {
+        targetUser = {
+          id: `u-${role}`,
+          email: role === 'managing_director' ? 'info@modedigitalcreations.ng' : `${role}@modedigitalcreations.ng`,
+          full_name: role.replace('_', ' ').toUpperCase(),
+          role,
+          department: 'Operations',
+          job_title: `${role.toUpperCase()} Lead`,
+        };
+      }
+    }
+
+    if (targetUser.role === 'accounts' || targetUser.id === 'u5') {
+      targetUser = {
+        ...targetUser,
+        role: 'administration',
+        department: 'Administration',
+        job_title: 'Administration & Finance Lead',
+      };
+    }
+
+    const found: UserProfile = targetUser;
+
     setCurrentUser(found);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_current_user', JSON.stringify(found));
+    }
+
+    // Auto-ensure active shift for this staff member so they are NOT left "Shift Inactive" when viewing as that staff
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
+    setShifts(prev => {
+      const hasActive = prev.some(s => (s.staffId === found.id || s.staffEmail === found.email) && s.status === 'active');
+      if (!hasActive) {
+        const newShift: StaffShift = {
+          id: `shift-${Date.now()}`,
+          staffId: found.id,
+          staffName: found.full_name,
+          staffEmail: found.email,
+          department: found.department || 'Operations',
+          jobTitle: found.job_title || 'Staff',
+          clockInTime: now,
+          clockOutTime: null,
+          durationHours: 0,
+          status: 'active',
+          hourlyRate: found.hourly_rate || (found.role === 'managing_director' ? 5000 : found.role === 'administration' ? 6500 : 3500),
+          notes: `Shift activated on role view switch at ${new Date().toLocaleTimeString()}`,
+          date: today,
+        };
+        const updated = [newShift, ...prev];
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
+        }
+        return updated;
+      }
+      return prev;
+    });
   };
 
   const updateUserProfile = (id: string, updates: Partial<UserProfile>) => {
@@ -1130,7 +1242,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         clockOutTime: null,
         durationHours: 0,
         status: 'active',
-        hourlyRate: matchedUser.role === 'managing_director' ? 5000 : matchedUser.role === 'developer' ? 3500 : matchedUser.role === 'sales' ? 2800 : matchedUser.role === 'manager' ? 3000 : 2500,
+        hourlyRate: matchedUser.hourly_rate || (matchedUser.role === 'managing_director' ? 5000 : matchedUser.role === 'administration' || matchedUser.role === 'accounts' ? 6500 : matchedUser.role === 'developer' ? 3500 : matchedUser.role === 'sales' ? 2800 : matchedUser.role === 'manager' ? 3000 : 2500),
         notes: `Clocked in for regular shift at ${new Date().toLocaleTimeString()}`
       };
       if (typeof window !== 'undefined') {
@@ -1322,8 +1434,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         clockOutTime: null,
         durationHours: 0,
         status: 'active',
-        hourlyRate: staff.role === 'managing_director' ? 5000 : staff.role === 'developer' ? 3500 : staff.role === 'sales' ? 2800 : staff.role === 'manager' ? 3000 : 2500,
-        notes: `Super Admin manual clock-in at ${new Date().toLocaleTimeString()}`
+        hourlyRate: staff.hourly_rate || (staff.role === 'managing_director' ? 5000 : staff.role === 'administration' || staff.role === 'accounts' ? 6500 : staff.role === 'developer' ? 3500 : staff.role === 'sales' ? 2800 : staff.role === 'manager' ? 3000 : 2500),
+        notes: `Manual clock-in at ${new Date().toLocaleTimeString()}`
       };
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_shifts', JSON.stringify([newShift, ...prev]));

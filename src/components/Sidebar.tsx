@@ -49,6 +49,7 @@ export default function Sidebar() {
     mobileSidebarOpen,
     setMobileSidebarOpen,
     activeShift,
+    clockInStaff,
     logout,
     memos
   } = useAppStore();
@@ -69,7 +70,7 @@ export default function Sidebar() {
     { role: 'managing_director', label: 'Managing Director (MD)', desc: 'Executive visibility, all approvals & strategy' },
     { role: 'manager', label: 'Operations Manager', desc: 'Team goals, project tracking & requisition vetting' },
     { role: 'sales', label: 'Sales & Growth Lead', desc: 'Deals, Kanban pipeline, leads & client proposals' },
-    { role: 'accounts', label: 'Finance & Accounts', desc: 'Requisition disbursement, invoices & receipts' },
+    { role: 'administration', label: 'Administration', desc: 'Requisition disbursement, vouchers & invoices' },
     { role: 'developer', label: 'Engineering Lead', desc: 'Sprint tasks, technical milestones & delivery' },
   ];
 
@@ -211,21 +212,24 @@ export default function Sidebar() {
             <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 mb-1">
               Switch Viewing Role
             </div>
-            {roles.map(r => (
-              <button
-                key={r.role}
-                onClick={() => handleRoleSelect(r.role)}
-                className={`w-full text-left p-2 rounded-lg text-xs transition flex items-center justify-between cursor-pointer ${
-                  currentUser.role === r.role ? 'bg-blue-600 text-white font-medium' : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <div>
-                  <div className="font-semibold">{r.label}</div>
-                  <div className={`text-[10px] ${currentUser.role === r.role ? 'text-blue-100' : 'text-slate-400'}`}>{r.desc}</div>
-                </div>
-                {currentUser.role === r.role && <CheckCircle2 size={14} />}
-              </button>
-            ))}
+            {roles.map(r => {
+              const isSelected = currentUser.role === r.role || (r.role === 'administration' && (currentUser.role === 'accounts' || currentUser.id === 'u5'));
+              return (
+                <button
+                  key={r.role}
+                  onClick={() => handleRoleSelect(r.role)}
+                  className={`w-full text-left p-2 rounded-lg text-xs transition flex items-center justify-between cursor-pointer ${
+                    isSelected ? 'bg-blue-600 text-white font-medium' : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <div>
+                    <div className="font-semibold">{r.label}</div>
+                    <div className={`text-[10px] ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>{r.desc}</div>
+                  </div>
+                  {isSelected && <CheckCircle2 size={14} />}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -271,7 +275,7 @@ export default function Sidebar() {
 
       {/* Clock Out & Log Out Action Bar */}
       <div className="p-2.5 border-t border-slate-800/80 bg-slate-900/60 space-y-1.5">
-        {activeShift && (
+        {activeShift ? (
           <div className="px-2.5 py-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-between font-mono">
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -279,6 +283,15 @@ export default function Sidebar() {
             </span>
             <span>{new Date(activeShift.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => clockInStaff(currentUser.id)}
+            className="w-full flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold text-emerald-300 hover:text-white bg-emerald-600/20 hover:bg-emerald-600 border border-emerald-500/40 rounded-xl transition cursor-pointer shadow-xs"
+          >
+            <Clock size={13} className="text-emerald-400" />
+            <span>Clock In &amp; Start Shift</span>
+          </button>
         )}
         <button
           type="button"
