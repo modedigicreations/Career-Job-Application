@@ -17,8 +17,18 @@ import { useAppStore } from '@/lib/store';
 
 export default function SettingsPage() {
   const { currentUser, updateUserProfile, users } = useAppStore();
-  const [companyName, setCompanyName] = useState('MODE Digital Creations');
-  const [defaultCurrency, setDefaultCurrency] = useState('NGN');
+  const [companyName, setCompanyName] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('mode_ops_company_name') || 'MODE Digital Creations';
+    }
+    return 'MODE Digital Creations';
+  });
+  const [defaultCurrency, setDefaultCurrency] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('mode_ops_base_currency') || 'NGN';
+    }
+    return 'NGN';
+  });
   
   // Executive profile fields
   const [execName, setExecName] = useState(currentUser.full_name || 'Davids Ogan');
@@ -38,6 +48,11 @@ export default function SettingsPage() {
       job_title: execTitle,
       phone: execPhone,
     });
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_base_currency', defaultCurrency);
+      localStorage.setItem('mode_ops_company_name', companyName);
+    }
 
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);

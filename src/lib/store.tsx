@@ -5,7 +5,7 @@ import type {
   UserProfile, Lead, Contact, Company, Project, Task, Service, HostingAccount,
   Invoice, Payment, Ticket, ActivityItem, Requisition, Goal, Feedback, AppNotification,
   UserRole, LeadStatus, RequisitionStatus, GoalStatus, WhmcsConfig, PayrollRecord,
-  StaffShift, StaffMemo, ShiftTask
+  StaffShift, StaffMemo, ShiftTask, Currency
 } from './types';
 import {
   initialProfiles, initialLeads, initialContacts, initialCompanies,
@@ -234,7 +234,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [leads, setLeads] = useState<Lead[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('mode_ops_leads');
-      if (saved) try { return JSON.parse(saved); } catch {}
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((l: any) => {
+              let b = l.budget;
+              let ev = l.estimatedValue;
+              if (l.currency === 'GBP' && b <= 10000) b = b * 1250;
+              if (l.currency === 'USD' && b <= 10000) b = b * 1250;
+              if (l.currency === 'GBP' && ev <= 10000) ev = ev * 1250;
+              if (l.currency === 'USD' && ev <= 10000) ev = ev * 1250;
+              return { ...l, currency: 'NGN' as Currency, budget: b, estimatedValue: ev };
+            });
+          }
+        } catch {}
+      }
     }
     return initialLeads;
   });
@@ -258,9 +273,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [projects, setProjects] = useState<Project[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('mode_ops_projects');
-      if (saved) try { return JSON.parse(saved); } catch {}
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((p: any) => ({ ...p, currency: 'NGN' as Currency }));
+          }
+        } catch {}
+      }
     }
-    return initialProjects;
+    return initialProjects.map(p => ({ ...p, currency: 'NGN' as Currency }));
   });
 
   const [tasks, setTasks] = useState<Task[]>(() => {
@@ -274,17 +296,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [services, setServices] = useState<Service[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('mode_ops_services');
-      if (saved) try { return JSON.parse(saved); } catch {}
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((s: any) => ({ ...s, currency: 'NGN' as Currency }));
+          }
+        } catch {}
+      }
     }
-    return initialServices;
+    return initialServices.map(s => ({ ...s, currency: 'NGN' as Currency }));
   });
 
   const [hostingAccounts, setHostingAccounts] = useState<HostingAccount[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('mode_ops_hosting');
-      if (saved) try { return JSON.parse(saved); } catch {}
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((h: any) => ({ ...h, currency: 'NGN' as Currency }));
+          }
+        } catch {}
+      }
     }
-    return initialHostingAccounts;
+    return initialHostingAccounts.map(h => ({ ...h, currency: 'NGN' as Currency }));
   });
 
   const [whmcsConfig, setWhmcsConfig] = useState<WhmcsConfig>(() => {
@@ -306,9 +342,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [invoices, setInvoices] = useState<Invoice[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('mode_ops_invoices');
-      if (saved) try { return JSON.parse(saved); } catch {}
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((inv: any) => {
+              let total = inv.total;
+              let subtotal = inv.subtotal;
+              if (inv.currency === 'GBP' && total <= 10000) {
+                total = total * 1000;
+                subtotal = (subtotal || total) * 1000;
+              }
+              return {
+                ...inv,
+                currency: 'NGN' as Currency,
+                total,
+                subtotal,
+                items: (inv.items || []).map((it: any) => ({
+                  ...it,
+                  unitPrice: inv.currency === 'GBP' && it.unitPrice <= 10000 ? it.unitPrice * 1000 : it.unitPrice,
+                  total: inv.currency === 'GBP' && it.total <= 10000 ? it.total * 1000 : it.total
+                }))
+              };
+            });
+          }
+        } catch {}
+      }
     }
-    return initialInvoices;
+    return initialInvoices.map(inv => ({ ...inv, currency: 'NGN' as Currency }));
   });
 
   const [payments, setPayments] = useState<Payment[]>(() => {
@@ -471,6 +532,140 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('mode_ops_memos', JSON.stringify(memos));
     }
   }, [leads, users, companies, projects, services, requisitions, goals, invoices, hostingAccounts, whmcsConfig, tasks, shiftTasks, feedbacks, tickets, activities, notifications, payrollRecords, shifts, memos]);
+
+  // Cross-device & Multi-tab Server Sync Hook
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let isSubscribed = true;
+
+    const pullServerState = async () => {
+      try {
+        const res = await fetch('/api/sync');
+        if (!res.ok) return;
+        const result = await res.json();
+        if (result?.success && result.data && isSubscribed) {
+          const serverDb = result.data;
+          
+          // Sync services catalog
+          if (Array.isArray(serverDb.services) && serverDb.services.length > 0) {
+            setServices(prev => {
+              const prevStr = JSON.stringify(prev);
+              const serverStr = JSON.stringify(serverDb.services);
+              if (prevStr !== serverStr) {
+                localStorage.setItem('mode_ops_services', serverStr);
+                return serverDb.services.map((s: any) => ({ ...s, currency: 'NGN' }));
+              }
+              return prev;
+            });
+          }
+
+          // Sync staff shifts
+          if (Array.isArray(serverDb.shifts) && serverDb.shifts.length > 0) {
+            setShifts(prev => {
+              const prevStr = JSON.stringify(prev);
+              const serverStr = JSON.stringify(serverDb.shifts);
+              if (prevStr !== serverStr) {
+                localStorage.setItem('mode_ops_shifts', serverStr);
+                return serverDb.shifts;
+              }
+              return prev;
+            });
+          }
+
+          // Sync shift tasks
+          if (Array.isArray(serverDb.shiftTasks) && serverDb.shiftTasks.length > 0) {
+            setShiftTasks(prev => {
+              const prevStr = JSON.stringify(prev);
+              const serverStr = JSON.stringify(serverDb.shiftTasks);
+              if (prevStr !== serverStr) {
+                localStorage.setItem('mode_ops_shift_tasks', serverStr);
+                return serverDb.shiftTasks;
+              }
+              return prev;
+            });
+          }
+
+          // Sync staff memos
+          if (Array.isArray(serverDb.memos) && serverDb.memos.length > 0) {
+            setMemos(prev => {
+              const prevStr = JSON.stringify(prev);
+              const serverStr = JSON.stringify(serverDb.memos);
+              if (prevStr !== serverStr) {
+                localStorage.setItem('mode_ops_memos', serverStr);
+                return serverDb.memos;
+              }
+              return prev;
+            });
+          }
+
+          // Sync staff profiles / users
+          if (Array.isArray(serverDb.users) && serverDb.users.length > 0) {
+            setUsers(prev => {
+              const prevStr = JSON.stringify(prev);
+              const serverStr = JSON.stringify(serverDb.users);
+              if (prevStr !== serverStr) {
+                localStorage.setItem('mode_ops_users', serverStr);
+                return serverDb.users;
+              }
+              return prev;
+            });
+          }
+        }
+      } catch {}
+    };
+
+    pullServerState();
+
+    // Cross-tab storage change handler
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'mode_ops_services' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) setServices(parsed.map(s => ({ ...s, currency: 'NGN' })));
+        } catch {}
+      }
+      if (e.key === 'mode_ops_shifts' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) setShifts(parsed);
+        } catch {}
+      }
+      if (e.key === 'mode_ops_shift_tasks' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) setShiftTasks(parsed);
+        } catch {}
+      }
+      if (e.key === 'mode_ops_memos' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) setMemos(parsed);
+        } catch {}
+      }
+    };
+
+    const handleCustomServicesChange = (e: any) => {
+      if (e.detail && Array.isArray(e.detail)) {
+        setServices(e.detail.map((s: any) => ({ ...s, currency: 'NGN' })));
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('mode_ops_services_changed', handleCustomServicesChange);
+    window.addEventListener('focus', pullServerState);
+
+    // Poll every 5s for cross-device live sync
+    const pollTimer = setInterval(pullServerState, 5000);
+
+    return () => {
+      isSubscribed = false;
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('mode_ops_services_changed', handleCustomServicesChange);
+      window.removeEventListener('focus', pullServerState);
+      clearInterval(pollTimer);
+    };
+  }, []);
 
   // Switch Role
   const setCurrentUserRole = (role: UserRole) => {
@@ -945,22 +1140,61 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { accomplishedCount, carriedForwardCount };
   };
 
+  const syncEntityToServer = async (entity: string, data: any) => {
+    try {
+      if (typeof window !== 'undefined') {
+        await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entity, data })
+        });
+      }
+    } catch {
+      // background sync deferred
+    }
+  };
+
   const addService = (serviceData: Omit<Service, 'id'>) => {
     const newService: Service = {
       ...serviceData,
       id: `s-${Date.now()}`,
+      currency: 'NGN',
     };
-    setServices(prev => [newService, ...prev]);
+    setServices(prev => {
+      const updated = [newService, ...prev];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_services', JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('mode_ops_services_changed', { detail: updated }));
+      }
+      syncEntityToServer('services', updated);
+      return updated;
+    });
     logActivity('crm_service', `Added service catalog solution: ${newService.name}`, 'Service', newService.id);
   };
 
   const updateService = (id: string, updates: Partial<Service>) => {
-    setServices(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+    setServices(prev => {
+      const updated = prev.map(s => s.id === id ? { ...s, ...updates, currency: 'NGN' as Currency } : s);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_services', JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('mode_ops_services_changed', { detail: updated }));
+      }
+      syncEntityToServer('services', updated);
+      return updated;
+    });
     logActivity('crm_service', `Updated service solution: ${updates.name || id}`, 'Service', id);
   };
 
   const deleteService = (id: string) => {
-    setServices(prev => prev.filter(s => s.id !== id));
+    setServices(prev => {
+      const updated = prev.filter(s => s.id !== id);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_services', JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('mode_ops_services_changed', { detail: updated }));
+      }
+      syncEntityToServer('services', updated);
+      return updated;
+    });
     logActivity('crm_service', `Deleted service solution (${id})`, 'Service', id);
   };
 

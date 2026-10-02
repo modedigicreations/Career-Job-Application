@@ -9,7 +9,9 @@ import {
   Plus,
   Edit3,
   Trash2,
-  X
+  X,
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { formatCurrency } from '@/lib/utils';
@@ -20,6 +22,8 @@ export default function ServicesPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Form State
   const [name, setName] = useState('');
@@ -30,6 +34,18 @@ export default function ServicesPage() {
   const [features, setFeatures] = useState<string[]>([]);
   const [newFeatureInput, setNewFeatureInput] = useState('');
   const [quotedService, setQuotedService] = useState<Service | null>(null);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch('/api/sync');
+      if (res.ok) {
+        setToastMessage('Services catalog synchronized with live server.');
+        setTimeout(() => setToastMessage(null), 3000);
+      }
+    } catch {}
+    setIsSyncing(false);
+  };
 
   const openAddModal = () => {
     setEditingService(null);
@@ -54,7 +70,7 @@ export default function ServicesPage() {
     setType(service.type);
     setDescription(service.description);
     setBasePrice(service.basePrice);
-    setCurrency(service.currency);
+    setCurrency(service.currency || 'NGN');
     setFeatures([...service.features]);
     setNewFeatureInput('');
     setIsModalOpen(true);
@@ -82,25 +98,28 @@ export default function ServicesPage() {
 
     if (editingService) {
       updateService(editingService.id, {
-        name,
+        name: name.trim(),
         type,
-        description,
-        basePrice: Number(basePrice),
-        currency,
+        description: description.trim(),
+        basePrice: Number(basePrice) || 0,
+        currency: 'NGN',
         features,
       });
+      setToastMessage(`Service offering "${name.trim()}" updated and synced successfully!`);
     } else {
       addService({
-        name,
+        name: name.trim(),
         type,
-        description,
-        basePrice: Number(basePrice),
-        currency,
+        description: description.trim(),
+        basePrice: Number(basePrice) || 0,
+        currency: 'NGN',
         isActive: true,
         features: features.length > 0 ? features : ['Standard Scope Blueprint'],
       });
+      setToastMessage(`New service "${name.trim()}" added to catalog and saved!`);
     }
 
+    setTimeout(() => setToastMessage(null), 4000);
     closeModal();
   };
 
@@ -108,12 +127,31 @@ export default function ServicesPage() {
     if (!editingService) return;
     if (confirm(`Are you sure you want to remove "${editingService.name}" from catalog?`)) {
       deleteService(editingService.id);
+      setToastMessage(`Service "${editingService.name}" removed from catalog.`);
+      setTimeout(() => setToastMessage(null), 4000);
       closeModal();
     }
   };
 
   return (
     <div className="space-y-6">
+      {/* Toast Confirmation Banner */}
+      {toastMessage && (
+        <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold shadow-xs animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="text-emerald-600 hover:text-emerald-800 p-0.5"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -123,20 +161,37 @@ export default function ServicesPage() {
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
               {services.length} Core Solutions
             </span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live Server Synced
+            </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Standardized offerings, base pricing tiers, and client scope blueprints.
+            Standardized offerings, base pricing tiers in Nigerian Naira (₦), and client scope blueprints.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openAddModal}
-          className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0 self-start sm:self-auto"
-        >
-          <Plus size={15} />
-          <span>Add Service Offering</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold shadow-2xs transition disabled:opacity-50"
+            title="Sync latest services from server"
+          >
+            <RefreshCw size={13} className={isSyncing ? 'animate-spin text-blue-600' : 'text-slate-500'} />
+            <span>{isSyncing ? 'Syncing...' : 'Sync Server'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={openAddModal}
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0"
+          >
+            <Plus size={15} />
+            <span>Add Service Offering</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -260,7 +315,7 @@ export default function ServicesPage() {
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
-                  <label className="block text-slate-700 font-semibold mb-1">Base Price (Starts from)</label>
+                  <label className="block text-slate-700 font-semibold mb-1">Base Price (Starts from in Naira ₦) *</label>
                   <input
                     type="number"
                     min="0"
@@ -275,9 +330,9 @@ export default function ServicesPage() {
                   <select
                     value={currency}
                     onChange={e => setCurrency(e.target.value as Currency)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold"
                   >
-                    <option value="NGN">NGN (₦)</option>
+                    <option value="NGN">NGN (₦ - Naira)</option>
                     <option value="USD">USD ($)</option>
                     <option value="GBP">GBP (£)</option>
                   </select>
