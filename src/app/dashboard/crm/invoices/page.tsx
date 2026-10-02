@@ -271,7 +271,7 @@ export default function InvoicesPage() {
               Client Invoices & Receivables
             </h1>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-              Multi-Currency (NGN, GBP, USD)
+              Official Currency: NGN (₦)
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
@@ -665,11 +665,10 @@ export default function InvoicesPage() {
                   <select
                     value={currency}
                     onChange={e => setCurrency(e.target.value as Currency)}
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-white"
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50 text-slate-700 cursor-not-allowed"
+                    disabled
                   >
-                    <option value="NGN">NGN (₦)</option>
-                    <option value="USD">USD ($)</option>
-                    <option value="GBP">GBP (£)</option>
+                    <option value="NGN">NGN (₦ - Nigerian Naira)</option>
                   </select>
                 </div>
                 <div>

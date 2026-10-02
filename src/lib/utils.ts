@@ -2,16 +2,9 @@ import { Currency, RequisitionUrgency, RequisitionStatus, LeadStatus, ProjectSta
 
 export function formatCurrency(amount?: number | null, currency: Currency = 'NGN'): string {
   const val = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
-  if (currency === 'NGN') {
-    return `₦${val.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-  }
-  if (currency === 'GBP') {
-    return `£${val.toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-  }
-  if (currency === 'USD') {
-    return `$${val.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-  }
-  return `${val}`;
+  // MODE Operations Suite operates officially in Nigerian Naira (₦).
+  // Standardize all currency rendering to Nigerian Naira to prevent $ display discrepancies.
+  return `₦${val.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
 
 export function formatDate(dateString?: string): string {

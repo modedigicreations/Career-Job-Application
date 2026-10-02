@@ -1459,11 +1459,10 @@ export default function PayrollPage() {
                   <select
                     value={formCurrency}
                     onChange={e => setFormCurrency(e.target.value as Currency)}
-                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white"
+                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 font-semibold cursor-not-allowed"
+                    disabled
                   >
-                    <option value="NGN">NGN (₦)</option>
-                    <option value="USD">USD ($)</option>
-                    <option value="GBP">GBP (£)</option>
+                    <option value="NGN">NGN (₦ - Nigerian Naira)</option>
                   </select>
                 </div>
                 <div>

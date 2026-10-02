@@ -71,8 +71,23 @@ function readDb(): ServerState {
       ...getInitialDbState(),
       ...parsed,
       services: (parsed.services && parsed.services.length > 0) 
-        ? parsed.services.map((s: any) => ({ ...s, currency: s.currency || 'NGN' }))
-        : initialServices.map(s => ({ ...s, currency: 'NGN' }))
+        ? parsed.services.map((s: any) => ({ ...s, currency: 'NGN' }))
+        : initialServices.map(s => ({ ...s, currency: 'NGN' })),
+      leads: (parsed.leads && parsed.leads.length > 0)
+        ? parsed.leads.map((l: any) => ({ ...l, currency: 'NGN' }))
+        : initialLeads.map(l => ({ ...l, currency: 'NGN' })),
+      projects: (parsed.projects && parsed.projects.length > 0)
+        ? parsed.projects.map((p: any) => ({ ...p, currency: 'NGN' }))
+        : initialProjects.map(p => ({ ...p, currency: 'NGN' })),
+      invoices: (parsed.invoices && parsed.invoices.length > 0)
+        ? parsed.invoices.map((i: any) => ({ ...i, currency: 'NGN' }))
+        : initialInvoices.map(i => ({ ...i, currency: 'NGN' })),
+      requisitions: (parsed.requisitions && parsed.requisitions.length > 0)
+        ? parsed.requisitions.map((r: any) => ({ ...r, currency: 'NGN' }))
+        : initialRequisitions.map(r => ({ ...r, currency: 'NGN' })),
+      hostingAccounts: (parsed.hostingAccounts && parsed.hostingAccounts.length > 0)
+        ? parsed.hostingAccounts.map((h: any) => ({ ...h, currency: 'NGN' }))
+        : initialHostingAccounts.map(h => ({ ...h, currency: 'NGN' })),
     };
   } catch (err) {
     console.error('[API /api/sync] Error reading DB:', err);
