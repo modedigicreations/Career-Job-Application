@@ -5,14 +5,14 @@ import type {
   UserProfile, Lead, Contact, Company, Project, Task, Service, HostingAccount,
   Invoice, Payment, Ticket, ActivityItem, Requisition, Goal, Feedback, AppNotification,
   UserRole, LeadStatus, RequisitionStatus, GoalStatus, WhmcsConfig, PayrollRecord,
-  StaffShift, StaffMemo
+  StaffShift, StaffMemo, ShiftTask
 } from './types';
 import {
   initialProfiles, initialLeads, initialContacts, initialCompanies,
   initialProjects, initialTasks, initialServices, initialHostingAccounts,
   initialInvoices, initialPayments, initialRequisitions, initialGoals,
   initialFeedbacks, initialTickets, initialActivities, initialNotifications,
-  initialPayrollRecords, initialShifts, initialMemos
+  initialPayrollRecords, initialShifts, initialMemos, initialShiftTasks
 } from './seed-data';
 import { generateReceiptNumber } from './utils';
 
@@ -62,6 +62,24 @@ interface AppContextType {
   addTask: (task: Omit<Task, 'id' | 'createdAt'>) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
   deleteTask: (id: string) => void;
+
+  // Daily Shift Task Checklist
+  shiftTasks: ShiftTask[];
+  addShiftTask: (task: Omit<ShiftTask, 'id' | 'createdAt'>) => ShiftTask;
+  toggleShiftTask: (id: string) => void;
+  updateShiftTask: (id: string, updates: Partial<ShiftTask>) => void;
+  deleteShiftTask: (id: string) => void;
+  moveShiftTaskToNextDay: (id: string, nextDate?: string) => void;
+  completeShiftReview: (params: {
+    staffId: string;
+    shiftId?: string;
+    completedTaskIds: string[];
+    reviewNotes?: string;
+  }) => { accomplishedCount: number; carriedForwardCount: number };
+  shiftReviewModalOpen: boolean;
+  setShiftReviewModalOpen: (open: boolean) => void;
+  resumeShiftModalOpen: boolean;
+  setResumeShiftModalOpen: (open: boolean) => void;
 
   services: Service[];
   addService: (service: Omit<Service, 'id'>) => void;
@@ -390,6 +408,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return initialMemos;
   });
 
+  const [shiftTasks, setShiftTasks] = useState<ShiftTask[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mode_ops_shift_tasks');
+      if (saved) try { return JSON.parse(saved); } catch {}
+    }
+    return initialShiftTasks;
+  });
+
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const auth = localStorage.getItem('mode_ops_auth');
@@ -402,6 +428,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const toggleMobileSidebar = () => setMobileSidebarOpen(prev => !prev);
+
+  const [shiftReviewModalOpen, setShiftReviewModalOpen] = useState(false);
+  const [resumeShiftModalOpen, setResumeShiftModalOpen] = useState(false);
 
   // Sync to localStorage
   useEffect(() => {
@@ -417,6 +446,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('mode_ops_hosting', JSON.stringify(hostingAccounts));
       localStorage.setItem('mode_ops_whmcs_config', JSON.stringify(whmcsConfig));
       localStorage.setItem('mode_ops_tasks', JSON.stringify(tasks));
+      localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(shiftTasks));
       localStorage.setItem('mode_ops_feedbacks', JSON.stringify(feedbacks));
       localStorage.setItem('mode_ops_tickets', JSON.stringify(tickets));
       localStorage.setItem('mode_ops_activities', JSON.stringify(activities));
@@ -425,7 +455,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('mode_ops_shifts', JSON.stringify(shifts));
       localStorage.setItem('mode_ops_memos', JSON.stringify(memos));
     }
-  }, [leads, users, companies, projects, services, requisitions, goals, invoices, hostingAccounts, whmcsConfig, tasks, feedbacks, tickets, activities, notifications, payrollRecords, shifts, memos]);
+  }, [leads, users, companies, projects, services, requisitions, goals, invoices, hostingAccounts, whmcsConfig, tasks, shiftTasks, feedbacks, tickets, activities, notifications, payrollRecords, shifts, memos]);
 
   // Switch Role
   const setCurrentUserRole = (role: UserRole) => {
@@ -699,6 +729,151 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteTask = (id: string) => {
     setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
+  // Daily Shift Task Checklist
+  const addShiftTask = (taskData: Omit<ShiftTask, 'id' | 'createdAt'>): ShiftTask => {
+    const newTask: ShiftTask = {
+      ...taskData,
+      id: `st-${Date.now()}`,
+      status: taskData.status || 'pending',
+      createdAt: new Date().toISOString(),
+    };
+    setShiftTasks(prev => {
+      const updated = [newTask, ...prev];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
+      }
+      return updated;
+    });
+    logActivity('shift_task_created', `Added shift task: ${newTask.title}`, 'ShiftTask', newTask.id);
+    return newTask;
+  };
+
+  const toggleShiftTask = (id: string) => {
+    const now = new Date().toISOString();
+    setShiftTasks(prev => {
+      const updated = prev.map(t => {
+        if (t.id === id) {
+          const nextStatus = t.status === 'completed' ? 'pending' : 'completed';
+          return {
+            ...t,
+            status: nextStatus as 'pending' | 'completed',
+            completedAt: nextStatus === 'completed' ? now : undefined,
+          };
+        }
+        return t;
+      });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
+  const updateShiftTask = (id: string, updates: Partial<ShiftTask>) => {
+    setShiftTasks(prev => {
+      const updated = prev.map(t => t.id === id ? { ...t, ...updates } : t);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
+  const deleteShiftTask = (id: string) => {
+    setShiftTasks(prev => {
+      const updated = prev.filter(t => t.id !== id);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
+  const moveShiftTaskToNextDay = (id: string, nextDate?: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    const targetDate = nextDate || new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    setShiftTasks(prev => {
+      const updated = prev.map(t => {
+        if (t.id === id) {
+          return {
+            ...t,
+            date: targetDate,
+            carriedForwardFrom: t.date || today,
+            status: 'pending' as const,
+          };
+        }
+        return t;
+      });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
+      }
+      return updated;
+    });
+    logActivity('shift_task_carried_forward', `Shift task moved forward to ${targetDate}`, 'ShiftTask', id);
+  };
+
+  const completeShiftReview = ({
+    staffId,
+    shiftId,
+    completedTaskIds,
+    reviewNotes
+  }: {
+    staffId: string;
+    shiftId?: string;
+    completedTaskIds: string[];
+    reviewNotes?: string;
+  }) => {
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const now = new Date().toISOString();
+
+    let accomplishedCount = 0;
+    let carriedForwardCount = 0;
+
+    setShiftTasks(prev => {
+      const updated = prev.map(t => {
+        if (t.staffId === staffId && (t.date === today || t.status === 'pending')) {
+          if (completedTaskIds.includes(t.id)) {
+            accomplishedCount++;
+            return {
+              ...t,
+              status: 'completed' as const,
+              completedAt: now,
+            };
+          } else {
+            // Task is pending, move forward to the next day!
+            carriedForwardCount++;
+            return {
+              ...t,
+              date: tomorrow,
+              carriedForwardFrom: t.date || today,
+              status: 'pending' as const,
+            };
+          }
+        }
+        return t;
+      });
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    // Close the staff shift
+    const targetShiftId = shiftId || shifts.find(s => (s.staffId === staffId || s.staffEmail === currentUser.email) && s.status === 'active')?.id;
+    if (targetShiftId) {
+      const shiftNotes = `${reviewNotes ? reviewNotes + ' • ' : ''}${completedTaskIds.length} tasks accomplished, ${carriedForwardCount} pending moved to next day.`;
+      clockOutStaff(targetShiftId, undefined, shiftNotes);
+    } else {
+      logout();
+    }
+
+    logActivity('shift_review_completed', `Completed shift work plan review: ${completedTaskIds.length} accomplished, ${carriedForwardCount} carried forward`, 'StaffShift', staffId);
+
+    return { accomplishedCount, carriedForwardCount };
   };
 
   const addService = (serviceData: Omit<Service, 'id'>) => {
@@ -1539,6 +1714,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addTask,
         updateTask,
         deleteTask,
+        shiftTasks,
+        addShiftTask,
+        toggleShiftTask,
+        updateShiftTask,
+        deleteShiftTask,
+        moveShiftTaskToNextDay,
+        completeShiftReview,
+        shiftReviewModalOpen,
+        setShiftReviewModalOpen,
+        resumeShiftModalOpen,
+        setResumeShiftModalOpen,
         services,
         addService,
         updateService,

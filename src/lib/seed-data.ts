@@ -1,7 +1,7 @@
 import type {
   UserProfile, Lead, Contact, Company, Project, Task, Service, HostingAccount,
   Invoice, Payment, Ticket, ActivityItem, Requisition, Goal, Feedback, AppNotification,
-  PayrollRecord, StaffShift, StaffMemo
+  PayrollRecord, StaffShift, StaffMemo, ShiftTask
 } from './types';
 
 export const initialProfiles: UserProfile[] = [
@@ -53,6 +53,90 @@ export const initialTasks: Task[] = [
   { id: 't2', projectId: 'p1', title: 'Mobile responsive checkout UI', description: 'Ensure seamless single-page checkout on mobile devices', status: 'in-progress', priority: 'urgent', assignedTo: 'u3', dueDate: '2026-07-10', order: 2, createdAt: '2026-06-05' },
   { id: 't3', projectId: 'p2', title: 'Merge 3 database schemas into unified Supabase', description: 'Migrate CRM, Office-Expense, and OMM tables with RLS', status: 'completed', priority: 'urgent', assignedTo: 'u3', dueDate: '2026-09-26', order: 1, createdAt: '2026-06-01' },
   { id: 't4', projectId: 'p2', title: 'Integrate Requisition approval flow', description: 'Staff submission -> Manager approval -> Accounts receipt', status: 'in-progress', priority: 'high', assignedTo: 'u3', dueDate: '2026-09-27', order: 2, createdAt: '2026-06-01' },
+];
+
+export const initialShiftTasks: ShiftTask[] = [
+  {
+    id: 'st-1',
+    staffId: 'u5',
+    staffName: 'Ibrahim Musa',
+    date: '2026-10-02',
+    title: 'Audit and disburse approved Q3 marketing expense vouchers',
+    priority: 'high',
+    status: 'completed',
+    completedAt: '2026-10-02T11:30:00Z',
+    projectId: 'p1',
+    projectName: 'FashionHub E-commerce Store',
+    createdAt: '2026-10-02T08:30:00Z',
+  },
+  {
+    id: 'st-2',
+    staffId: 'u5',
+    staffName: 'Ibrahim Musa',
+    date: '2026-10-02',
+    title: 'Reconcile Stanbic IBTC corporate account inflows for September',
+    priority: 'urgent',
+    status: 'pending',
+    createdAt: '2026-10-02T08:35:00Z',
+  },
+  {
+    id: 'st-3',
+    staffId: 'u5',
+    staffName: 'Ibrahim Musa',
+    date: '2026-10-02',
+    title: 'Prepare withholding tax schedule for external contractors',
+    priority: 'medium',
+    status: 'pending',
+    carriedForwardFrom: '2026-10-01',
+    createdAt: '2026-10-01T09:00:00Z',
+  },
+  {
+    id: 'st-4',
+    staffId: 'u1',
+    staffName: 'Davids Ogan',
+    date: '2026-10-02',
+    title: 'Sign off pending expense requisitions and executive budget review',
+    priority: 'urgent',
+    status: 'completed',
+    completedAt: '2026-10-02T10:15:00Z',
+    createdAt: '2026-10-02T08:00:00Z',
+  },
+  {
+    id: 'st-5',
+    staffId: 'u1',
+    staffName: 'Davids Ogan',
+    date: '2026-10-02',
+    title: 'Review proposal deck for Sahara Logistics fleet integration',
+    priority: 'high',
+    status: 'pending',
+    createdAt: '2026-10-02T08:05:00Z',
+  },
+  {
+    id: 'st-6',
+    staffId: 'u3',
+    staffName: 'Emeka Nwosu',
+    date: '2026-10-02',
+    title: 'Paystack webhook retry queue & idempotency key verification',
+    priority: 'high',
+    status: 'completed',
+    completedAt: '2026-10-02T12:00:00Z',
+    projectId: 'p1',
+    projectName: 'FashionHub E-commerce Store',
+    createdAt: '2026-10-02T09:00:00Z',
+  },
+  {
+    id: 'st-7',
+    staffId: 'u3',
+    staffName: 'Emeka Nwosu',
+    date: '2026-10-02',
+    title: 'Mobile checkout single-page responsiveness testing on iOS',
+    priority: 'urgent',
+    status: 'pending',
+    carriedForwardFrom: '2026-10-01',
+    projectId: 'p1',
+    projectName: 'FashionHub E-commerce Store',
+    createdAt: '2026-10-01T09:30:00Z',
+  },
 ];
 
 export const initialServices: Service[] = [

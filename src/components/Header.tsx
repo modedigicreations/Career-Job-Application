@@ -31,6 +31,8 @@ export default function Header() {
     toggleMobileSidebar,
     activeShift,
     clockInStaff,
+    setResumeShiftModalOpen,
+    setShiftReviewModalOpen,
     logout
   } = useAppStore();
   const [notifOpen, setNotifOpen] = useState(false);
@@ -349,19 +351,25 @@ export default function Header() {
 
           {/* Shift Active Indicator Badge */}
           {activeShift ? (
-            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 font-medium shadow-xs">
+            <button
+              type="button"
+              onClick={() => setShiftReviewModalOpen(true)}
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-[11px] text-emerald-800 font-medium shadow-xs cursor-pointer transition"
+              title="Click to review today's checklist and complete shift"
+            >
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Shift Active: {new Date(activeShift.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-            </div>
+              <span className="text-[10px] text-emerald-600 font-bold ml-0.5 underline">Review Tasks</span>
+            </button>
           ) : (
             <button
               type="button"
-              onClick={() => clockInStaff(currentUser.id)}
+              onClick={() => setResumeShiftModalOpen(true)}
               className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-300 text-[11px] text-amber-900 font-semibold cursor-pointer transition shadow-xs"
-              title="Click to clock in and start your shift"
+              title="Click to resume shift and set your work plan checklist"
             >
               <Clock size={12} className="text-amber-600 animate-pulse" />
-              <span>Shift Inactive — Click to Clock In</span>
+              <span>Shift Inactive — Click to Set Plan</span>
             </button>
           )}
 
@@ -409,9 +417,22 @@ export default function Header() {
                     </span>
                   </div>
                   {activeShift ? (
-                    <p className="text-[10px] text-emerald-700 leading-tight mt-1">
-                      Clocked in at {new Date(activeShift.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Clocking out will compute shift hours for payroll.
-                    </p>
+                    <div className="mt-1">
+                      <p className="text-[10px] text-emerald-700 leading-tight">
+                        Clocked in at {new Date(activeShift.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          setShiftReviewModalOpen(true);
+                        }}
+                        className="mt-2 w-full py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-center transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs text-xs"
+                      >
+                        <Clock size={12} />
+                        <span>Review Tasks &amp; Clock Out</span>
+                      </button>
+                    </div>
                   ) : (
                     <div className="mt-1">
                       <p className="text-[10px] text-slate-500 leading-tight">
@@ -420,13 +441,13 @@ export default function Header() {
                       <button
                         type="button"
                         onClick={() => {
-                          clockInStaff(currentUser.id);
                           setUserMenuOpen(false);
+                          setResumeShiftModalOpen(true);
                         }}
                         className="mt-2 w-full py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-center transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs text-xs"
                       >
                         <Clock size={12} />
-                        <span>Clock In &amp; Start Shift</span>
+                        <span>Resume Shift &amp; Set Plan</span>
                       </button>
                     </div>
                   )}
