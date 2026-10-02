@@ -50,6 +50,8 @@ export default function Sidebar() {
     setMobileSidebarOpen,
     activeShift,
     clockInStaff,
+    setResumeShiftModalOpen,
+    setShiftReviewModalOpen,
     logout,
     memos
   } = useAppStore();
@@ -286,24 +288,28 @@ export default function Sidebar() {
         ) : (
           <button
             type="button"
-            onClick={() => clockInStaff(currentUser.id)}
+            onClick={() => setResumeShiftModalOpen(true)}
             className="w-full flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold text-emerald-300 hover:text-white bg-emerald-600/20 hover:bg-emerald-600 border border-emerald-500/40 rounded-xl transition cursor-pointer shadow-xs"
           >
             <Clock size={13} className="text-emerald-400" />
-            <span>Clock In &amp; Start Shift</span>
+            <span>Clock In &amp; Set Work Plan</span>
           </button>
         )}
         <button
           type="button"
           onClick={() => {
             setMobileSidebarOpen(false);
-            logout();
-            router.push('/login');
+            if (activeShift) {
+              setShiftReviewModalOpen(true);
+            } else {
+              logout();
+              router.push('/login');
+            }
           }}
           className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 rounded-xl transition cursor-pointer"
         >
           <LogOut size={13} />
-          <span>Clock Out &amp; Log Out</span>
+          <span>Clock Out &amp; Review Tasks</span>
         </button>
       </div>
 

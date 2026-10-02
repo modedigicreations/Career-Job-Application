@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import ShiftTaskReviewModals from '@/components/ShiftTaskReviewModals';
 import { useAppStore } from '@/lib/store';
 
 export default function DashboardLayout({
@@ -42,6 +43,7 @@ export default function DashboardLayout({
         <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto overflow-x-hidden print:p-0 print:m-0 print:max-w-full print:overflow-visible">
           {children}
         </main>
+        <ShiftTaskReviewModals />
       </div>
     </div>
   );

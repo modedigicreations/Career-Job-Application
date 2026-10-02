@@ -44,6 +44,26 @@ export interface StaffShift {
   status: 'active' | 'completed';
   notes?: string;
   hourlyRate?: number;
+  tasksPlannedCount?: number;
+  tasksCompletedCount?: number;
+  tasksCarriedForwardCount?: number;
+  shiftReviewNotes?: string;
+}
+
+export interface ShiftTask {
+  id: string;
+  staffId: string;
+  staffName: string;
+  date: string; // YYYY-MM-DD
+  title: string;
+  priority: TaskPriority;
+  status: 'pending' | 'completed';
+  completedAt?: string;
+  carriedForwardFrom?: string; // YYYY-MM-DD if carried over from previous day
+  projectId?: string;
+  projectName?: string;
+  notes?: string;
+  createdAt: string;
 }
 
 // ==========================================
