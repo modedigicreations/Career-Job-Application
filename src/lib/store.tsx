@@ -113,6 +113,8 @@ interface AppContextType {
   // Office Expense
   requisitions: Requisition[];
   createRequisition: (data: { title: string; description: string; amount: number; category: string; urgency: Requisition['urgency']; currency?: Requisition['currency'] }) => void;
+  updateRequisition: (id: string, updates: Partial<Requisition>) => void;
+  deleteRequisition: (id: string) => void;
   updateRequisitionDecision: (id: string, status: 'Approved' | 'Rejected', decisionNotes: string) => void;
   disburseRequisition: (id: string, transactionId: string) => void;
 
@@ -386,7 +388,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             return parsed.map((r: any) => ({ ...r, currency: 'NGN' as Currency }));
           }
         } catch {}
@@ -1520,6 +1522,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     logActivity('expense_decision', `${currentUser.full_name} marked requisition as ${status}`, 'Requisition', id);
   };
 
+  const updateRequisition = (id: string, updates: Partial<Requisition>) => {
+    setRequisitions(prev => prev.map(r => {
+      if (r.id === id) {
+        return {
+          ...r,
+          ...updates,
+          currency: 'NGN' as Currency,
+        };
+      }
+      return r;
+    }));
+    logActivity('expense_update', `Updated requisition #${id}`, 'Requisition', id);
+  };
+
+  const deleteRequisition = (id: string) => {
+    const existing = requisitions.find(r => r.id === id);
+    setRequisitions(prev => prev.filter(r => r.id !== id));
+    logActivity('expense_delete', `Deleted requisition ${existing?.receiptNumber || id} (${existing?.title || ''})`, 'Requisition', id);
+  };
+
   const disburseRequisition = (id: string, transactionId: string) => {
     setRequisitions(prev => prev.map(r => {
       if (r.id === id) {
@@ -2174,6 +2196,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateTicketStatus,
         requisitions,
         createRequisition,
+        updateRequisition,
+        deleteRequisition,
         updateRequisitionDecision,
         disburseRequisition,
         goals,

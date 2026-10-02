@@ -82,7 +82,7 @@ function readDb(): ServerState {
       invoices: (parsed.invoices && parsed.invoices.length > 0)
         ? parsed.invoices.map((i: any) => ({ ...i, currency: 'NGN' }))
         : initialInvoices.map(i => ({ ...i, currency: 'NGN' })),
-      requisitions: (parsed.requisitions && parsed.requisitions.length > 0)
+      requisitions: Array.isArray(parsed.requisitions)
         ? parsed.requisitions.map((r: any) => ({ ...r, currency: 'NGN' }))
         : initialRequisitions.map(r => ({ ...r, currency: 'NGN' })),
       hostingAccounts: (parsed.hostingAccounts && parsed.hostingAccounts.length > 0)
