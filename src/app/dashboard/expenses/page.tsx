@@ -10,7 +10,6 @@ import {
   Clock,
   CreditCard,
   Filter,
-  DollarSign,
   AlertCircle,
   FileText,
   User,

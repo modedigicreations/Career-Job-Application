@@ -6,7 +6,6 @@ import {
   Plus,
   CreditCard,
   Printer,
-  DollarSign,
   CheckCircle2,
   Clock,
   Search,

@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import {
   Settings,
   Building,
-  DollarSign,
   ShieldCheck,
   Check,
   Save,
