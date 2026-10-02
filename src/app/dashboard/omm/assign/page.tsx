@@ -12,7 +12,12 @@ import {
   Check,
   X,
   Plus,
-  Trash2
+  Trash2,
+  RefreshCw,
+  KeyRound,
+  Eye,
+  EyeOff,
+  CheckCircle2
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import type { UserProfile, UserRole } from '@/lib/types';
@@ -29,15 +34,21 @@ export default function StaffAllocationPage() {
   const [department, setDepartment] = useState('');
   const [role, setRole] = useState<UserRole>('employee');
   const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const openAddModal = () => {
     setEditingUser(null);
     setFullName('');
     setEmail('');
     setJobTitle('');
-    setDepartment('Engineering');
+    setDepartment('Operations');
     setRole('employee');
     setPhone('');
+    setPassword('password123');
+    setShowPassword(false);
     setIsModalOpen(true);
   };
 
@@ -46,9 +57,11 @@ export default function StaffAllocationPage() {
     setFullName(u.full_name || '');
     setEmail(u.email || '');
     setJobTitle(u.job_title || '');
-    setDepartment(u.department || 'General');
+    setDepartment(u.department || 'Operations');
     setRole(u.role);
     setPhone(u.phone || '');
+    setPassword(u.password || '');
+    setShowPassword(false);
     setIsModalOpen(true);
   };
 
@@ -57,31 +70,57 @@ export default function StaffAllocationPage() {
     setEditingUser(null);
   };
 
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch('/api/sync');
+      if (res.ok) {
+        const result = await res.json();
+        if (result?.data?.users && typeof window !== 'undefined') {
+          localStorage.setItem('mode_ops_users', JSON.stringify(result.data.users));
+          window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: result.data.users }));
+          setToastMessage('Staff directory synced with server database.');
+          setTimeout(() => setToastMessage(null), 3000);
+        }
+      }
+    } catch {
+      setToastMessage('Failed to connect to server.');
+      setTimeout(() => setToastMessage(null), 3000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim() || !email.trim()) return;
 
     if (editingUser) {
       updateUserProfile(editingUser.id, {
-        full_name: fullName,
-        email,
-        job_title: jobTitle,
-        department,
+        full_name: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        job_title: jobTitle.trim(),
+        department: department.trim(),
         role,
-        phone,
+        phone: phone.trim(),
+        ...(password.trim() ? { password: password.trim() } : {}),
       });
+      setToastMessage(`Staff credentials for "${fullName.trim()}" updated and synced to server!`);
     } else {
       addUserProfile({
-        full_name: fullName,
-        email,
-        job_title: jobTitle || 'Team Member',
-        department: department || 'Operations',
+        full_name: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        job_title: jobTitle.trim() || 'Team Member',
+        department: department.trim() || 'Operations',
         role,
-        phone,
+        phone: phone.trim(),
         is_active: true,
+        password: password.trim() || 'password123',
       });
+      setToastMessage(`New staff member "${fullName.trim()}" registered and synced!`);
     }
 
+    setTimeout(() => setToastMessage(null), 4000);
     closeModal();
   };
 
@@ -93,12 +132,31 @@ export default function StaffAllocationPage() {
     }
     if (confirm(`Are you sure you want to remove ${editingUser.full_name} from staff directory?`)) {
       deleteUserProfile(editingUser.id);
+      setToastMessage(`Staff member "${editingUser.full_name}" removed from directory.`);
+      setTimeout(() => setToastMessage(null), 4000);
       closeModal();
     }
   };
 
   return (
     <div className="space-y-6">
+      {/* Toast Alert Banner */}
+      {toastMessage && (
+        <div className="flex items-center justify-between p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="text-emerald-600 hover:text-emerald-800 p-0.5"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -108,20 +166,37 @@ export default function StaffAllocationPage() {
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
               Executive Directory
             </span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live Server Synced
+            </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
             Review reporting chains, departmental assignments, and role-based permissions. Super Admins can update staff credentials.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openAddModal}
-          className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0 self-start sm:self-auto"
-        >
-          <Plus size={15} />
-          <span>Add Staff Member</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold shadow-2xs transition disabled:opacity-50"
+            title="Sync latest staff from server"
+          >
+            <RefreshCw size={13} className={isSyncing ? 'animate-spin text-blue-600' : 'text-slate-500'} />
+            <span>{isSyncing ? 'Syncing...' : 'Sync Server'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={openAddModal}
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0"
+          >
+            <Plus size={15} />
+            <span>Add Staff Member</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -284,6 +359,33 @@ export default function StaffAllocationPage() {
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
                   />
                 </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-slate-700 font-semibold">Staff Password & Credentials</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(p => !p)}
+                    className="text-[11px] text-blue-600 hover:underline flex items-center gap-1 font-medium"
+                  >
+                    {showPassword ? <EyeOff size={12} /> : <Eye size={12} />}
+                    {showPassword ? 'Hide Password' : 'Show Password'}
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder={editingUser ? "Leave blank to keep existing password" : "e.g. Mode2026!"}
+                    className="w-full px-3 py-2 pr-8 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                  <KeyRound size={13} className="absolute right-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Official login credential used by this staff member to authenticate.
+                </p>
               </div>
 
               <div className="flex items-center justify-between pt-4 border-t border-slate-100">
