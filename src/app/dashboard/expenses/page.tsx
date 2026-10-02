@@ -15,7 +15,10 @@ import {
   User,
   Check,
   Building,
-  ShieldCheck
+  ShieldCheck,
+  Edit,
+  Trash2,
+  X
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import type { Requisition, RequisitionUrgency, RequisitionStatus, Currency } from '@/lib/types';
@@ -25,6 +28,8 @@ export default function ExpensesPage() {
   const {
     requisitions,
     createRequisition,
+    updateRequisition,
+    deleteRequisition,
     updateRequisitionDecision,
     disburseRequisition,
     currentUser
@@ -36,6 +41,8 @@ export default function ExpensesPage() {
   const [receiptModalReq, setReceiptModalReq] = useState<Requisition | null>(null);
   const [decisionModalReq, setDecisionModalReq] = useState<Requisition | null>(null);
   const [disburseModalReq, setDisburseModalReq] = useState<Requisition | null>(null);
+  const [editModalReq, setEditModalReq] = useState<Requisition | null>(null);
+  const [deleteConfirmReq, setDeleteConfirmReq] = useState<Requisition | null>(null);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -44,6 +51,18 @@ export default function ExpensesPage() {
   const [currency, setCurrency] = useState<Currency>('NGN');
   const [category, setCategory] = useState('Cloud Infrastructure');
   const [urgency, setUrgency] = useState<RequisitionUrgency>('Medium');
+
+  // Edit Form State
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editAmount, setEditAmount] = useState('');
+  const [editCategory, setEditCategory] = useState('Cloud Infrastructure');
+  const [editUrgency, setEditUrgency] = useState<RequisitionUrgency>('Medium');
+  const [editStatus, setEditStatus] = useState<RequisitionStatus>('Pending');
+  const [editStaffName, setEditStaffName] = useState('');
+  const [editReceiptNumber, setEditReceiptNumber] = useState('');
+  const [editDecisionNotes, setEditDecisionNotes] = useState('');
+  const [editTransactionId, setEditTransactionId] = useState('');
 
   // Decision State
   const [decisionNotes, setDecisionNotes] = useState('');
@@ -108,6 +127,52 @@ export default function ExpensesPage() {
     disburseRequisition(disburseModalReq.id, txnId);
     setDisburseModalReq(null);
     setTxnId('');
+  };
+
+  const handleOpenEdit = (req: Requisition) => {
+    setEditModalReq(req);
+    setEditTitle(req.title);
+    setEditDescription(req.description || '');
+    setEditAmount(req.amount.toString());
+    setEditCategory(req.category);
+    setEditUrgency(req.urgency);
+    setEditStatus(req.status);
+    setEditStaffName(req.staffName);
+    setEditReceiptNumber(req.receiptNumber);
+    setEditDecisionNotes(req.decisionNotes || '');
+    setEditTransactionId(req.transactionId || '');
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editModalReq || !editTitle.trim() || !editAmount) return;
+
+    updateRequisition(editModalReq.id, {
+      title: editTitle.trim(),
+      description: editDescription.trim(),
+      amount: parseFloat(editAmount) || 0,
+      currency: 'NGN',
+      category: editCategory,
+      urgency: editUrgency,
+      status: editStatus,
+      staffName: editStaffName.trim() || editModalReq.staffName,
+      receiptNumber: editReceiptNumber.trim() || editModalReq.receiptNumber,
+      decisionNotes: editDecisionNotes.trim() || undefined,
+      transactionId: editTransactionId.trim() || undefined,
+      ...(editStatus === 'Approved' && !editModalReq.decidedAt ? { decidedAt: new Date().toISOString(), decidedBy: currentUser.full_name } : {}),
+      ...(editStatus === 'Completed' && !editModalReq.completedAt ? { completedAt: new Date().toISOString(), disbursedBy: currentUser.full_name } : {})
+    });
+
+    setEditModalReq(null);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteConfirmReq) return;
+    deleteRequisition(deleteConfirmReq.id);
+    if (editModalReq?.id === deleteConfirmReq.id) {
+      setEditModalReq(null);
+    }
+    setDeleteConfirmReq(null);
   };
 
   return (
@@ -297,6 +362,26 @@ export default function ExpensesPage() {
                             <span>Receipt</span>
                           </button>
                         )}
+
+                        {/* Edit Requisition */}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(req)}
+                          title="Edit Requisition Details"
+                          className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
+                        >
+                          <Edit size={14} />
+                        </button>
+
+                        {/* Delete Requisition */}
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmReq(req)}
+                          title="Delete Requisition"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -597,6 +682,245 @@ export default function ExpensesPage() {
             >
               <Printer size={13} />
               <span>Print Official Voucher</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Edit Requisition Modal */}
+    {editModalReq && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setEditModalReq(null)} />
+        <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 z-10 max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Edit Requisition</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Update details for <span className="font-mono font-semibold text-blue-600">{editModalReq.receiptNumber}</span>
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEditModalReq(null)}
+              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <form onSubmit={handleSaveEdit} className="space-y-3.5 text-xs">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <label className="block text-slate-700 font-semibold mb-1">Item / Expense Title *</label>
+                <input
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-hidden"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Receipt #</label>
+                <input
+                  type="text"
+                  required
+                  value={editReceiptNumber}
+                  onChange={e => setEditReceiptNumber(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-blue-500 outline-hidden"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Requested By (Staff)</label>
+                <input
+                  type="text"
+                  required
+                  value={editStaffName}
+                  onChange={e => setEditStaffName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-hidden"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Category</label>
+                <select
+                  value={editCategory}
+                  onChange={e => setEditCategory(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-hidden bg-white"
+                >
+                  {categories.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <label className="block text-slate-700 font-semibold mb-1">Amount Required (₦) *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 font-bold text-slate-400">₦</span>
+                  <input
+                    type="number"
+                    required
+                    value={editAmount}
+                    onChange={e => setEditAmount(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-hidden"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Currency</label>
+                <select
+                  value="NGN"
+                  disabled
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50 text-slate-700 font-semibold cursor-not-allowed"
+                >
+                  <option value="NGN">NGN (₦)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Urgency</label>
+                <select
+                  value={editUrgency}
+                  onChange={e => setEditUrgency(e.target.value as RequisitionUrgency)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-hidden bg-white"
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Urgent">Urgent</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Workflow Status</label>
+                <select
+                  value={editStatus}
+                  onChange={e => setEditStatus(e.target.value as RequisitionStatus)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-hidden bg-white"
+                >
+                  <option value="Pending">Pending Review</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                  <option value="Completed">Completed (Disbursed)</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-slate-700 font-semibold mb-1">Description / Purpose</label>
+              <textarea
+                rows={2}
+                value={editDescription}
+                onChange={e => setEditDescription(e.target.value)}
+                placeholder="Business justification or specifications..."
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-hidden"
+              />
+            </div>
+
+            {(editStatus === 'Approved' || editStatus === 'Rejected' || editStatus === 'Completed') && (
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Approval / Decision Remarks</label>
+                <input
+                  type="text"
+                  value={editDecisionNotes}
+                  onChange={e => setEditDecisionNotes(e.target.value)}
+                  placeholder="e.g. Approved by MD for Q3 operations"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-hidden"
+                />
+              </div>
+            )}
+
+            {editStatus === 'Completed' && (
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Bank Wire / Disbursement Reference ID</label>
+                <input
+                  type="text"
+                  value={editTransactionId}
+                  onChange={e => setEditTransactionId(e.target.value)}
+                  placeholder="e.g. TXN-WIRE-9821820"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-blue-500 outline-hidden"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-4 border-t border-slate-200 mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  const toDelete = editModalReq;
+                  setEditModalReq(null);
+                  setDeleteConfirmReq(toDelete);
+                }}
+                className="px-3 py-1.5 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <Trash2 size={13} />
+                <span>Delete Requisition</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditModalReq(null)}
+                  className="px-3.5 py-1.5 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Check size={13} />
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+
+    {/* Delete Confirmation Modal */}
+    {deleteConfirmReq && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setDeleteConfirmReq(null)} />
+        <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 z-10 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+              <Trash2 size={20} />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Delete Requisition?</h3>
+              <p className="text-xs text-slate-500 font-mono">{deleteConfirmReq.receiptNumber}</p>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Are you sure you want to permanently delete <strong className="text-slate-900">&ldquo;{deleteConfirmReq.title}&rdquo;</strong> for <strong className="text-slate-900 font-mono">{formatCurrency(deleteConfirmReq.amount, 'NGN')}</strong>?
+            This will immediately remove this request from all records and financial totals.
+          </p>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setDeleteConfirmReq(null)}
+              className="px-3.5 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmDelete}
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+            >
+              <Trash2 size={13} />
+              <span>Yes, Delete Requisition</span>
             </button>
           </div>
         </div>
