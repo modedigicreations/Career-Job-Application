@@ -44,6 +44,8 @@ interface AppContextType {
 
   contacts: Contact[];
   addContact: (contact: Omit<Contact, 'id' | 'createdAt'>) => void;
+  updateContact: (id: string, updates: Partial<Contact>) => void;
+  deleteContact: (id: string) => void;
 
   companies: Company[];
   addCompany: (company: Omit<Company, 'id' | 'createdAt'>) => void;
@@ -599,7 +601,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `c-${Date.now()}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setContacts(prev => [newContact, ...prev]);
+    setContacts(prev => {
+      const updated = [newContact, ...prev];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_contacts', JSON.stringify(updated));
+      }
+      return updated;
+    });
+    logActivity('crm_contact', `Added client contact: ${newContact.name}`, 'Contact', newContact.id);
+  };
+
+  const updateContact = (id: string, updates: Partial<Contact>) => {
+    setContacts(prev => {
+      const updated = prev.map(c => c.id === id ? { ...c, ...updates } : c);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_contacts', JSON.stringify(updated));
+      }
+      return updated;
+    });
+    logActivity('crm_contact', `Updated client contact: ${updates.name || id}`, 'Contact', id);
+  };
+
+  const deleteContact = (id: string) => {
+    setContacts(prev => {
+      const updated = prev.filter(c => c.id !== id);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_contacts', JSON.stringify(updated));
+      }
+      return updated;
+    });
+    logActivity('crm_contact', `Removed contact from client directory`, 'Contact', id);
   };
 
   const addCompany = (companyData: Omit<Company, 'id' | 'createdAt'>) => {
@@ -1493,6 +1524,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deleteLead,
         contacts,
         addContact,
+        updateContact,
+        deleteContact,
         companies,
         addCompany,
         updateCompany,
