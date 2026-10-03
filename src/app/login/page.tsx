@@ -46,9 +46,9 @@ export default function LoginPage() {
   const [isChangingPass, setIsChangingPass] = useState(false);
 
   // Quick Demo profile filler
-  const handleQuickFill = (profileEmail: string) => {
+  const handleQuickFill = (profileEmail: string, profilePassword?: string) => {
     setEmail(profileEmail);
-    setPassword('password123');
+    setPassword(profilePassword || 'password123');
     setErrorMessage('');
   };
 
@@ -294,7 +294,7 @@ export default function LoginPage() {
                     <button
                       key={u.id}
                       type="button"
-                      onClick={() => handleQuickFill(u.email)}
+                      onClick={() => handleQuickFill(u.email, u.password)}
                       className="p-2 rounded-lg bg-slate-900/60 hover:bg-slate-800 border border-slate-800/70 text-left transition cursor-pointer"
                     >
                       <div className="text-[11px] font-bold text-slate-200 truncate">{u.full_name}</div>

@@ -179,7 +179,173 @@
       ]
     }
   ],
-  "shifts": [],
+  "shifts": [
+    {
+      "id": "shift-1790961789527",
+      "staffId": "u2",
+      "staffName": "Sarah Adebayo",
+      "staffEmail": "chioma@modedigitalcreations.ng",
+      "department": "Sales & Growth",
+      "jobTitle": "Lead Client Solutions Executive",
+      "date": "2026-10-02",
+      "clockInTime": "2026-10-02T17:23:09.527Z",
+      "clockOutTime": "2026-10-03T01:23:09.527Z",
+      "durationHours": 8,
+      "status": "completed",
+      "hourlyRate": 2800,
+      "notes": "Manual clock-in at 6:23:09 PM (Auto-closed past day shift)"
+    },
+    {
+      "id": "shift-1790864985438",
+      "staffId": "u7",
+      "staffName": "Ben Asiedu",
+      "staffEmail": "ben@modewebhost.com.ng",
+      "department": "Web Hosting & Support",
+      "jobTitle": "Hosting & Technical Support Specialist",
+      "date": "2026-10-01",
+      "clockInTime": "2026-10-01T14:29:45.407Z",
+      "clockOutTime": "2026-10-01T22:29:45.407Z",
+      "durationHours": 8,
+      "status": "completed",
+      "hourlyRate": 2500,
+      "notes": "Clocked in for regular shift at 3:29:45 PM (Auto-closed past day shift)"
+    },
+    {
+      "id": "shift-101",
+      "staffId": "u2",
+      "staffName": "Sarah Adebayo",
+      "staffEmail": "chioma@modedigitalcreations.ng",
+      "department": "Sales & Growth",
+      "jobTitle": "Lead Client Solutions Executive",
+      "date": "2026-09-30",
+      "clockInTime": "2026-09-30T08:15:00Z",
+      "clockOutTime": "2026-09-30T16:15:00.000Z",
+      "durationHours": 7.25,
+      "status": "completed",
+      "hourlyRate": 2800,
+      "notes": "In-office active shift: Client proposal closing calls & pipeline review. (Auto-closed past day shift)"
+    },
+    {
+      "id": "shift-102",
+      "staffId": "u3",
+      "staffName": "Emeka Nwosu",
+      "staffEmail": "emeka@modedigitalcreations.ng",
+      "department": "Engineering",
+      "jobTitle": "Senior Full-Stack Engineer",
+      "date": "2026-09-30",
+      "clockInTime": "2026-09-30T08:30:00Z",
+      "clockOutTime": "2026-09-30T16:30:00.000Z",
+      "durationHours": 7,
+      "status": "completed",
+      "hourlyRate": 3500,
+      "notes": "Active shift: ModeCBT testing engine deployment & Next.js Turbopack fixes. (Auto-closed past day shift)"
+    },
+    {
+      "id": "shift-103",
+      "staffId": "u4",
+      "staffName": "Fatima Bello",
+      "staffEmail": "fatima@modedigitalcreations.ng",
+      "department": "Operations",
+      "jobTitle": "Operations & Project Manager",
+      "date": "2026-09-30",
+      "clockInTime": "2026-09-30T08:45:00Z",
+      "clockOutTime": "2026-09-30T16:45:00.000Z",
+      "durationHours": 6.75,
+      "status": "completed",
+      "hourlyRate": 3000,
+      "notes": "Active shift: Operations sync, staff goals vetting, and sprint milestones. (Auto-closed past day shift)"
+    },
+    {
+      "id": "shift-104",
+      "staffId": "u5",
+      "staffName": "Ibrahim Musa",
+      "staffEmail": "admin@modedigitalcreations.ng",
+      "department": "Administration",
+      "jobTitle": "Administration & Finance Lead",
+      "date": "2026-09-30",
+      "clockInTime": "2026-09-30T09:00:00Z",
+      "clockOutTime": "2026-10-02T13:48:27.934Z",
+      "durationHours": 52.81,
+      "status": "completed",
+      "hourlyRate": 2500,
+      "notes": "All high priority client setups completed, database migration shifted to tomorrow morning. • 2 tasks accomplished, 2 pending moved to next day."
+    },
+    {
+      "id": "shift-105",
+      "staffId": "u1",
+      "staffName": "Davids Ogan",
+      "staffEmail": "info@modedigitalcreations.ng",
+      "department": "Executive",
+      "jobTitle": "Managing Director & Founder",
+      "date": "2026-09-30",
+      "clockInTime": "2026-09-30T07:45:00Z",
+      "clockOutTime": "2026-09-30T15:45:00.000Z",
+      "durationHours": 7.75,
+      "status": "completed",
+      "hourlyRate": 5000,
+      "notes": "Managing Director daily executive shift & corporate governance. (Auto-closed past day shift)"
+    },
+    {
+      "id": "shift-099",
+      "staffId": "u2",
+      "staffName": "Sarah Adebayo",
+      "staffEmail": "chioma@modedigitalcreations.ng",
+      "department": "Sales & Growth",
+      "jobTitle": "Lead Client Solutions Executive",
+      "date": "2026-09-29",
+      "clockInTime": "2026-09-29T08:20:00Z",
+      "clockOutTime": "2026-09-29T17:35:00Z",
+      "durationHours": 9.25,
+      "status": "completed",
+      "hourlyRate": 2800,
+      "notes": "Full shift: Sahara Logistics negotiation and UK Trade Connect proposals."
+    },
+    {
+      "id": "shift-098",
+      "staffId": "u3",
+      "staffName": "Emeka Nwosu",
+      "staffEmail": "emeka@modedigitalcreations.ng",
+      "department": "Engineering",
+      "jobTitle": "Senior Full-Stack Engineer",
+      "date": "2026-09-29",
+      "clockInTime": "2026-09-29T08:30:00Z",
+      "clockOutTime": "2026-09-29T18:00:00Z",
+      "durationHours": 9.5,
+      "status": "completed",
+      "hourlyRate": 3500,
+      "notes": "Full shift + 1.5h Overtime: Supabase schema migration and API endpoint hardening."
+    },
+    {
+      "id": "shift-097",
+      "staffId": "u4",
+      "staffName": "Fatima Bello",
+      "staffEmail": "fatima@modedigitalcreations.ng",
+      "department": "Operations",
+      "jobTitle": "Operations & Project Manager",
+      "date": "2026-09-29",
+      "clockInTime": "2026-09-29T08:40:00Z",
+      "clockOutTime": "2026-09-29T17:10:00Z",
+      "durationHours": 8.5,
+      "status": "completed",
+      "hourlyRate": 3000,
+      "notes": "Standard shift: Requisition sign-offs and client project milestone check."
+    },
+    {
+      "id": "shift-096",
+      "staffId": "u5",
+      "staffName": "Ibrahim Musa",
+      "staffEmail": "admin@modedigitalcreations.ng",
+      "department": "Administration",
+      "jobTitle": "Administration & Finance Lead",
+      "date": "2026-09-29",
+      "clockInTime": "2026-09-29T09:05:00Z",
+      "clockOutTime": "2026-09-29T17:20:00Z",
+      "durationHours": 8.25,
+      "status": "completed",
+      "hourlyRate": 2500,
+      "notes": "Standard shift: Monthly payroll dispatches, bank reconciliations."
+    }
+  ],
   "users": [
     {
       "id": "u1",
@@ -197,10 +363,10 @@
       "id": "u2",
       "email": "chioma@modedigitalcreations.ng",
       "password": "ModeSecure2026!",
-      "full_name": "Chioma Okonjo-Eze",
+      "full_name": "Sarah Adebayo",
       "role": "sales",
       "department": "Sales & Growth",
-      "job_title": "Head of Sales",
+      "job_title": "Lead Client Solutions Executive",
       "phone": "+234 802 999 8888",
       "is_active": true
     },
@@ -264,6 +430,7 @@
       "hasPayrollAccess": false
     }
   ],
+  "usersLastUpdated": "2026-10-03T00:12:08.874Z",
   "shiftTasks": [
     {
       "id": "st-1",
@@ -1067,5 +1234,5 @@
       "createdAt": "2026-06-01"
     }
   ],
-  "lastUpdated": "2026-10-02T23:48:36.988Z"
+  "lastUpdated": "2026-10-03T00:12:08.887Z"
 }
