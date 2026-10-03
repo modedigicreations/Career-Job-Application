@@ -73,6 +73,19 @@ export default function StaffAllocationPage() {
   const handleManualSync = async () => {
     setIsSyncing(true);
     try {
+      const isCustomized = typeof window !== 'undefined' && localStorage.getItem('mode_ops_users_customized') === 'true';
+      if (isCustomized && users.length > 0) {
+        // Push local customized real staff to server database
+        await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entity: 'users', data: users, timestamp: new Date().toISOString() })
+        });
+        setToastMessage('Real staff directory saved and permanently synced to server database.');
+        setTimeout(() => setToastMessage(null), 3000);
+        return;
+      }
+
       const res = await fetch('/api/sync');
       if (res.ok) {
         const result = await res.json();

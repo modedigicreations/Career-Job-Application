@@ -23,6 +23,7 @@ interface ServerState {
   services: any[];
   shifts: any[];
   users: any[];
+  usersLastUpdated?: string;
   shiftTasks: any[];
   memos: any[];
   leads: any[];
@@ -41,6 +42,7 @@ function getInitialDbState(): ServerState {
     services: initialServices.map(s => ({ ...s, currency: 'NGN' })),
     shifts: [],
     users: initialProfiles,
+    usersLastUpdated: new Date().toISOString(),
     shiftTasks: initialShiftTasks,
     memos: initialMemos,
     leads: initialLeads.map(l => ({ ...l, currency: 'NGN' })),
@@ -70,6 +72,9 @@ function readDb(): ServerState {
     return {
       ...getInitialDbState(),
       ...parsed,
+      users: (parsed.users && Array.isArray(parsed.users) && parsed.users.length > 0)
+        ? parsed.users
+        : initialProfiles,
       services: (parsed.services && Array.isArray(parsed.services))
         ? [
             ...parsed.services.map((s: any) => ({ ...s, currency: 'NGN' })),
@@ -128,6 +133,9 @@ export async function POST(request: Request) {
     // Support updating single entity or multiple entities
     if (body.entity && body.data !== undefined) {
       (current as any)[body.entity] = body.data;
+      if (body.entity === 'users') {
+        current.usersLastUpdated = body.timestamp || new Date().toISOString();
+      }
     } else if (body.partialState && typeof body.partialState === 'object') {
       Object.assign(current, body.partialState);
     } else if (body.services && Array.isArray(body.services)) {

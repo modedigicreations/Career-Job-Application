@@ -165,36 +165,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          const existingIds = new Set(parsed.map((u: UserProfile) => u.id));
-          const existingEmails = new Set(parsed.map((u: UserProfile) => u.email?.toLowerCase()));
-          const merged = parsed.map((u: UserProfile) => {
-            if (u.id === 'u1') {
-              return { ...u, full_name: 'Davids Ogan', email: 'info@modedigitalcreations.ng', job_title: 'Managing Director & Super Admin' };
-            }
-            if (u.id === 'u5' || u.role === 'accounts') {
-              return {
-                ...u,
-                id: 'u5',
-                full_name: u.full_name || 'Ibrahim Musa',
-                role: 'administration' as UserRole,
-                department: 'Administration',
-                job_title: 'Administration & Finance Lead',
-                email: (u.email && u.email.includes('mode')) ? 'admin@modedigitalcreations.ng' : (u.email || 'admin@modedigitalcreations.ng'),
-                hourly_rate: u.hourly_rate || 6500,
-                hasPayrollAccess: true,
-              };
-            }
-            if (u.email && u.email.endsWith('@modedigital.ng')) {
-              return { ...u, email: u.email.replace('@modedigital.ng', '@modedigitalcreations.ng') };
-            }
-            return u;
-          });
-          for (const initU of initialProfiles) {
-            if (!existingIds.has(initU.id) && !existingEmails.has(initU.email.toLowerCase())) {
-              merged.push(initU);
-            }
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
           }
-          return merged;
         } catch {}
       }
     }
@@ -207,26 +180,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (savedUser) {
         try {
           const u = JSON.parse(savedUser);
-          if (u.id === 'u1') {
-            return { ...u, full_name: 'Davids Ogan', email: 'info@modedigitalcreations.ng', job_title: 'Managing Director & Super Admin' };
+          if (u && u.id && u.email) {
+            return u;
           }
-          if (u.id === 'u5' || u.role === 'accounts') {
-            return {
-              ...u,
-              id: 'u5',
-              full_name: u.full_name || 'Ibrahim Musa',
-              role: 'administration' as UserRole,
-              department: 'Administration',
-              job_title: 'Administration & Finance Lead',
-              email: (u.email && u.email.includes('mode')) ? 'admin@modedigitalcreations.ng' : (u.email || 'admin@modedigitalcreations.ng'),
-              hourly_rate: u.hourly_rate || 6500,
-              hasPayrollAccess: true,
-            };
-          }
-          if (u.email && u.email.endsWith('@modedigital.ng')) {
-            return { ...u, email: u.email.replace('@modedigital.ng', '@modedigitalcreations.ng') };
-          }
-          return u;
         } catch {}
       }
     }
@@ -536,6 +492,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [shiftReviewModalOpen, setShiftReviewModalOpen] = useState(false);
   const [resumeShiftModalOpen, setResumeShiftModalOpen] = useState(false);
 
+  const usersRef = useRef<UserProfile[]>(users);
+  useEffect(() => { usersRef.current = users; }, [users]);
+
+  const shiftsRef = useRef<StaffShift[]>(shifts);
+  useEffect(() => { shiftsRef.current = shifts; }, [shifts]);
+
+  const shiftTasksRef = useRef<ShiftTask[]>(shiftTasks);
+  useEffect(() => { shiftTasksRef.current = shiftTasks; }, [shiftTasks]);
+
   const lastLocalEditRef = useRef<{ [key: string]: number }>({});
 
   const syncEntityToServer = async (entity: string, data: any) => {
@@ -545,7 +510,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await fetch('/api/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ entity, data })
+          body: JSON.stringify({ entity, data, timestamp: new Date().toISOString() })
         });
       }
     } catch {
@@ -662,26 +627,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
 
           // Sync staff profiles / users
+          // Sync staff profiles / users safely (never revert customized real staff to dummy credentials)
           if (Array.isArray(serverDb.users) && serverDb.users.length > 0) {
-            const timeSinceEdit = Date.now() - (lastLocalEditRef.current['users'] || 0);
-            if (timeSinceEdit > 15000) {
-              setUsers(prev => {
-                const prevStr = JSON.stringify(prev);
-                const serverStr = JSON.stringify(serverDb.users);
-                if (prevStr !== serverStr) {
-                  // Protect local custom edits against default server seed data
-                  const isServerDefault = JSON.stringify(serverDb.users) === JSON.stringify(initialProfiles);
-                  const isPrevCustom = JSON.stringify(prev) !== JSON.stringify(initialProfiles);
-                  if (isServerDefault && isPrevCustom) {
-                    syncEntityToServer('users', prev);
-                    return prev;
-                  }
-                  localStorage.setItem('mode_ops_users', serverStr);
-                  return serverDb.users;
-                }
+            const isCustomized = typeof window !== 'undefined' && localStorage.getItem('mode_ops_users_customized') === 'true';
+            setUsers(prev => {
+              const prevStr = JSON.stringify(prev);
+              const serverStr = JSON.stringify(serverDb.users);
+              if (prevStr === serverStr) return prev;
+
+              // Check if server is still holding default dummy seed data
+              const dummyEmails = ['chioma@modedigitalcreations.ng', 'emeka@modedigitalcreations.ng', 'fatima@modedigitalcreations.ng', 'ibrahim@modedigitalcreations.ng'];
+              const serverHasDummies = serverDb.users.some((su: any) => dummyEmails.includes(su.email?.toLowerCase()));
+              const prevHasRealCustom = prev.some(pu => !dummyEmails.includes(pu.email?.toLowerCase()));
+
+              // If local has real custom staff and server still has dummy data, ALWAYS protect local and push to server!
+              if (isCustomized || (prevHasRealCustom && serverHasDummies)) {
+                syncEntityToServer('users', prev);
                 return prev;
-              });
-            }
+              }
+
+              // Check local edit timestamps vs server
+              const localTs = Number(typeof window !== 'undefined' ? localStorage.getItem('mode_ops_users_timestamp') || '0' : '0');
+              const serverTs = serverDb.usersLastUpdated ? new Date(serverDb.usersLastUpdated).getTime() : 0;
+              if (localTs > serverTs) {
+                syncEntityToServer('users', prev);
+                return prev;
+              }
+
+              // Server genuinely has newer data from another tab/device
+              localStorage.setItem('mode_ops_users', serverStr);
+              return serverDb.users;
+            });
           }
         }
       } catch {}
@@ -845,88 +821,71 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateUserProfile = (id: string, updates: Partial<UserProfile>) => {
     let resolvedName = updates.full_name;
-    let nextUsers: UserProfile[] = [];
-    setUsers(prev => {
-      const updated = prev.map(u => {
-        if (u.id === id) {
-          const next = { ...u, ...updates };
-          resolvedName = next.full_name;
-          return next;
-        }
-        return u;
-      });
-      nextUsers = updated;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_users', JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updated }));
+    const currentUsers = usersRef.current && usersRef.current.length > 0 ? usersRef.current : users;
+    const updatedUsers = currentUsers.map(u => {
+      if (u.id === id) {
+        const next = { ...u, ...updates };
+        resolvedName = next.full_name;
+        return next;
       }
-      return updated;
+      return u;
     });
 
-    if (nextUsers.length > 0) {
-      syncEntityToServer('users', nextUsers);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_users', JSON.stringify(updatedUsers));
+      localStorage.setItem('mode_ops_users_customized', 'true');
+      localStorage.setItem('mode_ops_users_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updatedUsers }));
     }
+    setUsers(updatedUsers);
+    syncEntityToServer('users', updatedUsers);
 
     if (currentUser.id === id) {
-      setCurrentUser(prev => {
-        const next = { ...prev, ...updates };
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('mode_ops_current_user', JSON.stringify(next));
-        }
-        return next;
-      });
+      const nextCurrent = { ...currentUser, ...updates };
+      setCurrentUser(nextCurrent);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_current_user', JSON.stringify(nextCurrent));
+      }
     }
 
     // Cascade name, job title, department, hourly rate to all shift records
-    let nextShifts: StaffShift[] = [];
-    setShifts(prev => {
-      const updated = prev.map(s => {
-        if (s.staffId === id || (updates.email && s.staffEmail?.toLowerCase() === updates.email.toLowerCase())) {
-          return {
-            ...s,
-            staffName: updates.full_name || s.staffName,
-            staffEmail: updates.email || s.staffEmail,
-            department: updates.department || s.department,
-            jobTitle: updates.job_title || s.jobTitle,
-            hourlyRate: updates.hourly_rate !== undefined ? updates.hourly_rate : s.hourlyRate
-          };
-        }
-        return s;
-      });
-      nextShifts = updated;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: updated }));
+    const currentShifts = shiftsRef.current && shiftsRef.current.length > 0 ? shiftsRef.current : shifts;
+    const updatedShifts = currentShifts.map(s => {
+      if (s.staffId === id || (updates.email && s.staffEmail?.toLowerCase() === updates.email.toLowerCase())) {
+        return {
+          ...s,
+          staffName: updates.full_name || s.staffName,
+          staffEmail: updates.email || s.staffEmail,
+          department: updates.department || s.department,
+          jobTitle: updates.job_title || s.jobTitle,
+          hourlyRate: updates.hourly_rate !== undefined ? updates.hourly_rate : s.hourlyRate
+        };
       }
-      return updated;
+      return s;
     });
-
-    if (nextShifts.length > 0) {
-      syncEntityToServer('shifts', nextShifts);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_shifts', JSON.stringify(updatedShifts));
+      window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: updatedShifts }));
     }
+    setShifts(updatedShifts);
+    syncEntityToServer('shifts', updatedShifts);
 
     // Cascade name to shift checklist tasks
-    let nextTasks: ShiftTask[] = [];
-    setShiftTasks(prev => {
-      const updated = prev.map(st => {
-        if (st.staffId === id) {
-          return {
-            ...st,
-            staffName: updates.full_name || st.staffName
-          };
-        }
-        return st;
-      });
-      nextTasks = updated;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
+    const currentTasks = shiftTasksRef.current && shiftTasksRef.current.length > 0 ? shiftTasksRef.current : shiftTasks;
+    const updatedTasks = currentTasks.map(st => {
+      if (st.staffId === id) {
+        return {
+          ...st,
+          staffName: updates.full_name || st.staffName
+        };
       }
-      return updated;
+      return st;
     });
-
-    if (nextTasks.length > 0) {
-      syncEntityToServer('shiftTasks', nextTasks);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updatedTasks));
     }
+    setShiftTasks(updatedTasks);
+    syncEntityToServer('shiftTasks', updatedTasks);
 
     logActivity('user_profile_update', `Executive updated profile for ${resolvedName || id}`, 'User', id);
   };
@@ -937,50 +896,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `u-${Date.now()}`,
       is_active: profileData.is_active ?? true,
     };
-    let nextUsers: UserProfile[] = [];
-    setUsers(prev => {
-      const updated = [...prev, newUser];
-      nextUsers = updated;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_users', JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updated }));
-      }
-      return updated;
-    });
-    if (nextUsers.length > 0) {
-      syncEntityToServer('users', nextUsers);
+    const currentUsers = usersRef.current && usersRef.current.length > 0 ? usersRef.current : users;
+    const updatedUsers = [...currentUsers, newUser];
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_users', JSON.stringify(updatedUsers));
+      localStorage.setItem('mode_ops_users_customized', 'true');
+      localStorage.setItem('mode_ops_users_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updatedUsers }));
     }
+    setUsers(updatedUsers);
+    syncEntityToServer('users', updatedUsers);
     logActivity('user_create', `Added staff member: ${newUser.full_name} (${newUser.job_title || newUser.role})`, 'User', newUser.id);
   };
 
   const deleteUserProfile = (id: string) => {
-    let nextUsers: UserProfile[] = [];
-    setUsers(prev => {
-      const updated = prev.filter(u => u.id !== id);
-      nextUsers = updated;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_users', JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updated }));
-      }
-      return updated;
-    });
-    if (nextUsers.length > 0) {
-      syncEntityToServer('users', nextUsers);
+    const currentUsers = usersRef.current && usersRef.current.length > 0 ? usersRef.current : users;
+    const updatedUsers = currentUsers.filter(u => u.id !== id);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_users', JSON.stringify(updatedUsers));
+      localStorage.setItem('mode_ops_users_customized', 'true');
+      localStorage.setItem('mode_ops_users_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updatedUsers }));
     }
+    setUsers(updatedUsers);
+    syncEntityToServer('users', updatedUsers);
+
     // Remove active shifts for deleted profile
-    let nextShifts: StaffShift[] = [];
-    setShifts(prev => {
-      const updated = prev.filter(s => s.staffId !== id || s.status === 'completed');
-      nextShifts = updated;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: updated }));
-      }
-      return updated;
-    });
-    if (nextShifts.length > 0) {
-      syncEntityToServer('shifts', nextShifts);
+    const currentShifts = shiftsRef.current && shiftsRef.current.length > 0 ? shiftsRef.current : shifts;
+    const updatedShifts = currentShifts.filter(s => s.staffId !== id || s.status === 'completed');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_shifts', JSON.stringify(updatedShifts));
+      window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: updatedShifts }));
     }
+    setShifts(updatedShifts);
+    syncEntityToServer('shifts', updatedShifts);
     logActivity('user_delete', `Removed staff member profile (${id})`, 'User', id);
   };
 
@@ -1839,19 +1788,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         };
 
         matchedUser = newProfile;
-        let nextUsers: UserProfile[] = [];
-        setUsers(prev => {
-          const updated = [...prev, newProfile];
-          nextUsers = updated;
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('mode_ops_users', JSON.stringify(updated));
-            window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updated }));
-          }
-          return updated;
-        });
-        if (nextUsers.length > 0) {
-          syncEntityToServer('users', nextUsers);
+        const currentUsers = usersRef.current && usersRef.current.length > 0 ? usersRef.current : users;
+        const updatedUsers = [...currentUsers, newProfile];
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('mode_ops_users', JSON.stringify(updatedUsers));
+          localStorage.setItem('mode_ops_users_customized', 'true');
+          localStorage.setItem('mode_ops_users_timestamp', String(Date.now()));
+          window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updatedUsers }));
         }
+        setUsers(updatedUsers);
+        syncEntityToServer('users', updatedUsers);
 
         logActivity('staff_registered', `Staff profile for ${derivedName} (${cleanEmail}) activated.`, 'User', newProfile.id);
       } else {
@@ -2017,19 +1963,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         hasPayrollAccess: isAdmin
       };
 
-      let nextUsers: UserProfile[] = [];
-      setUsers(prev => {
-        const updated = [...prev, newProfile];
-        nextUsers = updated;
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('mode_ops_users', JSON.stringify(updated));
-          window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updated }));
-        }
-        return updated;
-      });
-      if (nextUsers.length > 0) {
-        syncEntityToServer('users', nextUsers);
+      const currentUsers = usersRef.current && usersRef.current.length > 0 ? usersRef.current : users;
+      const updatedUsers = [...currentUsers, newProfile];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_users', JSON.stringify(updatedUsers));
+        localStorage.setItem('mode_ops_users_customized', 'true');
+        localStorage.setItem('mode_ops_users_timestamp', String(Date.now()));
+        window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updatedUsers }));
       }
+      setUsers(updatedUsers);
+      syncEntityToServer('users', updatedUsers);
 
       logActivity('staff_registered', `Staff profile for ${derivedName} (${cleanEmail}) activated and password set.`, 'User', newProfile.id);
 
@@ -2039,19 +1982,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    let nextUsers: UserProfile[] = [];
-    setUsers(prev => {
-      const updated = prev.map(u => u.id === target.id ? { ...u, password: newPassword } : u);
-      nextUsers = updated;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_users', JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updated }));
-      }
-      return updated;
-    });
-    if (nextUsers.length > 0) {
-      syncEntityToServer('users', nextUsers);
+    const currentUsers = usersRef.current && usersRef.current.length > 0 ? usersRef.current : users;
+    const updatedUsers = currentUsers.map(u => u.id === target.id ? { ...u, password: newPassword } : u);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_users', JSON.stringify(updatedUsers));
+      localStorage.setItem('mode_ops_users_customized', 'true');
+      localStorage.setItem('mode_ops_users_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updatedUsers }));
     }
+    setUsers(updatedUsers);
+    syncEntityToServer('users', updatedUsers);
 
     logActivity('password_change', `Staff member ${target.full_name} changed their password.`, 'User', target.id);
 
