@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
+import { isManagementUser } from '@/lib/utils';
 import type { UserRole } from '@/lib/types';
 
 export default function Sidebar() {
@@ -60,11 +61,13 @@ export default function Sidebar() {
   const pendingRequisitions = requisitions.filter(r => r.status === 'Pending').length;
   const activeLeads = leads.filter(l => l.status !== 'won' && l.status !== 'lost').length;
 
+  const isManager = isManagementUser(currentUser.role);
   const unreadMemos = memos.filter(m => {
     const isTarget = m.targetAudience === 'all' ||
       (m.targetAudience === 'department' && m.targetDepartment?.toLowerCase() === currentUser.department?.toLowerCase()) ||
       (m.targetAudience === 'specific_staff' && m.targetStaffIds?.includes(currentUser.id)) ||
-      m.senderId === currentUser.id;
+      m.senderId === currentUser.id ||
+      isManager;
     return isTarget && !m.readBy?.[currentUser.id];
   }).length;
 

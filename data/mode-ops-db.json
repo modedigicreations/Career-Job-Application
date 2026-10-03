@@ -531,6 +531,7 @@
       "createdAt": "2026-10-01T09:30:00Z"
     }
   ],
+  "shiftTasksLastUpdated": "2026-10-03T08:50:01.616Z",
   "memos": [
     {
       "id": "memo-001",
@@ -606,6 +607,7 @@
       "createdAt": "2026-09-25T08:30:00Z"
     }
   ],
+  "memosLastUpdated": "2026-10-03T08:49:54.956Z",
   "leads": [
     {
       "id": "l1",
@@ -1251,5 +1253,5 @@
       "createdAt": "2026-06-01"
     }
   ],
-  "lastUpdated": "2026-10-03T00:41:03.184Z"
+  "lastUpdated": "2026-10-03T08:50:01.616Z"
 }
