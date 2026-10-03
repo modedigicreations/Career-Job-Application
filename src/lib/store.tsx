@@ -258,19 +258,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            // Merge initialServices so all catalog solutions (including new ones) are present
-            const savedMap = new Map(parsed.map((s: any) => [s.id, s]));
-            const merged = initialServices.map(initS => {
-              const savedItem = savedMap.get(initS.id);
-              return savedItem ? { ...initS, ...savedItem, currency: 'NGN' as Currency } : initS;
-            });
-            // Also append any custom added services
-            parsed.forEach((p: any) => {
-              if (!initialServices.some(initS => initS.id === p.id)) {
-                merged.push({ ...p, currency: 'NGN' as Currency });
-              }
-            });
-            return merged;
+            return parsed.map((s: any) => ({ ...s, currency: 'NGN' as Currency }));
           }
         } catch {}
       }
@@ -428,31 +416,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const parsed: StaffShift[] = JSON.parse(saved);
           const today = new Date().toISOString().split('T')[0];
           const updated = parsed.map(s => {
-            // Auto-complete any active shift that was started on a prior day (e.g. seed data or past unclosed shifts)
-            if (s.status === 'active' && s.date < today) {
-              const startMs = Date.parse(s.clockInTime);
-              const mockEnd = isNaN(startMs) ? Date.now() : startMs + 8 * 3600 * 1000;
+            // Only auto-complete an unclosed active shift if it was started more than 24 hours ago
+            const startMs = Date.parse(s.clockInTime);
+            const isOlderThan24h = !isNaN(startMs) && (Date.now() - startMs > 24 * 3600 * 1000);
+            if (s.status === 'active' && isOlderThan24h) {
+              const mockEnd = startMs + 8 * 3600 * 1000;
               return {
                 ...s,
                 status: 'completed' as const,
                 clockOutTime: new Date(mockEnd).toISOString(),
                 durationHours: s.durationHours || 8.0,
-                notes: `${s.notes || ''} (Auto-closed past day shift)`.trim()
-              };
-            }
-            if (s.staffId === 'u5' || s.staffEmail?.includes('accounts')) {
-              return {
-                ...s,
-                staffId: 'u5',
-                staffName: s.staffName || 'Ibrahim Musa',
-                staffEmail: 'admin@modedigitalcreations.ng',
-                department: 'Administration',
-                jobTitle: 'Administration & Finance Lead',
+                notes: `${s.notes || ''} (Auto-closed expired shift)`.trim()
               };
             }
             return s;
           });
-          localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
           return updated;
         } catch {}
       }
@@ -484,7 +462,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return true; // Default during SSR
   });
 
-  const activeShift = shifts.find(s => (s.staffId === currentUser.id || s.staffEmail === currentUser.email) && s.status === 'active') || null;
+  const activeShift = shifts.find(s => (s.staffId === currentUser.id || (Boolean(s.staffEmail) && Boolean(currentUser.email) && s.staffEmail.toLowerCase() === currentUser.email.toLowerCase())) && s.status === 'active') || null;
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const toggleMobileSidebar = () => setMobileSidebarOpen(prev => !prev);
@@ -494,6 +472,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const usersRef = useRef<UserProfile[]>(users);
   useEffect(() => { usersRef.current = users; }, [users]);
+
+  const servicesRef = useRef<Service[]>(services);
+  useEffect(() => { servicesRef.current = services; }, [services]);
 
   const shiftsRef = useRef<StaffShift[]>(shifts);
   useEffect(() => { shiftsRef.current = shifts; }, [shifts]);
@@ -553,45 +534,62 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (result?.success && result.data && isSubscribed) {
           const serverDb = result.data;
           
-          // Sync services catalog
+          // Sync services catalog safely (never overwrite local customized services with older server data)
           if (Array.isArray(serverDb.services) && serverDb.services.length > 0) {
-            const timeSinceEdit = Date.now() - (lastLocalEditRef.current['services'] || 0);
-            if (timeSinceEdit > 10000) {
-              setServices(prev => {
-                // Preserve any local services not present on the server
-                const localExtra = prev.filter(p => !serverDb.services.some((s: any) => s.id === p.id));
-                const merged = [
-                  ...serverDb.services.map((s: any) => ({ ...s, currency: 'NGN' })),
-                  ...localExtra
-                ];
-                if (localExtra.length > 0) {
-                  syncEntityToServer('services', merged);
-                }
-                const prevStr = JSON.stringify(prev);
-                const mergedStr = JSON.stringify(merged);
-                if (prevStr !== mergedStr) {
-                  localStorage.setItem('mode_ops_services', mergedStr);
-                  return merged;
-                }
+            setServices(prev => {
+              const prevStr = JSON.stringify(prev);
+              const serverStr = JSON.stringify(serverDb.services);
+              if (prevStr === serverStr) return prev;
+
+              const isCustomized = typeof window !== 'undefined' && localStorage.getItem('mode_ops_services_customized') === 'true';
+              const localTs = Number(typeof window !== 'undefined' ? localStorage.getItem('mode_ops_services_timestamp') || '0' : '0');
+              const serverTs = serverDb.servicesLastUpdated ? new Date(serverDb.servicesLastUpdated).getTime() : 0;
+
+              // If local services were customized by user or local is newer than server, DO NOT OVERWRITE! Push local to server!
+              if (isCustomized || localTs > serverTs) {
+                syncEntityToServer('services', prev);
                 return prev;
-              });
-            }
+              }
+
+              // Server genuinely has newer updates
+              localStorage.setItem('mode_ops_services', serverStr);
+              return serverDb.services.map((s: any) => ({ ...s, currency: 'NGN' }));
+            });
           }
 
-          // Sync staff shifts
+          // Sync staff shifts safely (protect active shifts from ever being overwritten or closed by server)
           if (Array.isArray(serverDb.shifts) && serverDb.shifts.length > 0) {
-            const timeSinceEdit = Date.now() - (lastLocalEditRef.current['shifts'] || 0);
-            if (timeSinceEdit > 15000) {
-              setShifts(prev => {
-                const prevStr = JSON.stringify(prev);
-                const serverStr = JSON.stringify(serverDb.shifts);
-                if (prevStr !== serverStr) {
-                  localStorage.setItem('mode_ops_shifts', serverStr);
-                  return serverDb.shifts;
-                }
+            setShifts(prev => {
+              const prevStr = JSON.stringify(prev);
+              const serverStr = JSON.stringify(serverDb.shifts);
+              if (prevStr === serverStr) return prev;
+
+              // CRITICAL: Check if local has an active shift
+              const localActive = prev.find(s => s.status === 'active');
+              const serverActive = serverDb.shifts.find((s: any) => s.status === 'active');
+
+              // If local is currently clocked in (active), NEVER allow server's completed shifts to overwrite/clock out!
+              if (localActive && (!serverActive || serverActive.id !== localActive.id)) {
+                // Ensure the active shift is preserved and push to server
+                const mergedShifts = [
+                  localActive,
+                  ...serverDb.shifts.filter((s: any) => s.id !== localActive.id)
+                ];
+                syncEntityToServer('shifts', mergedShifts);
+                localStorage.setItem('mode_ops_shifts', JSON.stringify(mergedShifts));
+                return mergedShifts;
+              }
+
+              const localTs = Number(typeof window !== 'undefined' ? localStorage.getItem('mode_ops_shifts_timestamp') || '0' : '0');
+              const serverTs = serverDb.shiftsLastUpdated ? new Date(serverDb.shiftsLastUpdated).getTime() : 0;
+              if (localTs > serverTs) {
+                syncEntityToServer('shifts', prev);
                 return prev;
-              });
-            }
+              }
+
+              localStorage.setItem('mode_ops_shifts', serverStr);
+              return serverDb.shifts;
+            });
           }
 
           // Sync shift tasks
@@ -791,32 +789,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Auto-ensure active shift for this staff member so they are NOT left "Shift Inactive" when viewing as that staff
     const today = new Date().toISOString().split('T')[0];
     const now = new Date().toISOString();
-    setShifts(prev => {
-      const hasActive = prev.some(s => (s.staffId === found.id || s.staffEmail === found.email) && s.status === 'active');
-      if (!hasActive) {
-        const newShift: StaffShift = {
-          id: `shift-${Date.now()}`,
-          staffId: found.id,
-          staffName: found.full_name,
-          staffEmail: found.email,
-          department: found.department || 'Operations',
-          jobTitle: found.job_title || 'Staff',
-          clockInTime: now,
-          clockOutTime: null,
-          durationHours: 0,
-          status: 'active',
-          hourlyRate: found.hourly_rate || (found.role === 'managing_director' ? 5000 : found.role === 'administration' ? 6500 : 3500),
-          notes: `Shift activated on role view switch at ${new Date().toLocaleTimeString()}`,
-          date: today,
-        };
-        const updated = [newShift, ...prev];
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
-        }
-        return updated;
+    const currentShifts = shiftsRef.current && shiftsRef.current.length > 0 ? shiftsRef.current : shifts;
+    const hasActive = currentShifts.some(s => (s.staffId === found.id || (Boolean(s.staffEmail) && Boolean(found.email) && s.staffEmail.toLowerCase() === found.email.toLowerCase())) && s.status === 'active');
+    if (!hasActive) {
+      const newShift: StaffShift = {
+        id: `shift-${Date.now()}`,
+        staffId: found.id,
+        staffName: found.full_name,
+        staffEmail: found.email,
+        department: found.department || 'Operations',
+        jobTitle: found.job_title || 'Staff',
+        clockInTime: now,
+        clockOutTime: null,
+        durationHours: 0,
+        status: 'active',
+        hourlyRate: found.hourly_rate || (found.role === 'managing_director' ? 5000 : found.role === 'administration' ? 6500 : 3500),
+        notes: `Shift activated on role view switch at ${new Date().toLocaleTimeString()}`,
+        date: today,
+      };
+      const updated = [newShift, ...currentShifts];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
+        localStorage.setItem('mode_ops_shifts_timestamp', String(Date.now()));
+        window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: updated }));
       }
-      return prev;
-    });
+      setShifts(updated);
+      syncEntityToServer('shifts', updated);
+    }
   };
 
   const updateUserProfile = (id: string, updates: Partial<UserProfile>) => {
@@ -865,6 +864,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     if (typeof window !== 'undefined') {
       localStorage.setItem('mode_ops_shifts', JSON.stringify(updatedShifts));
+      localStorage.setItem('mode_ops_shifts_timestamp', String(Date.now()));
       window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: updatedShifts }));
     }
     setShifts(updatedShifts);
@@ -1229,47 +1229,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `s-${Date.now()}`,
       currency: 'NGN',
     };
-    let updatedList: Service[] = [];
-    setServices(prev => {
-      const updated = [newService, ...prev];
-      updatedList = updated;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_services', JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent('mode_ops_services_changed', { detail: updated }));
-      }
-      return updated;
-    });
-    syncEntityToServer('services', updatedList.length > 0 ? updatedList : [newService, ...services]);
+    const currentList = servicesRef.current && servicesRef.current.length > 0 ? servicesRef.current : services;
+    const updated = [newService, ...currentList];
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_services', JSON.stringify(updated));
+      localStorage.setItem('mode_ops_services_customized', 'true');
+      localStorage.setItem('mode_ops_services_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_services_changed', { detail: updated }));
+    }
+    setServices(updated);
+    syncEntityToServer('services', updated);
     logActivity('crm_service', `Added service catalog solution: ${newService.name}`, 'Service', newService.id);
   };
 
   const updateService = (id: string, updates: Partial<Service>) => {
-    let updatedList: Service[] = [];
-    setServices(prev => {
-      const updated = prev.map(s => s.id === id ? { ...s, ...updates, currency: 'NGN' as Currency } : s);
-      updatedList = updated;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_services', JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent('mode_ops_services_changed', { detail: updated }));
-      }
-      return updated;
-    });
-    syncEntityToServer('services', updatedList.length > 0 ? updatedList : services.map(s => s.id === id ? { ...s, ...updates } : s));
+    const currentList = servicesRef.current && servicesRef.current.length > 0 ? servicesRef.current : services;
+    const updated = currentList.map(s => s.id === id ? { ...s, ...updates, currency: 'NGN' as Currency } : s);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_services', JSON.stringify(updated));
+      localStorage.setItem('mode_ops_services_customized', 'true');
+      localStorage.setItem('mode_ops_services_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_services_changed', { detail: updated }));
+    }
+    setServices(updated);
+    syncEntityToServer('services', updated);
     logActivity('crm_service', `Updated service solution: ${updates.name || id}`, 'Service', id);
   };
 
   const deleteService = (id: string) => {
-    let updatedList: Service[] = [];
-    setServices(prev => {
-      const updated = prev.filter(s => s.id !== id);
-      updatedList = updated;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_services', JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent('mode_ops_services_changed', { detail: updated }));
-      }
-      return updated;
-    });
-    syncEntityToServer('services', updatedList.length > 0 ? updatedList : services.filter(s => s.id !== id));
+    const currentList = servicesRef.current && servicesRef.current.length > 0 ? servicesRef.current : services;
+    const updated = currentList.filter(s => s.id !== id);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_services', JSON.stringify(updated));
+      localStorage.setItem('mode_ops_services_customized', 'true');
+      localStorage.setItem('mode_ops_services_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_services_changed', { detail: updated }));
+    }
+    setServices(updated);
+    syncEntityToServer('services', updated);
     logActivity('crm_service', `Deleted service solution (${id})`, 'Service', id);
   };
 
@@ -1857,6 +1854,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const nextShifts = [newShift, ...prev];
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_shifts', JSON.stringify(nextShifts));
+        localStorage.setItem('mode_ops_shifts_timestamp', String(Date.now()));
         window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: nextShifts }));
       }
       syncEntityToServer('shifts', nextShifts);
@@ -1870,27 +1868,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     const now = new Date().toISOString();
-    setShifts(prev => {
-      const updated = prev.map(s => {
-        if (s.staffId === currentUser.id && s.status === 'active') {
-          const startMs = Date.parse(s.clockInTime);
-          const endMs = Date.parse(now);
-          const diffHours = Math.max(0.1, Math.round(((endMs - startMs) / (1000 * 60 * 60)) * 100) / 100);
-          return {
-            ...s,
-            clockOutTime: now,
-            durationHours: diffHours,
-            status: 'completed' as const,
-            notes: `${s.notes || ''} • Clocked out at ${new Date().toLocaleTimeString()} (${diffHours}h shift)`.trim()
-          };
-        }
-        return s;
-      });
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
+    const currentShifts = shiftsRef.current && shiftsRef.current.length > 0 ? shiftsRef.current : shifts;
+    const updated = currentShifts.map(s => {
+      if (s.staffId === currentUser.id && s.status === 'active') {
+        const startMs = Date.parse(s.clockInTime);
+        const endMs = Date.parse(now);
+        const diffHours = Math.max(0.1, Math.round(((endMs - startMs) / (1000 * 60 * 60)) * 100) / 100);
+        return {
+          ...s,
+          clockOutTime: now,
+          durationHours: diffHours,
+          status: 'completed' as const,
+          notes: `${s.notes || ''} • Clocked out at ${new Date().toLocaleTimeString()} (${diffHours}h shift)`.trim()
+        };
       }
-      return updated;
+      return s;
     });
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
+      localStorage.setItem('mode_ops_shifts_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: updated }));
+    }
+    setShifts(updated);
+    syncEntityToServer('shifts', updated);
 
     logActivity('staff_logout', `${currentUser.full_name} logged out — Shift closed.`, 'StaffShift', currentUser.id);
 
@@ -2003,28 +2003,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const clockOutStaff = (shiftId: string, customHours?: number, notes?: string) => {
     const now = new Date().toISOString();
-    setShifts(prev => {
-      const updated = prev.map(s => {
-        if (s.id === shiftId) {
-          const startMs = Date.parse(s.clockInTime);
-          const endMs = Date.parse(now);
-          const computedHours = Math.max(0.1, Math.round(((endMs - startMs) / (1000 * 60 * 60)) * 100) / 100);
-          const durationHours = customHours !== undefined ? customHours : computedHours;
-          return {
-            ...s,
-            clockOutTime: now,
-            durationHours,
-            status: 'completed' as const,
-            notes: notes || `${s.notes || ''} • Admin clock-out (${durationHours}h)`.trim()
-          };
-        }
-        return s;
-      });
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
+    const currentShifts = shiftsRef.current && shiftsRef.current.length > 0 ? shiftsRef.current : shifts;
+    const updated = currentShifts.map(s => {
+      if (s.id === shiftId) {
+        const startMs = Date.parse(s.clockInTime);
+        const endMs = Date.parse(now);
+        const computedHours = Math.max(0.1, Math.round(((endMs - startMs) / (1000 * 60 * 60)) * 100) / 100);
+        const durationHours = customHours !== undefined ? customHours : computedHours;
+        return {
+          ...s,
+          clockOutTime: now,
+          durationHours,
+          status: 'completed' as const,
+          notes: notes || `${s.notes || ''} • Admin clock-out (${durationHours}h)`.trim()
+        };
       }
-      return updated;
+      return s;
     });
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
+      localStorage.setItem('mode_ops_shifts_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: updated }));
+    }
+    setShifts(updated);
+    syncEntityToServer('shifts', updated);
 
     logActivity('admin_clock_out', `Super Admin closed shift record (${shiftId})`, 'StaffShift', shiftId);
   };
@@ -2036,32 +2038,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const today = new Date().toISOString().split('T')[0];
     const now = new Date().toISOString();
 
-    setShifts(prev => {
-      const activeIdx = prev.findIndex(s => s.staffId === staffId && s.status === 'active');
-      if (activeIdx !== -1) return prev;
+    const currentShifts = shiftsRef.current && shiftsRef.current.length > 0 ? shiftsRef.current : shifts;
+    const activeIdx = currentShifts.findIndex(s => s.staffId === staffId && s.status === 'active');
+    if (activeIdx !== -1) return;
 
-      const newShift: StaffShift = {
-        id: `shift-${Date.now()}`,
-        staffId: staff.id,
-        staffName: staff.full_name,
-        staffEmail: staff.email,
-        department: staff.department || 'Operations',
-        jobTitle: staff.job_title || 'Staff',
-        date: today,
-        clockInTime: now,
-        clockOutTime: null,
-        durationHours: 0,
-        status: 'active',
-        hourlyRate: staff.hourly_rate || (staff.role === 'managing_director' ? 5000 : staff.role === 'administration' || staff.role === 'accounts' ? 6500 : staff.role === 'developer' ? 3500 : staff.role === 'sales' ? 2800 : staff.role === 'manager' ? 3000 : 2500),
-        notes: `Manual clock-in at ${new Date().toLocaleTimeString()}`
-      };
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_shifts', JSON.stringify([newShift, ...prev]));
-      }
-      return [newShift, ...prev];
-    });
+    const newShift: StaffShift = {
+      id: `shift-${Date.now()}`,
+      staffId: staff.id,
+      staffName: staff.full_name,
+      staffEmail: staff.email,
+      department: staff.department || 'Operations',
+      jobTitle: staff.job_title || 'Staff',
+      date: today,
+      clockInTime: now,
+      clockOutTime: null,
+      durationHours: 0,
+      status: 'active',
+      hourlyRate: staff.hourly_rate || (staff.role === 'managing_director' ? 5000 : staff.role === 'administration' || staff.role === 'accounts' ? 6500 : staff.role === 'developer' ? 3500 : staff.role === 'sales' ? 2800 : staff.role === 'manager' ? 3000 : 2500),
+      notes: `Manual clock-in at ${new Date().toLocaleTimeString()}`
+    };
 
-    logActivity('admin_clock_in', `Super Admin manual clock-in for ${staff.full_name}`, 'StaffShift', staffId);
+    const nextShifts = [newShift, ...currentShifts];
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_shifts', JSON.stringify(nextShifts));
+      localStorage.setItem('mode_ops_shifts_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: nextShifts }));
+    }
+    setShifts(nextShifts);
+    syncEntityToServer('shifts', nextShifts);
+
+    logActivity('admin_clock_in', `Clock-in recorded for ${staff.full_name}`, 'StaffShift', staffId);
   };
 
   const applyShiftHoursToPayroll = (staffId: string, period = 'September 2026') => {
