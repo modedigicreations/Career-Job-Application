@@ -21,7 +21,9 @@ const DB_PATH = path.join(DATA_DIR, 'mode-ops-db.json');
 
 interface ServerState {
   services: any[];
+  servicesLastUpdated?: string;
   shifts: any[];
+  shiftsLastUpdated?: string;
   users: any[];
   usersLastUpdated?: string;
   shiftTasks: any[];
@@ -40,7 +42,9 @@ interface ServerState {
 function getInitialDbState(): ServerState {
   return {
     services: initialServices.map(s => ({ ...s, currency: 'NGN' })),
+    servicesLastUpdated: new Date().toISOString(),
     shifts: [],
+    shiftsLastUpdated: new Date().toISOString(),
     users: initialProfiles,
     usersLastUpdated: new Date().toISOString(),
     shiftTasks: initialShiftTasks,
@@ -75,12 +79,12 @@ function readDb(): ServerState {
       users: (parsed.users && Array.isArray(parsed.users) && parsed.users.length > 0)
         ? parsed.users
         : initialProfiles,
-      services: (parsed.services && Array.isArray(parsed.services))
-        ? [
-            ...parsed.services.map((s: any) => ({ ...s, currency: 'NGN' })),
-            ...initialServices.filter(initS => !parsed.services.some((ps: any) => ps.id === initS.id)).map(s => ({ ...s, currency: 'NGN' }))
-          ]
+      services: (parsed.services && Array.isArray(parsed.services) && parsed.services.length > 0)
+        ? parsed.services.map((s: any) => ({ ...s, currency: 'NGN' }))
         : initialServices.map(s => ({ ...s, currency: 'NGN' })),
+      shifts: (parsed.shifts && Array.isArray(parsed.shifts))
+        ? parsed.shifts
+        : [],
       leads: (parsed.leads && parsed.leads.length > 0)
         ? parsed.leads.map((l: any) => ({ ...l, currency: 'NGN' }))
         : initialLeads.map(l => ({ ...l, currency: 'NGN' })),
@@ -133,13 +137,12 @@ export async function POST(request: Request) {
     // Support updating single entity or multiple entities
     if (body.entity && body.data !== undefined) {
       (current as any)[body.entity] = body.data;
-      if (body.entity === 'users') {
-        current.usersLastUpdated = body.timestamp || new Date().toISOString();
-      }
+      (current as any)[`${body.entity}LastUpdated`] = body.timestamp || new Date().toISOString();
     } else if (body.partialState && typeof body.partialState === 'object') {
       Object.assign(current, body.partialState);
     } else if (body.services && Array.isArray(body.services)) {
       current.services = body.services.map((s: any) => ({ ...s, currency: s.currency || 'NGN' }));
+      current.servicesLastUpdated = new Date().toISOString();
     }
 
     current.lastUpdated = new Date().toISOString();

@@ -2,10 +2,10 @@
   "services": [
     {
       "id": "s1",
-      "name": "Custom Website Development",
+      "name": "Custom Enterprise Web Platform",
       "type": "website-development",
       "description": "Enterprise responsive web applications built with Next.js & Tailwind",
-      "basePrice": 650000,
+      "basePrice": 950000,
       "currency": "NGN",
       "isActive": true,
       "features": [
@@ -179,7 +179,23 @@
       ]
     }
   ],
+  "servicesLastUpdated": "2026-10-03T00:40:19.132Z",
   "shifts": [
+    {
+      "id": "shift-1790988063163",
+      "staffId": "u5",
+      "staffName": "Ibrahim Musa",
+      "staffEmail": "admin@modedigitalcreations.ng",
+      "department": "Administration",
+      "jobTitle": "Administration & Finance Lead",
+      "date": "2026-10-03",
+      "clockInTime": "2026-10-03T00:41:03.163Z",
+      "clockOutTime": null,
+      "durationHours": 0,
+      "status": "active",
+      "hourlyRate": 6500,
+      "notes": "Manual clock-in at 1:41:03 AM"
+    },
     {
       "id": "shift-1790961789527",
       "staffId": "u2",
@@ -346,6 +362,7 @@
       "notes": "Standard shift: Monthly payroll dispatches, bank reconciliations."
     }
   ],
+  "shiftsLastUpdated": "2026-10-03T00:41:03.164Z",
   "users": [
     {
       "id": "u1",
@@ -1234,5 +1251,5 @@
       "createdAt": "2026-06-01"
     }
   ],
-  "lastUpdated": "2026-10-03T00:12:08.887Z"
+  "lastUpdated": "2026-10-03T00:41:03.184Z"
 }

@@ -38,9 +38,20 @@ export default function ServicesPage() {
   const handleManualSync = async () => {
     setIsSyncing(true);
     try {
+      if (services.length > 0) {
+        await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entity: 'services',
+            data: services,
+            timestamp: new Date().toISOString()
+          })
+        });
+      }
       const res = await fetch('/api/sync');
       if (res.ok) {
-        setToastMessage('Services catalog synchronized with live server.');
+        setToastMessage('Services catalog synchronized and saved to live server.');
         setTimeout(() => setToastMessage(null), 3000);
       }
     } catch {}
