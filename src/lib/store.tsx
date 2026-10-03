@@ -15,6 +15,7 @@ import {
   initialPayrollRecords, initialShifts, initialMemos, initialShiftTasks
 } from './seed-data';
 import { generateReceiptNumber } from './utils';
+import { initStorage, setStorageItem } from './storage';
 
 interface AppContextType {
   // Authentication & Shift Attendance
@@ -149,6 +150,10 @@ interface AppContextType {
   markMemoAsRead: (memoId: string, staffId?: string) => void;
   acknowledgeMemo: (memoId: string, staffId?: string) => void;
   deleteMemo: (memoId: string) => void;
+
+  // Real-Time & Delta Sync Engine
+  syncDeltaToServer: (entity: string, action: 'upsert' | 'delete', itemOrId: any) => Promise<void>;
+  syncEntityToServer: (entity: string, data: any) => Promise<void>;
 
   // Mobile Navigation
   mobileSidebarOpen: boolean;
@@ -482,6 +487,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const shiftTasksRef = useRef<ShiftTask[]>(shiftTasks);
   useEffect(() => { shiftTasksRef.current = shiftTasks; }, [shiftTasks]);
 
+  const memosRef = useRef<StaffMemo[]>(memos);
+  useEffect(() => { memosRef.current = memos; }, [memos]);
+
   const lastLocalEditRef = useRef<{ [key: string]: number }>({});
 
   const syncEntityToServer = async (entity: string, data: any) => {
@@ -499,26 +507,57 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Optimized granular persistence to localStorage (only writes the slice that actually changed)
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_leads', JSON.stringify(leads)); }, [leads]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_users', JSON.stringify(users)); }, [users]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_companies', JSON.stringify(companies)); }, [companies]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_projects', JSON.stringify(projects)); }, [projects]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_services', JSON.stringify(services)); }, [services]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_requisitions', JSON.stringify(requisitions)); }, [requisitions]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_goals', JSON.stringify(goals)); }, [goals]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_invoices', JSON.stringify(invoices)); }, [invoices]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_hosting', JSON.stringify(hostingAccounts)); }, [hostingAccounts]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_whmcs_config', JSON.stringify(whmcsConfig)); }, [whmcsConfig]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_tasks', JSON.stringify(tasks)); }, [tasks]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(shiftTasks)); }, [shiftTasks]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_feedbacks', JSON.stringify(feedbacks)); }, [feedbacks]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_tickets', JSON.stringify(tickets)); }, [tickets]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_activities', JSON.stringify(activities)); }, [activities]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_notifications', JSON.stringify(notifications)); }, [notifications]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_payroll', JSON.stringify(payrollRecords)); }, [payrollRecords]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_shifts', JSON.stringify(shifts)); }, [shifts]);
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('mode_ops_memos', JSON.stringify(memos)); }, [memos]);
+  const syncDeltaToServer = async (entity: string, action: 'upsert' | 'delete', itemOrId: any) => {
+    try {
+      lastLocalEditRef.current[entity] = Date.now();
+      if (typeof window !== 'undefined') {
+        const payload = {
+          delta: {
+            entity,
+            action,
+            item: typeof itemOrId === 'object' ? itemOrId : undefined,
+            id: typeof itemOrId === 'string' ? itemOrId : itemOrId?.id
+          },
+          timestamp: new Date().toISOString()
+        };
+        await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
+    } catch {
+      // background sync deferred
+    }
+  };
+
+  // Warm IndexedDB cache on boot
+  useEffect(() => {
+    initStorage();
+  }, []);
+
+  // Optimized asynchronous IndexedDB + localStorage persistence (non-blocking)
+  useEffect(() => { setStorageItem('mode_ops_leads', leads); }, [leads]);
+  useEffect(() => { setStorageItem('mode_ops_users', users); }, [users]);
+  useEffect(() => { setStorageItem('mode_ops_companies', companies); }, [companies]);
+  useEffect(() => { setStorageItem('mode_ops_contacts', contacts); }, [contacts]);
+  useEffect(() => { setStorageItem('mode_ops_projects', projects); }, [projects]);
+  useEffect(() => { setStorageItem('mode_ops_services', services); }, [services]);
+  useEffect(() => { setStorageItem('mode_ops_requisitions', requisitions); }, [requisitions]);
+  useEffect(() => { setStorageItem('mode_ops_goals', goals); }, [goals]);
+  useEffect(() => { setStorageItem('mode_ops_invoices', invoices); }, [invoices]);
+  useEffect(() => { setStorageItem('mode_ops_payments', payments); }, [payments]);
+  useEffect(() => { setStorageItem('mode_ops_hosting', hostingAccounts); }, [hostingAccounts]);
+  useEffect(() => { setStorageItem('mode_ops_whmcs_config', whmcsConfig); }, [whmcsConfig]);
+  useEffect(() => { setStorageItem('mode_ops_tasks', tasks); }, [tasks]);
+  useEffect(() => { setStorageItem('mode_ops_shift_tasks', shiftTasks); }, [shiftTasks]);
+  useEffect(() => { setStorageItem('mode_ops_feedbacks', feedbacks); }, [feedbacks]);
+  useEffect(() => { setStorageItem('mode_ops_tickets', tickets); }, [tickets]);
+  useEffect(() => { setStorageItem('mode_ops_activities', activities); }, [activities]);
+  useEffect(() => { setStorageItem('mode_ops_notifications', notifications); }, [notifications]);
+  useEffect(() => { setStorageItem('mode_ops_payroll', payrollRecords); }, [payrollRecords]);
+  useEffect(() => { setStorageItem('mode_ops_shifts', shifts); }, [shifts]);
+  useEffect(() => { setStorageItem('mode_ops_memos', memos); }, [memos]);
 
   // Cross-device & Multi-tab Server Sync Hook
   useEffect(() => {
@@ -592,39 +631,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             });
           }
 
-          // Sync shift tasks
+          // Sync shift tasks safely with timestamp protection
           if (Array.isArray(serverDb.shiftTasks) && serverDb.shiftTasks.length > 0) {
-            const timeSinceEdit = Date.now() - (lastLocalEditRef.current['shiftTasks'] || 0);
-            if (timeSinceEdit > 15000) {
-              setShiftTasks(prev => {
-                const prevStr = JSON.stringify(prev);
-                const serverStr = JSON.stringify(serverDb.shiftTasks);
-                if (prevStr !== serverStr) {
-                  localStorage.setItem('mode_ops_shift_tasks', serverStr);
-                  return serverDb.shiftTasks;
-                }
+            setShiftTasks(prev => {
+              const prevStr = JSON.stringify(prev);
+              const serverStr = JSON.stringify(serverDb.shiftTasks);
+              if (prevStr === serverStr) return prev;
+
+              const localTs = Number(typeof window !== 'undefined' ? localStorage.getItem('mode_ops_shift_tasks_timestamp') || '0' : '0');
+              const serverTs = serverDb.shiftTasksLastUpdated ? new Date(serverDb.shiftTasksLastUpdated).getTime() : 0;
+              if (localTs > serverTs) {
+                syncEntityToServer('shiftTasks', prev);
                 return prev;
-              });
-            }
+              }
+
+              localStorage.setItem('mode_ops_shift_tasks', serverStr);
+              return serverDb.shiftTasks;
+            });
           }
 
-          // Sync staff memos
+          // Sync staff memos safely with timestamp protection
           if (Array.isArray(serverDb.memos) && serverDb.memos.length > 0) {
-            const timeSinceEdit = Date.now() - (lastLocalEditRef.current['memos'] || 0);
-            if (timeSinceEdit > 15000) {
-              setMemos(prev => {
-                const prevStr = JSON.stringify(prev);
-                const serverStr = JSON.stringify(serverDb.memos);
-                if (prevStr !== serverStr) {
-                  localStorage.setItem('mode_ops_memos', serverStr);
-                  return serverDb.memos;
-                }
+            setMemos(prev => {
+              const prevStr = JSON.stringify(prev);
+              const serverStr = JSON.stringify(serverDb.memos);
+              if (prevStr === serverStr) return prev;
+
+              const localTs = Number(typeof window !== 'undefined' ? localStorage.getItem('mode_ops_memos_timestamp') || '0' : '0');
+              const serverTs = serverDb.memosLastUpdated ? new Date(serverDb.memosLastUpdated).getTime() : 0;
+              if (localTs > serverTs) {
+                syncEntityToServer('memos', prev);
                 return prev;
-              });
-            }
+              }
+
+              localStorage.setItem('mode_ops_memos', serverStr);
+              return serverDb.memos;
+            });
           }
 
-          // Sync staff profiles / users
           // Sync staff profiles / users safely (never revert customized real staff to dummy credentials)
           if (Array.isArray(serverDb.users) && serverDb.users.length > 0) {
             const isCustomized = typeof window !== 'undefined' && localStorage.getItem('mode_ops_users_customized') === 'true';
@@ -695,6 +739,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (Array.isArray(parsed)) setUsers(parsed);
         } catch {}
       }
+      if (e.key === 'mode_ops_payments' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) setPayments(parsed);
+        } catch {}
+      }
     };
 
     const handleCustomServicesChange = (e: any) => {
@@ -715,21 +765,96 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    const handleCustomShiftTasksChange = (e: any) => {
+      if (e.detail && Array.isArray(e.detail)) {
+        setShiftTasks(e.detail);
+      }
+    };
+
+    const handleCustomMemosChange = (e: any) => {
+      if (e.detail && Array.isArray(e.detail)) {
+        setMemos(e.detail);
+      }
+    };
+
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('mode_ops_services_changed', handleCustomServicesChange);
     window.addEventListener('mode_ops_users_changed', handleCustomUsersChange);
     window.addEventListener('mode_ops_shifts_changed', handleCustomShiftsChange);
+    window.addEventListener('mode_ops_shift_tasks_changed', handleCustomShiftTasksChange);
+    window.addEventListener('mode_ops_memos_changed', handleCustomMemosChange);
     window.addEventListener('focus', pullServerState);
 
-    // Poll every 5s for cross-device live sync
-    const pollTimer = setInterval(pullServerState, 5000);
+    // Real-Time Server-Sent Events (SSE) Stream
+    let eventSource: EventSource | null = null;
+    if (typeof EventSource !== 'undefined') {
+      try {
+        eventSource = new EventSource('/api/sync/events');
+
+        eventSource.addEventListener('sync', (e: MessageEvent) => {
+          try {
+            const payload = JSON.parse(e.data);
+            if (!isSubscribed) return;
+
+            if (payload.type === 'delta') {
+              const { entity, action, item, id } = payload;
+              if (entity === 'shiftTasks') {
+                setShiftTasks(prev => {
+                  if (action === 'delete') {
+                    return prev.filter(t => t.id !== (id || item?.id));
+                  }
+                  if (action === 'upsert' && item) {
+                    const idx = prev.findIndex(t => t.id === item.id);
+                    if (idx !== -1) {
+                      const next = [...prev];
+                      next[idx] = { ...next[idx], ...item };
+                      return next;
+                    }
+                    return [item, ...prev];
+                  }
+                  return prev;
+                });
+              } else if (entity === 'memos') {
+                setMemos(prev => {
+                  if (action === 'delete') {
+                    return prev.filter(m => m.id !== (id || item?.id));
+                  }
+                  if (action === 'upsert' && item) {
+                    const idx = prev.findIndex(m => m.id === item.id);
+                    if (idx !== -1) {
+                      const next = [...prev];
+                      next[idx] = { ...next[idx], ...item };
+                      return next;
+                    }
+                    return [item, ...prev];
+                  }
+                  return prev;
+                });
+              } else {
+                pullServerState();
+              }
+            } else if (payload.type === 'snapshot') {
+              pullServerState();
+            }
+          } catch {}
+        });
+      } catch {}
+    }
+
+    // Polling fallback (relaxed from 5s to 15s since SSE delivers instantaneous live updates)
+    const pollTimer = setInterval(pullServerState, 15000);
 
     return () => {
       isSubscribed = false;
+      if (eventSource) {
+        eventSource.close();
+      }
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('mode_ops_services_changed', handleCustomServicesChange);
       window.removeEventListener('mode_ops_users_changed', handleCustomUsersChange);
       window.removeEventListener('mode_ops_shifts_changed', handleCustomShiftsChange);
+      window.removeEventListener('mode_ops_shift_tasks_changed', handleCustomShiftTasksChange);
+      window.removeEventListener('mode_ops_memos_changed', handleCustomMemosChange);
       window.removeEventListener('focus', pullServerState);
       clearInterval(pollTimer);
     };
@@ -893,7 +1018,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addUserProfile = (profileData: Omit<UserProfile, 'id'>) => {
     const newUser: UserProfile = {
       ...profileData,
-      id: `u-${Date.now()}`,
+      id: `u-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       is_active: profileData.is_active ?? true,
     };
     const currentUsers = usersRef.current && usersRef.current.length > 0 ? usersRef.current : users;
@@ -920,6 +1045,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     setUsers(updatedUsers);
     syncEntityToServer('users', updatedUsers);
+
+    if (currentUser.id === id && updatedUsers.length > 0) {
+      setCurrentUser(updatedUsers[0]);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_current_user', JSON.stringify(updatedUsers[0]));
+      }
+    }
 
     // Remove active shifts for deleted profile
     const currentShifts = shiftsRef.current && shiftsRef.current.length > 0 ? shiftsRef.current : shifts;
@@ -952,7 +1084,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const newLead: Lead = {
       ...leadData,
       currency: 'NGN',
-      id: `l-${Date.now()}`,
+      id: `l-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
     setLeads(prev => [newLead, ...prev]);
@@ -974,7 +1106,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addContact = (contactData: Omit<Contact, 'id' | 'createdAt'>) => {
     const newContact: Contact = {
       ...contactData,
-      id: `c-${Date.now()}`,
+      id: `c-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
     setContacts(prev => {
@@ -1012,7 +1144,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addCompany = (companyData: Omit<Company, 'id' | 'createdAt'>) => {
     const newCompany: Company = {
       ...companyData,
-      id: `co-${Date.now()}`,
+      id: `co-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
     setCompanies(prev => [newCompany, ...prev]);
@@ -1033,7 +1165,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const newProject: Project = {
       ...projectData,
       currency: 'NGN',
-      id: `p-${Date.now()}`,
+      id: `p-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
     setProjects(prev => [newProject, ...prev]);
@@ -1064,7 +1196,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addTask = (taskData: Omit<Task, 'id' | 'createdAt'>) => {
     const newTask: Task = {
       ...taskData,
-      id: `t-${Date.now()}`,
+      id: `t-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
     setTasks(prev => [newTask, ...prev]);
@@ -1082,82 +1214,98 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addShiftTask = (taskData: Omit<ShiftTask, 'id' | 'createdAt'>): ShiftTask => {
     const newTask: ShiftTask = {
       ...taskData,
-      id: `st-${Date.now()}`,
+      id: `st-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       status: taskData.status || 'pending',
       createdAt: new Date().toISOString(),
     };
-    setShiftTasks(prev => {
-      const updated = [newTask, ...prev];
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
-      }
-      return updated;
-    });
+    const currentTasks = shiftTasksRef.current && shiftTasksRef.current.length > 0 ? shiftTasksRef.current : shiftTasks;
+    const updated = [newTask, ...currentTasks];
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
+      localStorage.setItem('mode_ops_shift_tasks_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_shift_tasks_changed', { detail: updated }));
+    }
+    setShiftTasks(updated);
+    syncEntityToServer('shiftTasks', updated);
+    syncDeltaToServer('shiftTasks', 'upsert', newTask);
     logActivity('shift_task_created', `Added shift task: ${newTask.title}`, 'ShiftTask', newTask.id);
     return newTask;
   };
 
   const toggleShiftTask = (id: string) => {
     const now = new Date().toISOString();
-    setShiftTasks(prev => {
-      const updated = prev.map(t => {
-        if (t.id === id) {
-          const nextStatus = t.status === 'completed' ? 'pending' : 'completed';
-          return {
-            ...t,
-            status: nextStatus as 'pending' | 'completed',
-            completedAt: nextStatus === 'completed' ? now : undefined,
-          };
-        }
-        return t;
-      });
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
+    const currentTasks = shiftTasksRef.current && shiftTasksRef.current.length > 0 ? shiftTasksRef.current : shiftTasks;
+    const updated = currentTasks.map(t => {
+      if (t.id === id) {
+        const nextStatus = t.status === 'completed' ? 'pending' : 'completed';
+        return {
+          ...t,
+          status: nextStatus as 'pending' | 'completed',
+          completedAt: nextStatus === 'completed' ? now : undefined,
+        };
       }
-      return updated;
+      return t;
     });
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
+      localStorage.setItem('mode_ops_shift_tasks_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_shift_tasks_changed', { detail: updated }));
+    }
+    setShiftTasks(updated);
+    syncEntityToServer('shiftTasks', updated);
+    const target = updated.find(t => t.id === id);
+    if (target) syncDeltaToServer('shiftTasks', 'upsert', target);
   };
 
   const updateShiftTask = (id: string, updates: Partial<ShiftTask>) => {
-    setShiftTasks(prev => {
-      const updated = prev.map(t => t.id === id ? { ...t, ...updates } : t);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
-      }
-      return updated;
-    });
+    const currentTasks = shiftTasksRef.current && shiftTasksRef.current.length > 0 ? shiftTasksRef.current : shiftTasks;
+    const updated = currentTasks.map(t => t.id === id ? { ...t, ...updates } : t);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
+      localStorage.setItem('mode_ops_shift_tasks_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_shift_tasks_changed', { detail: updated }));
+    }
+    setShiftTasks(updated);
+    syncEntityToServer('shiftTasks', updated);
+    const target = updated.find(t => t.id === id);
+    if (target) syncDeltaToServer('shiftTasks', 'upsert', target);
   };
 
   const deleteShiftTask = (id: string) => {
-    setShiftTasks(prev => {
-      const updated = prev.filter(t => t.id !== id);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
-      }
-      return updated;
-    });
+    const currentTasks = shiftTasksRef.current && shiftTasksRef.current.length > 0 ? shiftTasksRef.current : shiftTasks;
+    const updated = currentTasks.filter(t => t.id !== id);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
+      localStorage.setItem('mode_ops_shift_tasks_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_shift_tasks_changed', { detail: updated }));
+    }
+    setShiftTasks(updated);
+    syncEntityToServer('shiftTasks', updated);
+    syncDeltaToServer('shiftTasks', 'delete', id);
   };
 
   const moveShiftTaskToNextDay = (id: string, nextDate?: string) => {
     const today = new Date().toISOString().split('T')[0];
     const targetDate = nextDate || new Date(Date.now() + 86400000).toISOString().split('T')[0];
-    setShiftTasks(prev => {
-      const updated = prev.map(t => {
-        if (t.id === id) {
-          return {
-            ...t,
-            date: targetDate,
-            carriedForwardFrom: t.date || today,
-            status: 'pending' as const,
-          };
-        }
-        return t;
-      });
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
+    const currentTasks = shiftTasksRef.current && shiftTasksRef.current.length > 0 ? shiftTasksRef.current : shiftTasks;
+    const updated = currentTasks.map(t => {
+      if (t.id === id) {
+        return {
+          ...t,
+          date: targetDate,
+          carriedForwardFrom: t.date || today,
+          status: 'pending' as const,
+        };
       }
-      return updated;
+      return t;
     });
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
+      localStorage.setItem('mode_ops_shift_tasks_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_shift_tasks_changed', { detail: updated }));
+    }
+    setShiftTasks(updated);
+    syncEntityToServer('shiftTasks', updated);
     logActivity('shift_task_carried_forward', `Shift task moved forward to ${targetDate}`, 'ShiftTask', id);
   };
 
@@ -1179,38 +1327,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let accomplishedCount = 0;
     let carriedForwardCount = 0;
 
-    setShiftTasks(prev => {
-      const updated = prev.map(t => {
-        if (t.staffId === staffId && (t.date === today || t.status === 'pending')) {
-          if (completedTaskIds.includes(t.id)) {
-            accomplishedCount++;
-            return {
-              ...t,
-              status: 'completed' as const,
-              completedAt: now,
-            };
-          } else {
-            // Task is pending, move forward to the next day!
-            carriedForwardCount++;
-            return {
-              ...t,
-              date: tomorrow,
-              carriedForwardFrom: t.date || today,
-              status: 'pending' as const,
-            };
-          }
+    const currentTasks = shiftTasksRef.current && shiftTasksRef.current.length > 0 ? shiftTasksRef.current : shiftTasks;
+    const updated = currentTasks.map(t => {
+      if (t.staffId === staffId && (t.date === today || t.status === 'pending')) {
+        if (completedTaskIds.includes(t.id)) {
+          accomplishedCount++;
+          return {
+            ...t,
+            status: 'completed' as const,
+            completedAt: now,
+          };
+        } else {
+          // Task is pending, move forward to the next day!
+          carriedForwardCount++;
+          return {
+            ...t,
+            date: tomorrow,
+            carriedForwardFrom: t.date || today,
+            status: 'pending' as const,
+          };
         }
-        return t;
-      });
-
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
       }
-      return updated;
+      return t;
     });
 
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updated));
+      localStorage.setItem('mode_ops_shift_tasks_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_shift_tasks_changed', { detail: updated }));
+    }
+    setShiftTasks(updated);
+    syncEntityToServer('shiftTasks', updated);
+
     // Close the staff shift
-    const targetShiftId = shiftId || shifts.find(s => (s.staffId === staffId || s.staffEmail === currentUser.email) && s.status === 'active')?.id;
+    const currentShifts = shiftsRef.current && shiftsRef.current.length > 0 ? shiftsRef.current : shifts;
+    const targetShiftId = shiftId || currentShifts.find(s => (s.staffId === staffId || s.staffEmail === currentUser.email) && s.status === 'active')?.id;
     if (targetShiftId) {
       const shiftNotes = `${reviewNotes ? reviewNotes + ' • ' : ''}${completedTaskIds.length} tasks accomplished, ${carriedForwardCount} pending moved to next day.`;
       clockOutStaff(targetShiftId, undefined, shiftNotes);
@@ -1226,7 +1377,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addService = (serviceData: Omit<Service, 'id'>) => {
     const newService: Service = {
       ...serviceData,
-      id: `s-${Date.now()}`,
+      id: `s-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       currency: 'NGN',
     };
     const currentList = servicesRef.current && servicesRef.current.length > 0 ? servicesRef.current : services;
@@ -1333,7 +1484,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const newInvoice: Invoice = {
       ...invoiceData,
       currency: 'NGN',
-      id: `inv-${Date.now()}`,
+      id: `inv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
     setInvoices(prev => [newInvoice, ...prev]);
@@ -1342,7 +1493,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const recordPayment = (invoiceId: string, amount: number, method: Payment['method'], reference?: string) => {
     const newPayment: Payment = {
-      id: `pay-${Date.now()}`,
+      id: `pay-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       invoiceId,
       amount,
       currency: 'NGN',
@@ -1350,7 +1501,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       reference: reference || `REF-${Date.now()}`,
       date: new Date().toISOString().split('T')[0],
     };
-    setPayments(prev => [newPayment, ...prev]);
+    setPayments(prev => {
+      const nextPayments = [newPayment, ...prev];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_payments', JSON.stringify(nextPayments));
+      }
+      return nextPayments;
+    });
 
     setInvoices(prev => prev.map(inv => {
       if (inv.id === invoiceId) {
@@ -1383,6 +1540,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteInvoice = (id: string) => {
     setInvoices(prev => prev.filter(inv => inv.id !== id));
+    setPayments(prev => {
+      const next = prev.filter(p => p.invoiceId !== id);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_payments', JSON.stringify(next));
+      }
+      return next;
+    });
     logActivity('crm_invoice', `Deleted invoice #${id}`, 'Invoice', id);
   };
 
@@ -1390,7 +1554,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const newRecord: PayrollRecord = {
       ...recordData,
       currency: 'NGN',
-      id: `payr-${Date.now()}`,
+      id: `payr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
     setPayrollRecords(prev => [newRecord, ...prev]);
@@ -1432,7 +1596,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addTicket = (ticketData: Omit<Ticket, 'id' | 'createdAt'>) => {
     const newTicket: Ticket = {
       ...ticketData,
-      id: `tk-${Date.now()}`,
+      id: `tk-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
     setTickets(prev => [newTicket, ...prev]);
@@ -1449,7 +1613,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     title: string; description: string; amount: number; category: string; urgency: Requisition['urgency']; currency?: Requisition['currency']
   }) => {
     const newReq: Requisition = {
-      id: `req-${Date.now()}`,
+      id: `req-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       receiptNumber: generateReceiptNumber(),
       title,
       description,
@@ -1467,7 +1631,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // Notify Manager/MD
     const newNotif: AppNotification = {
-      id: `notif-${Date.now()}`,
+      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       user_id: 'u1',
       type: 'expense',
       title: 'New Requisition Pending Approval',
@@ -1535,7 +1699,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addGoal = (goalData: Omit<Goal, 'id' | 'created_at' | 'progress' | 'status' | 'strategy_status'>) => {
     const newGoal: Goal = {
       ...goalData,
-      id: `g-${Date.now()}`,
+      id: `g-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       progress: 0,
       status: 'not_started',
       strategy_status: 'pending_submission',
@@ -1597,7 +1761,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addFeedback = (fbData: Omit<Feedback, 'id' | 'created_at'>) => {
     const newFb: Feedback = {
       ...fbData,
-      id: `fb-${Date.now()}`,
+      id: `fb-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       created_at: new Date().toISOString(),
     };
     setFeedbacks(prev => [newFb, ...prev]);
@@ -1624,7 +1788,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const targetAudience = data.targetAudience || 'all';
     const nowIso = new Date().toISOString();
     const memoNumber = `MEMO-2026-${String(memos.length + 1).padStart(3, '0')}`;
-    const newMemoId = `memo-${Date.now()}`;
+    const newMemoId = `memo-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
     const newMemo: StaffMemo = {
       id: newMemoId,
@@ -1646,7 +1810,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createdAt: nowIso,
     };
 
-    setMemos(prev => [newMemo, ...prev]);
+    const currentMemos = memosRef.current && memosRef.current.length > 0 ? memosRef.current : memos;
+    const updatedMemos = [newMemo, ...currentMemos];
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_memos', JSON.stringify(updatedMemos));
+      localStorage.setItem('mode_ops_memos_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_memos_changed', { detail: updatedMemos }));
+    }
+    setMemos(updatedMemos);
+    syncEntityToServer('memos', updatedMemos);
+    syncDeltaToServer('memos', 'upsert', newMemo);
 
     // Send notifications to all recipients
     const targetStaff = users.filter(u => {
@@ -1662,7 +1835,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
 
     const newNotifications: AppNotification[] = targetStaff.map(u => ({
-      id: `notif-memo-${Date.now()}-${u.id}`,
+      id: `notif-memo-${Date.now()}-${u.id}-${Math.random().toString(36).substring(2, 5)}`,
       user_id: u.id,
       type: 'memo',
       title: `${priority === 'urgent' ? '🚨 URGENT MEMO' : '📄 Management Memo'}: ${data.title}`,
@@ -1687,7 +1860,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const markMemoAsRead = (memoId: string, staffId: string = currentUser.id) => {
     const nowIso = new Date().toISOString();
-    setMemos(prev => prev.map(m => {
+    const currentMemos = memosRef.current && memosRef.current.length > 0 ? memosRef.current : memos;
+    const updatedMemos = currentMemos.map(m => {
       if (m.id === memoId && !m.readBy[staffId]) {
         return {
           ...m,
@@ -1695,13 +1869,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         };
       }
       return m;
-    }));
+    });
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_memos', JSON.stringify(updatedMemos));
+      localStorage.setItem('mode_ops_memos_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_memos_changed', { detail: updatedMemos }));
+    }
+    setMemos(updatedMemos);
+    syncEntityToServer('memos', updatedMemos);
+    const target = updatedMemos.find(m => m.id === memoId);
+    if (target) syncDeltaToServer('memos', 'upsert', target);
   };
 
   const acknowledgeMemo = (memoId: string, staffId: string = currentUser.id) => {
     const nowIso = new Date().toISOString();
-    const targetMemo = memos.find(m => m.id === memoId);
-    setMemos(prev => prev.map(m => {
+    const currentMemos = memosRef.current && memosRef.current.length > 0 ? memosRef.current : memos;
+    const targetMemo = currentMemos.find(m => m.id === memoId);
+    const updatedMemos = currentMemos.map(m => {
       if (m.id === memoId) {
         return {
           ...m,
@@ -1710,16 +1894,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         };
       }
       return m;
-    }));
-
+    });
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_memos', JSON.stringify(updatedMemos));
+      localStorage.setItem('mode_ops_memos_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_memos_changed', { detail: updatedMemos }));
+    }
+    setMemos(updatedMemos);
+    syncEntityToServer('memos', updatedMemos);
     if (targetMemo) {
+      const updatedTarget = updatedMemos.find(m => m.id === memoId);
+      if (updatedTarget) syncDeltaToServer('memos', 'upsert', updatedTarget);
       logActivity('memo_acknowledged', `${currentUser.full_name} acknowledged receipt of memo "${targetMemo.title}" (${targetMemo.memoNumber})`, 'StaffMemo', memoId);
     }
   };
 
   const deleteMemo = (memoId: string) => {
-    const target = memos.find(m => m.id === memoId);
-    setMemos(prev => prev.filter(m => m.id !== memoId));
+    const currentMemos = memosRef.current && memosRef.current.length > 0 ? memosRef.current : memos;
+    const target = currentMemos.find(m => m.id === memoId);
+    const updatedMemos = currentMemos.filter(m => m.id !== memoId);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode_ops_memos', JSON.stringify(updatedMemos));
+      localStorage.setItem('mode_ops_memos_timestamp', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mode_ops_memos_changed', { detail: updatedMemos }));
+    }
+    setMemos(updatedMemos);
+    syncEntityToServer('memos', updatedMemos);
+    syncDeltaToServer('memos', 'delete', memoId);
+
     if (target) {
       logActivity('memo_deleted', `Management memo retracted: "${target.title}" (${target.memoNumber})`, 'StaffMemo', memoId);
     }
@@ -1770,7 +1972,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const isAdmin = cleanEmail.startsWith('admin@') || cleanEmail.startsWith('info@');
 
         const newProfile: UserProfile = {
-          id: `u-${Date.now()}`,
+          id: `u-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
           email: cleanEmail,
           password: password,
           full_name: derivedName,
@@ -1831,13 +2033,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const today = new Date().toISOString().split('T')[0];
     const now = new Date().toISOString();
 
-    setShifts(prev => {
-      const activeIdx = prev.findIndex(s => s.staffId === matchedUser.id && s.status === 'active');
-      if (activeIdx !== -1) {
-        return prev;
-      }
+    const currentShifts = shiftsRef.current && shiftsRef.current.length > 0 ? shiftsRef.current : shifts;
+    const activeIdx = currentShifts.findIndex(s => s.staffId === matchedUser.id && s.status === 'active');
+    if (activeIdx === -1) {
       const newShift: StaffShift = {
-        id: `shift-${Date.now()}`,
+        id: `shift-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         staffId: matchedUser.id,
         staffName: matchedUser.full_name,
         staffEmail: matchedUser.email,
@@ -1851,15 +2051,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         hourlyRate: matchedUser.hourly_rate || (matchedUser.role === 'managing_director' ? 5000 : matchedUser.role === 'administration' || matchedUser.role === 'accounts' ? 6500 : matchedUser.role === 'developer' ? 3500 : matchedUser.role === 'sales' ? 2800 : matchedUser.role === 'manager' ? 3000 : 2500),
         notes: `Clocked in for regular shift at ${new Date().toLocaleTimeString()}`
       };
-      const nextShifts = [newShift, ...prev];
+      const nextShifts = [newShift, ...currentShifts];
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_shifts', JSON.stringify(nextShifts));
         localStorage.setItem('mode_ops_shifts_timestamp', String(Date.now()));
         window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: nextShifts }));
       }
+      setShifts(nextShifts);
       syncEntityToServer('shifts', nextShifts);
-      return nextShifts;
-    });
+    }
 
     logActivity('staff_login', `${matchedUser.full_name} (${matchedUser.job_title || matchedUser.role}) logged in — Shift started.`, 'StaffShift', matchedUser.id);
 
@@ -1949,7 +2149,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const isAdmin = cleanEmail.startsWith('admin@') || cleanEmail.startsWith('info@');
 
       const newProfile: UserProfile = {
-        id: `u-${Date.now()}`,
+        id: `u-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         email: cleanEmail,
         password: newPassword,
         full_name: derivedName,
@@ -1992,6 +2192,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     setUsers(updatedUsers);
     syncEntityToServer('users', updatedUsers);
+
+    if (currentUser && currentUser.id === target.id) {
+      const updatedCurrentUser = { ...currentUser, password: newPassword };
+      setCurrentUser(updatedCurrentUser);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mode_ops_current_user', JSON.stringify(updatedCurrentUser));
+      }
+    }
 
     logActivity('password_change', `Staff member ${target.full_name} changed their password.`, 'User', target.id);
 
@@ -2189,6 +2397,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         markMemoAsRead,
         acknowledgeMemo,
         deleteMemo,
+        syncDeltaToServer,
+        syncEntityToServer,
         mobileSidebarOpen,
         setMobileSidebarOpen,
         toggleMobileSidebar,

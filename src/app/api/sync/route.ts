@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { broadcastSyncEvent } from '@/lib/sync-events';
 import {
   initialServices,
   initialProfiles,
@@ -27,11 +28,17 @@ interface ServerState {
   users: any[];
   usersLastUpdated?: string;
   shiftTasks: any[];
+  shiftTasksLastUpdated?: string;
   memos: any[];
+  memosLastUpdated?: string;
   leads: any[];
+  leadsLastUpdated?: string;
   projects: any[];
+  projectsLastUpdated?: string;
   invoices: any[];
+  invoicesLastUpdated?: string;
   requisitions: any[];
+  requisitionsLastUpdated?: string;
   companies: any[];
   contacts: any[];
   hostingAccounts: any[];
@@ -48,7 +55,9 @@ function getInitialDbState(): ServerState {
     users: initialProfiles,
     usersLastUpdated: new Date().toISOString(),
     shiftTasks: initialShiftTasks,
+    shiftTasksLastUpdated: new Date().toISOString(),
     memos: initialMemos,
+    memosLastUpdated: new Date().toISOString(),
     leads: initialLeads.map(l => ({ ...l, currency: 'NGN' })),
     projects: initialProjects.map(p => ({ ...p, currency: 'NGN' })),
     invoices: initialInvoices.map(i => ({ ...i, currency: 'NGN' })),
@@ -85,19 +94,25 @@ function readDb(): ServerState {
       shifts: (parsed.shifts && Array.isArray(parsed.shifts))
         ? parsed.shifts
         : [],
-      leads: (parsed.leads && parsed.leads.length > 0)
+      shiftTasks: Array.isArray(parsed.shiftTasks)
+        ? parsed.shiftTasks
+        : initialShiftTasks,
+      memos: Array.isArray(parsed.memos)
+        ? parsed.memos
+        : initialMemos,
+      leads: Array.isArray(parsed.leads)
         ? parsed.leads.map((l: any) => ({ ...l, currency: 'NGN' }))
         : initialLeads.map(l => ({ ...l, currency: 'NGN' })),
-      projects: (parsed.projects && parsed.projects.length > 0)
+      projects: Array.isArray(parsed.projects)
         ? parsed.projects.map((p: any) => ({ ...p, currency: 'NGN' }))
         : initialProjects.map(p => ({ ...p, currency: 'NGN' })),
-      invoices: (parsed.invoices && parsed.invoices.length > 0)
+      invoices: Array.isArray(parsed.invoices)
         ? parsed.invoices.map((i: any) => ({ ...i, currency: 'NGN' }))
         : initialInvoices.map(i => ({ ...i, currency: 'NGN' })),
       requisitions: Array.isArray(parsed.requisitions)
         ? parsed.requisitions.map((r: any) => ({ ...r, currency: 'NGN' }))
         : initialRequisitions.map(r => ({ ...r, currency: 'NGN' })),
-      hostingAccounts: (parsed.hostingAccounts && parsed.hostingAccounts.length > 0)
+      hostingAccounts: Array.isArray(parsed.hostingAccounts)
         ? parsed.hostingAccounts.map((h: any) => ({ ...h, currency: 'NGN' }))
         : initialHostingAccounts.map(h => ({ ...h, currency: 'NGN' })),
     };
@@ -133,25 +148,79 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const current = readDb();
+    const nowIso = new Date().toISOString();
 
-    // Support updating single entity or multiple entities
+    // 1. Delta / Patch Sync Optimization
+    if (body.delta && body.delta.entity) {
+      const { entity, action, item, id } = body.delta;
+      const targetList = Array.isArray((current as any)[entity]) ? [...(current as any)[entity]] : [];
+      
+      if (action === 'delete') {
+        const deleteId = id || item?.id;
+        (current as any)[entity] = targetList.filter((x: any) => x.id !== deleteId);
+      } else if (action === 'upsert' && item && item.id) {
+        const existingIdx = targetList.findIndex((x: any) => x.id === item.id);
+        if (existingIdx !== -1) {
+          targetList[existingIdx] = { ...targetList[existingIdx], ...item };
+        } else {
+          targetList.unshift(item);
+        }
+        (current as any)[entity] = targetList;
+      }
+
+      const entityTimestamp = body.timestamp || nowIso;
+      (current as any)[`${entity}LastUpdated`] = entityTimestamp;
+      current.lastUpdated = nowIso;
+      writeDb(current);
+
+      // Broadcast delta event immediately to connected SSE clients
+      broadcastSyncEvent({
+        type: 'delta',
+        entity,
+        action,
+        item,
+        id: id || item?.id,
+        timestamp: entityTimestamp
+      });
+
+      return NextResponse.json({
+        success: true,
+        mode: 'delta',
+        entity,
+        action,
+        lastUpdated: current.lastUpdated
+      });
+    }
+
+    // 2. Full Snapshot Entity Update
+    let updatedEntity: string = 'all';
     if (body.entity && body.data !== undefined) {
+      updatedEntity = body.entity;
       (current as any)[body.entity] = body.data;
-      (current as any)[`${body.entity}LastUpdated`] = body.timestamp || new Date().toISOString();
+      (current as any)[`${body.entity}LastUpdated`] = body.timestamp || nowIso;
     } else if (body.partialState && typeof body.partialState === 'object') {
       Object.assign(current, body.partialState);
     } else if (body.services && Array.isArray(body.services)) {
+      updatedEntity = 'services';
       current.services = body.services.map((s: any) => ({ ...s, currency: s.currency || 'NGN' }));
-      current.servicesLastUpdated = new Date().toISOString();
+      current.servicesLastUpdated = nowIso;
     }
 
-    current.lastUpdated = new Date().toISOString();
+    current.lastUpdated = nowIso;
     writeDb(current);
+
+    // Broadcast snapshot event immediately to connected SSE clients
+    broadcastSyncEvent({
+      type: 'snapshot',
+      entity: updatedEntity,
+      timestamp: current.lastUpdated
+    });
 
     return NextResponse.json({
       success: true,
+      mode: 'snapshot',
       lastUpdated: current.lastUpdated,
-      entity: body.entity || 'all'
+      entity: updatedEntity
     });
   } catch (err: any) {
     console.error('[API /api/sync] POST error:', err);

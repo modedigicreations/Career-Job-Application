@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -62,6 +62,16 @@ function MemosContent() {
     }
     return null;
   });
+
+  useEffect(() => {
+    if (memoQueryId && memos.length > 0) {
+      const found = memos.find(m => m.id === memoQueryId);
+      if (found) {
+        setSelectedMemo(found);
+        markMemoAsRead(found.id);
+      }
+    }
+  }, [memoQueryId, memos]);
 
   // Track delivery detail modal (for management)
   const [trackingMemo, setTrackingMemo] = useState<StaffMemo | null>(null);

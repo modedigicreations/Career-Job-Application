@@ -120,7 +120,7 @@ export function formatMailtoUrl(email?: string, subject?: string, body?: string)
 
 export function isManagementUser(role?: string): boolean {
   if (!role) return false;
-  return role === 'managing_director' || role === 'manager' || role === 'super_admin' || role === 'admin';
+  return role === 'managing_director' || role === 'manager' || role === 'super_admin' || role === 'admin' || role === 'administration';
 }
 
 export function getMemoPriorityBadge(priority: string) {
