@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
 import { prisma } from './lib/prisma';
 import { authenticateToken } from './middleware/auth';
 import authRoutes from './routes/auth';
@@ -58,6 +60,17 @@ app.use('/api/reports', authenticateToken, reportRoutes);
 app.use('/api/requisitions', authenticateToken, requisitionRoutes);
 app.use('/api/settings', authenticateToken, settingsRoutes);
 app.use('/api/whatsapp', authenticateToken, whatsappRoutes);
+
+// Single-service deploy: the built React client (client/dist, copied to server/public by the
+// Dockerfile) is served from this same Express app. In local dev that directory doesn't exist —
+// the client runs on its own Vite dev server instead — so this is skipped entirely then.
+const clientDist = path.join(__dirname, '../public');
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get(/^(?!\/api).*/, (_req, res) => {
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' });

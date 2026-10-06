@@ -1,0 +1,13 @@
+node_modules
+client/node_modules
+client/dist
+server/node_modules
+server/dist
+server/prisma/dev.db
+server/prisma/dev.db-journal
+.env
+*.env
+!*.env.example
+.git
+.DS_Store
+modecodersclub-dashboard

@@ -34,7 +34,7 @@ A comprehensive CRM (Customer Relationship Management) system built for MODE Dig
 | State | Zustand (in-memory cache backed by the API — not localStorage) |
 | Charts | Recharts |
 | Backend | Node.js, Express, TypeScript |
-| Database | SQLite (dev) / PostgreSQL (prod) via Prisma ORM |
+| Database | PostgreSQL via Prisma ORM |
 | Auth | JWT + bcrypt |
 | PDF generation | PDFKit |
 
@@ -44,6 +44,7 @@ A comprehensive CRM (Customer Relationship Management) system built for MODE Dig
 
 - Node.js 18+
 - npm or yarn
+- A Postgres database. Locally, the easiest options are Docker (`docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16`) or Homebrew (`brew install postgresql@16 && brew services start postgresql@16 && createdb mode_crm`).
 
 The frontend talks to a real backend for all data — there is no offline/demo mode. Start the backend first, then the frontend.
 
@@ -51,7 +52,7 @@ The frontend talks to a real backend for all data — there is no offline/demo m
 
 ```bash
 cd server
-cp .env.example .env
+cp .env.example .env   # then set DATABASE_URL to your Postgres connection string
 npm install
 npx prisma generate
 npx prisma db push
@@ -70,6 +71,16 @@ npm run dev
 ```
 
 Open `http://localhost:5173` — log in with one of the seeded accounts below and its real password. The frontend proxies `/api` requests to the backend.
+
+## Deployment (Railway)
+
+Production is a **single service**: the root `Dockerfile` builds the React client, builds the Express server, and copies the client's build output into `server/public`, which the server serves as static files (with an SPA fallback for client-side routes) alongside the `/api/*` routes — one URL, one container, no CORS to configure.
+
+1. Create a Railway project from this GitHub repo, pointing the service at the branch you want deployed (`railway.json` at the repo root already tells it to build via the Dockerfile).
+2. Add a Postgres database in the same Railway project and copy its connection string.
+3. Set these environment variables on the service: `DATABASE_URL` (the Postgres string from step 2), `JWT_SECRET` (a long random value), `NODE_ENV=production`. Railway sets `PORT` automatically.
+4. Deploy. The container runs `prisma db push` on every boot to keep the schema in sync, then starts the server. `db push` only applies non-destructive changes automatically — a destructive schema change (e.g. dropping a column with data in it) fails the deploy loudly rather than silently losing data. This project doesn't yet have a `prisma/migrations` history; adopting `prisma migrate deploy` instead is a reasonable follow-up once the schema stabilizes.
+5. Seed data is **not** run automatically (re-running the seed script on every deploy would create duplicate records). After the first successful deploy, seed once via Railway's shell: `railway run npx tsx prisma/seed.ts`.
 
 ## API Endpoints
 
