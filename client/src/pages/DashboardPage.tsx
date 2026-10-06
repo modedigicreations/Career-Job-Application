@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import { Link } from 'react-router-dom';
 
-const PIPELINE_COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#f97316', '#6366f1', '#ec4899', '#22c55e', '#ef4444'];
+const PIPELINE_COLORS = ['#3d5cff', '#8b5cf6', '#f59e0b', '#f97316', '#6366f1', '#ec4899', '#22c55e', '#ef4444'];
 
 export default function DashboardPage() {
   const { leads, projects, invoices, payments, hostingAccounts, activities } = useStore();
@@ -105,7 +105,7 @@ export default function DashboardPage() {
               <XAxis dataKey="month" tick={{ fontSize: 12 }} />
               <YAxis tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
               <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
-              <Line type="monotone" dataKey="revenue" stroke="#2563eb" strokeWidth={2} dot={{ r: 4 }} />
+              <Line type="monotone" dataKey="revenue" stroke="#3d5cff" strokeWidth={2} dot={{ r: 4 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>

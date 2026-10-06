@@ -1,13 +1,14 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../lib/prisma';
-import { generateToken, authenticateToken, AuthRequest } from '../middleware/auth';
+import { generateToken, authenticateToken, requireRole, MANAGER_TIER, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-const VALID_ROLES = ['admin', 'manager', 'sales', 'support', 'developer'];
+const VALID_ROLES = ['super-admin', 'admin', 'manager', 'sales', 'support', 'developer'];
 
-router.post('/register', async (req: Request, res: Response) => {
+// Staff accounts are provisioned by an admin, not self-registered — this is an internal CRM.
+router.post('/register', authenticateToken, requireRole(...MANAGER_TIER), async (req: AuthRequest, res: Response) => {
   try {
     const { name, email, password, role, phone } = req.body;
     if (typeof name !== 'string' || typeof email !== 'string' || typeof password !== 'string' || !name.trim() || !email.trim() || !password) {
@@ -27,6 +28,9 @@ router.post('/register', async (req: Request, res: Response) => {
     if (role !== undefined && !VALID_ROLES.includes(role)) {
       return res.status(400).json({ error: `Role must be one of: ${VALID_ROLES.join(', ')}` });
     }
+    if ((role === 'super-admin' || role === 'admin') && req.userRole !== 'super-admin') {
+      return res.status(403).json({ error: 'Only a super admin can create an admin or super-admin account' });
+    }
     if (phone !== undefined && phone !== null && (typeof phone !== 'string' || phone.length > 50)) {
       return res.status(400).json({ error: 'Phone must be a string of 50 characters or fewer' });
     }
@@ -44,7 +48,7 @@ router.post('/register', async (req: Request, res: Response) => {
     const token = generateToken(user.id, user.role);
     res.status(201).json({
       token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, isActive: user.isActive, lastLoginAt: user.lastLoginAt, createdAt: user.createdAt },
     });
   } catch (error) {
     res.status(500).json({ error: 'Registration failed' });
@@ -54,13 +58,18 @@ router.post('/register', async (req: Request, res: Response) => {
 router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
+    if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const trimmedEmail = email.trim().toLowerCase();
+    const user = await prisma.user.findUnique({ where: { email: trimmedEmail } });
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({ error: 'This account has been deactivated. Contact an administrator.' });
     }
 
     const valid = await bcrypt.compare(password, user.password);
@@ -68,13 +77,35 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    const now = new Date();
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: now } }),
+      prisma.loginHistory.create({ data: { userId: user.id, loggedInAt: now } }),
+    ]);
+
     const token = generateToken(user.id, user.role);
     res.json({
       token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, isActive: user.isActive, lastLoginAt: now, createdAt: user.createdAt },
     });
   } catch (error) {
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+router.get('/login-history', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const canViewAll = req.userRole === 'admin' || req.userRole === 'super-admin';
+    const targetUserId = canViewAll && req.query.userId ? String(req.query.userId) : req.userId;
+    const history = await prisma.loginHistory.findMany({
+      where: { userId: targetUserId },
+      orderBy: { loggedInAt: 'desc' },
+      take: 200,
+      include: { user: { select: { id: true, name: true, email: true } } },
+    });
+    res.json(history);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch login history' });
   }
 });
 
@@ -82,7 +113,7 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res: Response) => 
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.userId },
-      select: { id: true, name: true, email: true, role: true, phone: true, isActive: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, phone: true, isActive: true, createdAt: true, lastLoginAt: true },
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json(user);

@@ -6,7 +6,7 @@ import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 import { Plus, Search, FolderKanban, Calendar, DollarSign, Trash2, Edit2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { v4 as uuid } from 'uuid';
+import { ApiError } from '@/lib/api';
 import { showToast } from '@/components/ui/Toast';
 import type { Project, ProjectStatus, ServiceType, Currency } from '@/types';
 
@@ -43,16 +43,20 @@ export default function ProjectsPage() {
   function openCreate() { setEditing(null); setForm(emptyProject); setShowForm(true); }
   function openEdit(project: Project) { setEditing(project); setForm(project); setShowForm(true); }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (editing) {
-      updateProject(editing.id, form);
-      showToast('Project updated successfully');
-    } else {
-      addProject({ ...form, id: uuid(), createdAt: new Date().toISOString() } as Project);
-      showToast('Project created successfully');
+    try {
+      if (editing) {
+        await updateProject(editing.id, form);
+        showToast('Project updated successfully');
+      } else {
+        await addProject(form);
+        showToast('Project created successfully');
+      }
+      setShowForm(false);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to save project', 'error');
     }
-    setShowForm(false);
   }
 
   return (
@@ -85,7 +89,7 @@ export default function ProjectsPage() {
                 <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                   <StatusBadge status={project.status} />
                   <button onClick={() => openEdit(project)} className="p-1 rounded hover:bg-gray-100"><Edit2 className="h-4 w-4 text-gray-400" /></button>
-                  <button onClick={() => { if (confirm('Delete this project?')) { deleteProject(project.id); showToast('Project deleted'); } }} className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
+                  <button onClick={async () => { if (confirm('Delete this project?')) { try { await deleteProject(project.id); showToast('Project deleted'); } catch (err) { showToast(err instanceof ApiError ? err.message : 'Failed to delete project', 'error'); } } }} className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
                 </div>
               </div>
               <Link to={`/projects/${project.id}`}>

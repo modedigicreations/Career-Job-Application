@@ -5,7 +5,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
 import { useState } from 'react';
 import { ArrowLeft, CreditCard, FileQuestion } from 'lucide-react';
-import { v4 as uuid } from 'uuid';
+import { ApiError } from '@/lib/api';
 import { showToast } from '@/components/ui/Toast';
 import type { Payment } from '@/types';
 
@@ -37,27 +37,34 @@ export default function InvoiceDetailPage() {
   const inv = invoice;
   const balance = inv.total - inv.amountPaid;
 
-  function handlePayment(e: React.FormEvent) {
+  async function handlePayment(e: React.FormEvent) {
     e.preventDefault();
     if (paymentForm.amount <= 0 || paymentForm.amount > balance) return;
-    addPayment({
-      id: uuid(),
-      invoiceId: inv.id,
-      amount: paymentForm.amount,
-      currency: inv.currency,
-      method: paymentForm.method,
-      reference: paymentForm.reference,
-      date: new Date().toISOString(),
-      notes: paymentForm.notes,
-    });
-    showToast('Payment recorded successfully');
-    setShowPayment(false);
-    setPaymentForm({ amount: 0, method: 'bank-transfer', reference: '', notes: '' });
+    try {
+      await addPayment({
+        invoiceId: inv.id,
+        amount: paymentForm.amount,
+        currency: inv.currency,
+        method: paymentForm.method,
+        reference: paymentForm.reference,
+        date: new Date().toISOString(),
+        notes: paymentForm.notes,
+      });
+      showToast('Payment recorded successfully');
+      setShowPayment(false);
+      setPaymentForm({ amount: 0, method: 'bank-transfer', reference: '', notes: '' });
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to record payment', 'error');
+    }
   }
 
-  function markAsSent() {
-    updateInvoice(inv.id, { status: 'sent' });
-    showToast('Invoice marked as sent');
+  async function markAsSent() {
+    try {
+      await updateInvoice(inv.id, { status: 'sent' });
+      showToast('Invoice marked as sent');
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to update invoice', 'error');
+    }
   }
 
   return (

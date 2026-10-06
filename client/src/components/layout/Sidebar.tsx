@@ -1,9 +1,10 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useStore } from '@/store/useStore';
 import {
   LayoutDashboard, Users, GitBranch, UserCircle, Building2,
   FolderKanban, Server, FileText, BarChart3, Package,
-  Ticket, Mail, History, Settings, X, ChevronLeft,
+  Ticket, Mail, History, Settings, X, ChevronLeft, Timer, Receipt, PiggyBank,
 } from 'lucide-react';
 
 const navItems = [
@@ -13,6 +14,8 @@ const navItems = [
   { label: 'Contacts', path: '/contacts', icon: UserCircle },
   { label: 'Companies', path: '/companies', icon: Building2 },
   { label: 'Projects', path: '/projects', icon: FolderKanban },
+  { label: '1-Minute Manager', path: '/one-minute-manager', icon: Timer },
+  { label: 'Requisitions', path: '/requisitions', icon: Receipt },
   { label: 'Hosting', path: '/hosting', icon: Server },
   { label: 'Invoices', path: '/invoices', icon: FileText },
   { label: 'Staff', path: '/staff', icon: BarChart3 },
@@ -20,6 +23,7 @@ const navItems = [
   { label: 'Tickets', path: '/tickets', icon: Ticket },
   { label: 'Campaigns', path: '/email-campaigns', icon: Mail },
   { label: 'Activity Log', path: '/activities', icon: History },
+  { label: 'Financials', path: '/financials', icon: PiggyBank, superAdminOnly: true },
   { label: 'Settings', path: '/settings', icon: Settings },
 ];
 
@@ -32,6 +36,8 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProps) {
   const location = useLocation();
+  const role = useStore((s) => s.currentUser.role);
+  const visibleItems = navItems.filter((item) => !item.superAdminOnly || role === 'super-admin');
 
   return (
     <>
@@ -73,7 +79,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
 
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           <ul className="space-y-1">
-            {navItems.map((item) => {
+            {visibleItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
               return (

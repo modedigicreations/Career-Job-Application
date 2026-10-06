@@ -4,6 +4,12 @@ import { projectSchema, projectUpdateSchema } from '../lib/validators';
 
 const router = Router();
 
+function deserialize<T extends { assignedTeam: string }>(project: T) {
+  let assignedTeam: string[] = [];
+  try { assignedTeam = JSON.parse(project.assignedTeam); } catch { /* malformed, default to [] */ }
+  return { ...project, assignedTeam };
+}
+
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { status, search } = req.query;
@@ -16,7 +22,7 @@ router.get('/', async (req: Request, res: Response) => {
       ];
     }
     const projects = await prisma.project.findMany({ where, orderBy: { createdAt: 'desc' }, include: { tasks: true } });
-    res.json(projects);
+    res.json(projects.map(deserialize));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch projects' });
   }
@@ -26,7 +32,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { tasks: { orderBy: { order: 'asc' } }, milestones: true } });
     if (!project) return res.status(404).json({ error: 'Project not found' });
-    res.json(project);
+    res.json(deserialize(project));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch project' });
   }
@@ -38,8 +44,9 @@ router.post('/', async (req: Request, res: Response) => {
     if (!parsed.success) {
       return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
     }
-    const project = await prisma.project.create({ data: parsed.data });
-    res.status(201).json(project);
+    const { assignedTeam, ...rest } = parsed.data;
+    const project = await prisma.project.create({ data: { ...rest, assignedTeam: JSON.stringify(assignedTeam) } });
+    res.status(201).json(deserialize(project));
   } catch (error) {
     res.status(500).json({ error: 'Failed to create project' });
   }
@@ -51,8 +58,11 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (!parsed.success) {
       return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
     }
-    const project = await prisma.project.update({ where: { id: req.params.id }, data: parsed.data });
-    res.json(project);
+    const { assignedTeam, ...rest } = parsed.data;
+    const data: any = rest;
+    if (assignedTeam !== undefined) data.assignedTeam = JSON.stringify(assignedTeam);
+    const project = await prisma.project.update({ where: { id: req.params.id }, data });
+    res.json(deserialize(project));
   } catch (error) {
     res.status(500).json({ error: 'Failed to update project' });
   }

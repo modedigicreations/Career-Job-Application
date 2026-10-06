@@ -8,6 +8,7 @@ import StatCard from '@/components/ui/StatCard';
 import { Plus, Search, FileText, DollarSign, Clock, AlertCircle, Eye, Trash2, Download, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { v4 as uuid } from 'uuid';
+import { ApiError } from '@/lib/api';
 import { showToast } from '@/components/ui/Toast';
 import type { Invoice, InvoiceItem, InvoiceStatus, Currency } from '@/types';
 
@@ -64,22 +65,18 @@ export default function InvoicesPage() {
     setItems(items.filter((_, i) => i !== index));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const subtotal = items.reduce((s, i) => s + i.total, 0);
     const tax = subtotal * VAT_RATE;
     const total = subtotal + tax;
-    const maxNum = invoices.reduce((max, inv) => {
-      const match = inv.invoiceNumber.match(/INV-\d+-(\d+)/);
-      return match ? Math.max(max, parseInt(match[1], 10)) : max;
-    }, 0);
-    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(maxNum + 1).padStart(3, '0')}`;
-    addInvoice({
-      ...form, id: uuid(), invoiceNumber, items, subtotal, tax, total,
-      createdAt: new Date().toISOString(),
-    } as Invoice);
-    showToast(`Invoice ${invoiceNumber} created`);
-    setShowForm(false);
+    try {
+      await addInvoice({ ...form, invoiceNumber: '', items, subtotal, tax, total });
+      showToast('Invoice created');
+      setShowForm(false);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to create invoice', 'error');
+    }
   }
 
   return (
@@ -157,14 +154,14 @@ export default function InvoicesPage() {
                         <Link to={`/invoices/${invoice.id}`} title="View invoice" className="p-1 rounded hover:bg-gray-100"><Eye className="h-4 w-4 text-gray-400" /></Link>
                         {invoice.status === 'draft' && (
                           <button
-                            onClick={() => { updateInvoice(invoice.id, { status: 'sent' }); showToast(`Invoice ${invoice.invoiceNumber} marked as sent`); }}
+                            onClick={async () => { try { await updateInvoice(invoice.id, { status: 'sent' }); showToast(`Invoice ${invoice.invoiceNumber} marked as sent`); } catch (err) { showToast(err instanceof ApiError ? err.message : 'Failed to update invoice', 'error'); } }}
                             title="Mark as sent"
                             className="p-1 rounded hover:bg-gray-100"
                           >
                             <Send className="h-4 w-4 text-brand-500" />
                           </button>
                         )}
-                        <button onClick={() => { if (confirm(`Delete invoice ${invoice.invoiceNumber}?`)) { deleteInvoice(invoice.id); showToast('Invoice deleted'); } }} title="Delete invoice" className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
+                        <button onClick={async () => { if (confirm(`Delete invoice ${invoice.invoiceNumber}?`)) { try { await deleteInvoice(invoice.id); showToast('Invoice deleted'); } catch (err) { showToast(err instanceof ApiError ? err.message : 'Failed to delete invoice', 'error'); } } }} title="Delete invoice" className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
                       </div>
                     </td>
                   </tr>

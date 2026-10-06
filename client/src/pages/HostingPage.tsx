@@ -4,8 +4,8 @@ import { formatCurrency, formatDate, getDaysUntil, cn } from '@/lib/utils';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
-import { Plus, Search, Server, AlertTriangle, Shield, ShieldCheck, ShieldX, Edit2, Trash2 } from 'lucide-react';
-import { v4 as uuid } from 'uuid';
+import { Plus, Search, Server, AlertTriangle, Shield, ShieldCheck, ShieldX, Edit2, Trash2, RefreshCw } from 'lucide-react';
+import { ApiError } from '@/lib/api';
 import { showToast } from '@/components/ui/Toast';
 import type { HostingAccount, HostingPlan, Currency } from '@/types';
 
@@ -36,16 +36,36 @@ export default function HostingPage() {
   function openCreate() { setEditing(null); setForm(emptyAccount); setShowForm(true); }
   function openEdit(account: HostingAccount) { setEditing(account); setForm(account); setShowForm(true); }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (editing) {
-      updateHostingAccount(editing.id, form);
-      showToast('Hosting account updated');
-    } else {
-      addHostingAccount({ ...form, id: uuid() } as HostingAccount);
-      showToast('Hosting account created');
+    try {
+      if (editing) {
+        await updateHostingAccount(editing.id, form);
+        showToast('Hosting account updated');
+      } else {
+        await addHostingAccount(form);
+        showToast('Hosting account created');
+      }
+      setShowForm(false);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to save hosting account', 'error');
     }
-    setShowForm(false);
+  }
+
+  async function confirmRenewal(account: HostingAccount) {
+    if (!confirm(`Confirm renewal of ${account.domainName} for ${account.clientName}? The expiry date will move forward one year from today.`)) return;
+    const nextExpiry = new Date();
+    nextExpiry.setFullYear(nextExpiry.getFullYear() + 1);
+    try {
+      await updateHostingAccount(account.id, {
+        expiryDate: nextExpiry.toISOString(),
+        registrationDate: account.registrationDate || new Date().toISOString(),
+        status: 'active',
+      });
+      showToast(`${account.domainName} renewed until ${nextExpiry.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to confirm renewal', 'error');
+    }
   }
 
   const SSLIcons = { active: ShieldCheck, expired: ShieldX, none: Shield };
@@ -58,18 +78,23 @@ export default function HostingPage() {
             <AlertTriangle className="h-5 w-5 text-amber-500" />
             <h3 className="text-sm font-semibold text-amber-800">Renewal Alerts</h3>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {expiringAccounts.map((account) => {
               const days = getDaysUntil(account.expiryDate);
               return (
-                <p key={account.id} className="text-sm text-amber-700">
-                  <strong>{account.domainName}</strong> ({account.clientName}){' '}
-                  {days <= 0
-                    ? <><strong>expired {Math.abs(days)} days ago</strong></>
-                    : <>expires in <strong>{days} days</strong></>
-                  }{' '}
-                  ({formatDate(account.expiryDate)})
-                </p>
+                <div key={account.id} className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-amber-700">
+                    <strong>{account.domainName}</strong> ({account.clientName}){' '}
+                    {days <= 0
+                      ? <><strong>expired {Math.abs(days)} days ago</strong></>
+                      : <>expires in <strong>{days} days</strong></>
+                    }{' '}
+                    ({formatDate(account.expiryDate)})
+                  </p>
+                  <button onClick={() => confirmRenewal(account)} className="btn-secondary text-xs py-1 px-2.5 flex-shrink-0">
+                    <RefreshCw className="h-3.5 w-3.5 mr-1" /> Confirm Renewal
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -130,9 +155,10 @@ export default function HostingPage() {
                       <td className="px-4 py-3"><StatusBadge status={account.status} /></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                          <button onClick={() => confirmRenewal(account)} title="Confirm renewal" className="p-1 rounded hover:bg-gray-100"><RefreshCw className="h-4 w-4 text-green-500" /></button>
                           <button onClick={() => openEdit(account)} title="Edit account" className="p-1 rounded hover:bg-gray-100"><Edit2 className="h-4 w-4 text-gray-400" /></button>
                           <button
-                            onClick={() => { if (confirm(`Delete hosting account for ${account.domainName}?`)) { deleteHostingAccount(account.id); showToast('Hosting account deleted'); } }}
+                            onClick={async () => { if (confirm(`Delete hosting account for ${account.domainName}?`)) { try { await deleteHostingAccount(account.id); showToast('Hosting account deleted'); } catch (err) { showToast(err instanceof ApiError ? err.message : 'Failed to delete hosting account', 'error'); } } }}
                             title="Delete account"
                             className="p-1 rounded hover:bg-gray-100"
                           >

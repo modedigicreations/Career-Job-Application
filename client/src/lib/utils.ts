@@ -5,6 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Mirrors server/src/middleware/auth.ts's MANAGER_TIER — roles that can assign
+// tasks/requisition-approve/manage staff. Keep both in sync if the role list changes.
+export const MANAGER_TIER = ['manager', 'admin', 'super-admin'];
+
 export function formatCurrency(amount: number, currency: 'NGN' | 'GBP' | 'USD' = 'NGN'): string {
   const symbols: Record<string, string> = { NGN: '₦', GBP: '£', USD: '$' };
   return `${symbols[currency]}${amount.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -82,6 +86,8 @@ export function getStatusColor(status: string): string {
     expired: 'bg-red-100 text-red-800',
     blocked: 'bg-red-100 text-red-800',
     paused: 'bg-yellow-100 text-yellow-800',
+    approved: 'bg-green-100 text-green-800',
+    rejected: 'bg-red-100 text-red-800',
   };
   return colors[status] || 'bg-gray-100 text-gray-800';
 }

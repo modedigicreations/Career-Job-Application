@@ -8,20 +8,35 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      String   @default("sales")
-  phone     String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String    @id @default(uuid())
+  name        String
+  email       String    @unique
+  password    String
+  role        String    @default("sales")
+  phone       String?
+  isActive    Boolean   @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  leads      Lead[]
-  tasks      Task[]
-  activities Activity[]
-  tickets    Ticket[]
+  leads         Lead[]
+  tasks         Task[]
+  activities    Activity[]
+  tickets       Ticket[]
+  loginHistory  LoginHistory[]
+  personalGoals PersonalGoal[]
+  assignedTasks ManagerTask[]  @relation("ManagerTaskAssignee")
+  createdTasks  ManagerTask[]  @relation("ManagerTaskCreator")
+  dailySummaries DailySummary[]
+  requisitions  Requisition[]  @relation("RequisitionRequester")
+  approvals     Requisition[]  @relation("RequisitionApprover")
+}
+
+model LoginHistory {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loggedInAt DateTime @default(now())
 }
 
 model Lead {
@@ -35,6 +50,8 @@ model Lead {
   budget            Float    @default(0)
   currency          String   @default("NGN")
   notes             String?
+  designation       String?
+  address           String?
   status            String   @default("new-lead")
   estimatedValue    Float    @default(0)
   probability       Int      @default(20)
@@ -79,11 +96,12 @@ model Project {
   status      String   @default("pending")
   startDate   DateTime?
   endDate     DateTime?
-  budget      Float    @default(0)
-  currency    String   @default("NGN")
-  progress    Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  budget        Float    @default(0)
+  currency      String   @default("NGN")
+  progress      Int      @default(0)
+  assignedTeam  String   @default("[]")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   tasks      Task[]
   milestones Milestone[]
@@ -214,4 +232,64 @@ model EmailCampaign {
   clickRate      Float    @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+model PersonalGoal {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  description String?
+  targetDate DateTime?
+  status     String    @default("pending")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model ManagerTask {
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  assignedTo  String
+  assignee    User      @relation("ManagerTaskAssignee", fields: [assignedTo], references: [id], onDelete: Cascade)
+  assignedBy  String
+  creator     User      @relation("ManagerTaskCreator", fields: [assignedBy], references: [id])
+  dueDate     DateTime?
+  priority    String    @default("medium")
+  status      String    @default("pending")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model DailySummary {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime
+  note      String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, date])
+}
+
+model Requisition {
+  id          String    @id @default(uuid())
+  requestedBy String
+  requester   User      @relation("RequisitionRequester", fields: [requestedBy], references: [id])
+  amount      Float
+  currency    String    @default("NGN")
+  category    String
+  reason      String
+  status      String    @default("pending")
+  approvedBy  String?
+  approver    User?     @relation("RequisitionApprover", fields: [approvedBy], references: [id])
+  date        DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

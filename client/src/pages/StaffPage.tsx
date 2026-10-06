@@ -68,7 +68,7 @@ export default function StaffPage() {
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis allowDecimals={false} />
               <Tooltip />
-              <Bar dataKey="leads" fill="#3b82f6" name="Leads" radius={[2, 2, 0, 0]} />
+              <Bar dataKey="leads" fill="#3d5cff" name="Leads" radius={[2, 2, 0, 0]} />
               <Bar dataKey="deals" fill="#22c55e" name="Deals Won" radius={[2, 2, 0, 0]} />
               <Bar dataKey="calls" fill="#f59e0b" name="Calls" radius={[2, 2, 0, 0]} />
               <Bar dataKey="emails" fill="#8b5cf6" name="Emails" radius={[2, 2, 0, 0]} />

@@ -5,7 +5,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 import { Plus, Mail, Send, Eye, Pause, Play, MousePointerClick, Trash2 } from 'lucide-react';
-import { v4 as uuid } from 'uuid';
+import { ApiError } from '@/lib/api';
 import { showToast } from '@/components/ui/Toast';
 import type { EmailCampaign } from '@/types';
 
@@ -14,22 +14,29 @@ export default function EmailCampaignsPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', type: 'custom' as EmailCampaign['type'] });
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    addEmailCampaign({
-      id: uuid(), ...form, status: 'draft',
-      recipientCount: 0, sentCount: 0, openRate: 0, clickRate: 0,
-      createdAt: new Date().toISOString(),
-    });
-    showToast('Campaign created successfully');
-    setShowForm(false);
-    setForm({ name: '', type: 'custom' });
+    try {
+      await addEmailCampaign({
+        ...form, status: 'draft',
+        recipientCount: 0, sentCount: 0, openRate: 0, clickRate: 0,
+      });
+      showToast('Campaign created successfully');
+      setShowForm(false);
+      setForm({ name: '', type: 'custom' });
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to create campaign', 'error');
+    }
   }
 
-  function toggleStatus(campaign: EmailCampaign) {
+  async function toggleStatus(campaign: EmailCampaign) {
     const newStatus = campaign.status === 'active' ? 'paused' : 'active';
-    updateEmailCampaign(campaign.id, { status: newStatus });
-    showToast(newStatus === 'active' ? 'Campaign activated' : 'Campaign paused');
+    try {
+      await updateEmailCampaign(campaign.id, { status: newStatus });
+      showToast(newStatus === 'active' ? 'Campaign activated' : 'Campaign paused');
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to update campaign', 'error');
+    }
   }
 
   return (
@@ -132,7 +139,7 @@ export default function EmailCampaignsPage() {
                     </button>
                   )}
                   <button
-                    onClick={() => { if (confirm(`Delete campaign "${campaign.name}"?`)) { deleteEmailCampaign(campaign.id); showToast('Campaign deleted'); } }}
+                    onClick={async () => { if (confirm(`Delete campaign "${campaign.name}"?`)) { try { await deleteEmailCampaign(campaign.id); showToast('Campaign deleted'); } catch (err) { showToast(err instanceof ApiError ? err.message : 'Failed to delete campaign', 'error'); } } }}
                     title="Delete campaign"
                     className="text-xs text-red-400 font-medium hover:text-red-600 flex items-center gap-1"
                   >

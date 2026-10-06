@@ -8,7 +8,8 @@ async function main() {
 
   const password = await bcrypt.hash('password123', 10);
 
-  const users = await Promise.all([
+  const [, adewale, chioma, , fatima] = await Promise.all([
+    prisma.user.create({ data: { name: 'MODE Super Admin', email: 'admin@modedigitalcreations.ng', password, role: 'super-admin', phone: '+234 800 000 0000' } }),
     prisma.user.create({ data: { name: 'Adewale Okonkwo', email: 'adewale@modedigital.ng', password, role: 'admin', phone: '+234 801 234 5678' } }),
     prisma.user.create({ data: { name: 'Chioma Eze', email: 'chioma@modedigital.ng', password, role: 'sales', phone: '+234 802 345 6789' } }),
     prisma.user.create({ data: { name: 'Emeka Nwosu', email: 'emeka@modedigital.ng', password, role: 'developer', phone: '+234 803 456 7890' } }),
@@ -18,11 +19,11 @@ async function main() {
 
   await prisma.lead.createMany({
     data: [
-      { name: 'Chukwudi Abiola', company: 'TechVenture Nigeria', email: 'chukwudi@techventure.ng', phone: '+234 810 111 2222', serviceInterested: 'website-development', source: 'website', budget: 1500000, currency: 'NGN', notes: 'Interested in a corporate website with CMS', status: 'new-lead', estimatedValue: 1500000, probability: 20, expectedCloseDate: new Date('2026-08-15'), assignedTo: users[1].id },
-      { name: 'Amina Yusuf', company: 'Sahara Logistics', email: 'amina@saharalog.com', phone: '+234 811 222 3333', serviceInterested: 'ecommerce-development', source: 'facebook-ads', budget: 3000000, currency: 'NGN', notes: 'Needs e-commerce platform for logistics supplies', status: 'qualified', estimatedValue: 3000000, probability: 40, expectedCloseDate: new Date('2026-07-30'), assignedTo: users[1].id },
-      { name: 'Olufemi Peters', company: 'EduFirst Academy', email: 'olufemi@edufirst.ng', phone: '+234 812 333 4444', serviceInterested: 'lms-development', source: 'google-ads', budget: 5000000, currency: 'NGN', notes: 'LMS for 500+ students', status: 'discovery-call', estimatedValue: 5000000, probability: 60, expectedCloseDate: new Date('2026-07-15'), assignedTo: users[3].id },
-      { name: 'Grace Obi', company: 'HealthPlus Clinics', email: 'grace@healthplus.ng', phone: '+234 813 444 5555', serviceInterested: 'custom-software', source: 'referral', budget: 8000000, currency: 'NGN', notes: 'Hospital management system', status: 'proposal-sent', estimatedValue: 8000000, probability: 70, expectedCloseDate: new Date('2026-07-01'), assignedTo: users[3].id },
-      { name: 'Ngozi Kalu', company: 'FashionHub Lagos', email: 'ngozi@fashionhub.ng', phone: '+234 814 555 6666', serviceInterested: 'ecommerce-development', source: 'whatsapp', budget: 2000000, currency: 'NGN', notes: 'Online fashion store', status: 'won', estimatedValue: 2000000, probability: 100, expectedCloseDate: new Date('2026-06-01'), assignedTo: users[1].id },
+      { name: 'Chukwudi Abiola', company: 'TechVenture Nigeria', email: 'chukwudi@techventure.ng', phone: '+234 810 111 2222', serviceInterested: 'website-development', source: 'website', budget: 1500000, currency: 'NGN', notes: 'Interested in a corporate website with CMS', status: 'new-lead', estimatedValue: 1500000, probability: 20, expectedCloseDate: new Date('2026-08-15'), assignedTo: chioma.id },
+      { name: 'Amina Yusuf', company: 'Sahara Logistics', email: 'amina@saharalog.com', phone: '+234 811 222 3333', serviceInterested: 'ecommerce-development', source: 'facebook-ads', budget: 3000000, currency: 'NGN', notes: 'Needs e-commerce platform for logistics supplies', status: 'qualified', estimatedValue: 3000000, probability: 40, expectedCloseDate: new Date('2026-07-30'), assignedTo: chioma.id },
+      { name: 'Olufemi Peters', company: 'EduFirst Academy', email: 'olufemi@edufirst.ng', phone: '+234 812 333 4444', serviceInterested: 'lms-development', source: 'google-ads', budget: 5000000, currency: 'NGN', notes: 'LMS for 500+ students', status: 'discovery-call', estimatedValue: 5000000, probability: 60, expectedCloseDate: new Date('2026-07-15'), assignedTo: fatima.id },
+      { name: 'Grace Obi', company: 'HealthPlus Clinics', email: 'grace@healthplus.ng', phone: '+234 813 444 5555', serviceInterested: 'custom-software', source: 'referral', budget: 8000000, currency: 'NGN', notes: 'Hospital management system', status: 'proposal-sent', estimatedValue: 8000000, probability: 70, expectedCloseDate: new Date('2026-07-01'), assignedTo: fatima.id },
+      { name: 'Ngozi Kalu', company: 'FashionHub Lagos', email: 'ngozi@fashionhub.ng', phone: '+234 814 555 6666', serviceInterested: 'ecommerce-development', source: 'whatsapp', budget: 2000000, currency: 'NGN', notes: 'Online fashion store', status: 'won', estimatedValue: 2000000, probability: 100, expectedCloseDate: new Date('2026-06-01'), assignedTo: chioma.id },
     ],
   });
 

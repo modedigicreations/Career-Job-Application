@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { formatCurrency, getInitials, cn } from '@/lib/utils';
+import { ApiError } from '@/lib/api';
+import { showToast } from '@/components/ui/Toast';
 import type { Currency, LeadStatus, Lead, User } from '@/types';
 
 function formatMultiCurrency(leads: { estimatedValue: number; currency: Currency }[]): string {
@@ -39,12 +41,16 @@ export default function PipelinePage() {
     setDragOver(stage);
   }
 
-  function handleDrop(stage: LeadStatus) {
+  async function handleDrop(stage: LeadStatus) {
     if (dragging) {
       const lead = leads.find((l) => l.id === dragging);
       if (lead && lead.status !== stage) {
         const probability = stage === 'won' ? 100 : stage === 'lost' ? 0 : lead.probability;
-        updateLead(dragging, { status: stage, probability });
+        try {
+          await updateLead(dragging, { status: stage, probability });
+        } catch (err) {
+          showToast(err instanceof ApiError ? err.message : 'Failed to move lead', 'error');
+        }
       }
     }
     setDragging(null);

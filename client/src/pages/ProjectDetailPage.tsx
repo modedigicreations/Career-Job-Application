@@ -1,11 +1,11 @@
 import { useParams, Link } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
-import { formatCurrency, formatDate, getInitials, cn } from '@/lib/utils';
+import { formatCurrency, formatDate, getInitials, cn, MANAGER_TIER } from '@/lib/utils';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
 import { useState } from 'react';
 import { ArrowLeft, Plus, CheckCircle2, Circle, Clock, AlertCircle, FolderX } from 'lucide-react';
-import { v4 as uuid } from 'uuid';
+import { ApiError } from '@/lib/api';
 import { showToast } from '@/components/ui/Toast';
 import type { Task, TaskStatus } from '@/types';
 
@@ -25,7 +25,8 @@ const TASK_ICONS = {
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { projects, tasks, users, addTask, updateTask, deleteTask, updateProject } = useStore();
+  const { projects, tasks, users, currentUser, addTask, updateTask, deleteTask, updateProject } = useStore();
+  const canAssignOthers = MANAGER_TIER.includes(currentUser.role);
   const project = projects.find((p) => p.id === id);
   const projectTasks = tasks.filter((t) => t.projectId === id).sort((a, b) => a.order - b.order);
 
@@ -56,7 +57,7 @@ export default function ProjectDetailPage() {
 
   function openAddTask() {
     setEditingTask(null);
-    setTaskForm({ title: '', description: '', assignedTo: '', dueDate: '', priority: 'medium', status: 'pending' });
+    setTaskForm({ title: '', description: '', assignedTo: canAssignOthers ? '' : currentUser.id, dueDate: '', priority: 'medium', status: 'pending' });
     setShowTaskForm(true);
   }
 
@@ -78,27 +79,38 @@ export default function ProjectDetailPage() {
     return total > 0 ? Math.round((completed / total) * 100) : 0;
   }
 
-  function handleTaskSubmit(e: React.FormEvent) {
+  async function handleTaskSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (editingTask) {
-      updateTask(editingTask.id, taskForm);
-      updateProject(proj.id, { progress: calcProgress(projectTasks, { taskId: editingTask.id, newStatus: taskForm.status }) });
-      showToast('Task updated');
-    } else {
-      addTask({
-        ...taskForm, id: uuid(), projectId: proj.id,
-        order: projectTasks.length + 1, createdAt: new Date().toISOString(),
-      } as Task);
-      updateProject(proj.id, { progress: calcProgress(projectTasks, { isNew: true, newTaskCompleted: taskForm.status === 'completed' }) });
-      showToast('Task added');
+    try {
+      if (editingTask) {
+        await Promise.all([
+          updateTask(editingTask.id, taskForm),
+          updateProject(proj.id, { progress: calcProgress(projectTasks, { taskId: editingTask.id, newStatus: taskForm.status }) }),
+        ]);
+        showToast('Task updated');
+      } else {
+        await Promise.all([
+          addTask({ ...taskForm, projectId: proj.id, order: projectTasks.length + 1 }),
+          updateProject(proj.id, { progress: calcProgress(projectTasks, { isNew: true, newTaskCompleted: taskForm.status === 'completed' }) }),
+        ]);
+        showToast('Task added');
+      }
+      setShowTaskForm(false);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to save task', 'error');
     }
-    setShowTaskForm(false);
   }
 
-  function toggleTaskStatus(task: Task) {
+  async function toggleTaskStatus(task: Task) {
     const newStatus: TaskStatus = task.status === 'completed' ? 'pending' : 'completed';
-    updateTask(task.id, { status: newStatus });
-    updateProject(proj.id, { progress: calcProgress(projectTasks, { taskId: task.id, newStatus }) });
+    try {
+      await Promise.all([
+        updateTask(task.id, { status: newStatus }),
+        updateProject(proj.id, { progress: calcProgress(projectTasks, { taskId: task.id, newStatus }) }),
+      ]);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to update task', 'error');
+    }
   }
 
   return (
@@ -182,10 +194,19 @@ export default function ProjectDetailPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Assigned To</label>
-              <select className="input" value={taskForm.assignedTo} onChange={(e) => setTaskForm({ ...taskForm, assignedTo: e.target.value })}>
-                <option value="">Unassigned</option>
-                {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </select>
+              {canAssignOthers ? (
+                <select className="input" value={taskForm.assignedTo} onChange={(e) => setTaskForm({ ...taskForm, assignedTo: e.target.value })}>
+                  <option value="">Unassigned</option>
+                  {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              ) : (
+                <input
+                  className="input bg-gray-50"
+                  value={users.find((u) => u.id === taskForm.assignedTo)?.name ?? 'Unassigned'}
+                  disabled
+                  title="Only a manager or admin can assign tasks to someone else"
+                />
+              )}
             </div>
             <div><label className="label">Due Date</label><input type="date" className="input" value={taskForm.dueDate} onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })} /></div>
             <div>

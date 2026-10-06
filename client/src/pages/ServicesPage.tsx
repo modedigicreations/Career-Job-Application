@@ -5,7 +5,7 @@ import Modal from '@/components/ui/Modal';
 import StatusBadge from '@/components/ui/StatusBadge';
 import EmptyState from '@/components/ui/EmptyState';
 import { Plus, Edit2, Trash2, Package, Check } from 'lucide-react';
-import { v4 as uuid } from 'uuid';
+import { ApiError } from '@/lib/api';
 import { showToast } from '@/components/ui/Toast';
 import type { Service, ServiceType, Currency } from '@/types';
 
@@ -48,16 +48,20 @@ export default function ServicesPage() {
     setForm({ ...form, features: form.features.filter((_, i) => i !== index) });
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (editing) {
-      updateService(editing.id, form);
-      showToast('Service updated successfully');
-    } else {
-      addService({ ...form, id: uuid() } as Service);
-      showToast('Service created successfully');
+    try {
+      if (editing) {
+        await updateService(editing.id, form);
+        showToast('Service updated successfully');
+      } else {
+        await addService(form);
+        showToast('Service created successfully');
+      }
+      setShowForm(false);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to save service', 'error');
     }
-    setShowForm(false);
   }
 
   return (
@@ -85,7 +89,7 @@ export default function ServicesPage() {
                     <Edit2 className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => { if (confirm(`Delete service "${service.name}"?`)) { deleteService(service.id); showToast('Service deleted'); } }}
+                    onClick={async () => { if (confirm(`Delete service "${service.name}"?`)) { try { await deleteService(service.id); showToast('Service deleted'); } catch (err) { showToast(err instanceof ApiError ? err.message : 'Failed to delete service', 'error'); } } }}
                     title="Delete service"
                     className="p-1.5 rounded-md bg-white/20 hover:bg-red-500/80 transition-colors"
                   >

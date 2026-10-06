@@ -10,3 +10,7 @@ server/prisma/dev.db
 server/prisma/dev.db-journal
 *.tsbuildinfo
 .DS_Store
+
+# ModeCodersClub Cohorts (WordPress plugin) — vendor/ is Composer-managed,
+# run `composer install` inside modecodersclub-dashboard/ before deploying.
+modecodersclub-dashboard/vendor/

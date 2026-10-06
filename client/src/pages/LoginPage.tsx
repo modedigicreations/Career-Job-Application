@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { useStore } from '@/store/useStore';
+import { ApiError } from '@/lib/api';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 
 export default function LoginPage() {
-  const { users, setCurrentUser, setAuthenticated } = useStore();
+  const login = useStore((s) => s.login);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
 
@@ -19,35 +20,23 @@ export default function LoginPage() {
       setError('Please enter a valid email address.');
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (!password) {
+      setError('Please enter your password.');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
-      const user = users.find((u) => u.email.toLowerCase() === trimmedEmail.toLowerCase());
-
-      if (!user) {
-        setError('No account found with that email. Use one of the demo accounts below.');
-        setLoading(false);
-        return;
-      }
-
-      if (!user.isActive) {
-        setError('This account has been deactivated. Contact an administrator.');
-        setLoading(false);
-        return;
-      }
-
-      setCurrentUser(user);
-      setAuthenticated(true);
+    try {
+      await login(trimmedEmail, password);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Unable to sign in. Please try again.');
+    } finally {
       setLoading(false);
-    }, 600);
+    }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-blue-50 to-gray-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-brand-50 to-gray-100 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500 text-white text-2xl font-bold mb-4 shadow-lg shadow-brand-500/30">
@@ -73,7 +62,7 @@ export default function LoginPage() {
                 autoFocus
                 autoComplete="email"
                 className="input"
-                placeholder="you@modedigital.ng"
+                placeholder="you@modedigitalcreations.ng"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -118,22 +107,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-        </div>
-
-        <div className="mt-6 card p-4">
-          <p className="text-xs font-medium text-gray-500 mb-2">Demo Accounts (any password with 6+ chars):</p>
-          <div className="space-y-1">
-            {users.filter((u) => u.isActive).slice(0, 3).map((u) => (
-              <button
-                key={u.id}
-                onClick={() => { setEmail(u.email); setPassword('password'); }}
-                className="flex w-full items-center justify-between rounded-md px-3 py-1.5 text-left hover:bg-gray-50 transition-colors"
-              >
-                <span className="text-xs text-gray-700">{u.email}</span>
-                <span className="badge bg-brand-100 text-brand-700 capitalize">{u.role}</span>
-              </button>
-            ))}
-          </div>
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">

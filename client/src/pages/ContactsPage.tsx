@@ -5,7 +5,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 import { Plus, Search, UserCircle, Trash2, Edit2, Mail, Phone, Download } from 'lucide-react';
-import { v4 as uuid } from 'uuid';
+import { ApiError } from '@/lib/api';
 import { showToast } from '@/components/ui/Toast';
 import type { Contact } from '@/types';
 
@@ -29,16 +29,20 @@ export default function ContactsPage() {
   function openCreate() { setEditing(null); setForm(emptyContact); setShowForm(true); }
   function openEdit(contact: Contact) { setEditing(contact); setForm(contact); setShowForm(true); }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (editing) {
-      updateContact(editing.id, form);
-      showToast('Contact updated successfully');
-    } else {
-      addContact({ ...form, id: uuid(), createdAt: new Date().toISOString() } as Contact);
-      showToast('Contact created successfully');
+    try {
+      if (editing) {
+        await updateContact(editing.id, form);
+        showToast('Contact updated successfully');
+      } else {
+        await addContact(form);
+        showToast('Contact created successfully');
+      }
+      setShowForm(false);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to save contact', 'error');
     }
-    setShowForm(false);
   }
 
   return (
@@ -91,7 +95,7 @@ export default function ContactsPage() {
                 <span className="text-xs text-gray-400">Added {formatDate(contact.createdAt)}</span>
                 <div className="flex gap-1">
                   <button onClick={() => openEdit(contact)} className="p-1 rounded hover:bg-gray-100"><Edit2 className="h-4 w-4 text-gray-400" /></button>
-                  <button onClick={() => { if (confirm('Delete this contact?')) { deleteContact(contact.id); showToast('Contact deleted'); } }} className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
+                  <button onClick={async () => { if (confirm('Delete this contact?')) { try { await deleteContact(contact.id); showToast('Contact deleted'); } catch (err) { showToast(err instanceof ApiError ? err.message : 'Failed to delete contact', 'error'); } } }} className="p-1 rounded hover:bg-gray-100"><Trash2 className="h-4 w-4 text-red-400" /></button>
                 </div>
               </div>
             </div>

@@ -30,11 +30,19 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'manager' | 'sales' | 'support' | 'developer';
+  role: 'super-admin' | 'admin' | 'manager' | 'sales' | 'support' | 'developer';
   avatar?: string;
   phone?: string;
   isActive: boolean;
+  lastLoginAt?: string | null;
   createdAt: string;
+}
+
+export interface LoginHistoryEntry {
+  id: string;
+  userId: string;
+  loggedInAt: string;
+  user: { id: string; name: string; email: string };
 }
 
 export interface Lead {
@@ -48,6 +56,8 @@ export interface Lead {
   budget: number;
   currency: Currency;
   notes: string;
+  designation: string;
+  address: string;
   status: LeadStatus;
   estimatedValue: number;
   probability: number;
@@ -238,6 +248,58 @@ export interface EmailCampaign {
   openRate: number;
   clickRate: number;
   createdAt: string;
+}
+
+export interface PersonalGoal {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  targetDate: string;
+  status: 'pending' | 'in-progress' | 'completed';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ManagerTask {
+  id: string;
+  title: string;
+  description: string;
+  assignedTo: string;
+  assignedBy: string;
+  assignee?: { id: string; name: string };
+  creator?: { id: string; name: string };
+  dueDate: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: 'pending' | 'in-progress' | 'completed' | 'blocked';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Requisition {
+  id: string;
+  requestedBy: string;
+  requester?: { id: string; name: string };
+  amount: number;
+  currency: Currency;
+  category: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  approvedBy?: string | null;
+  approver?: { id: string; name: string } | null;
+  date: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FinancialBreakdown {
+  granularity: 'day' | 'month';
+  from: string;
+  to: string;
+  breakdown: { period: string; revenue: number; expenses: number; profit: number }[];
+  totalRevenue: number;
+  totalExpenses: number;
+  totalProfit: number;
 }
 
 export interface StaffPerformance {

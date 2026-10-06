@@ -5,7 +5,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 import { Plus, Search, Ticket, Trash2 } from 'lucide-react';
-import { v4 as uuid } from 'uuid';
+import { ApiError } from '@/lib/api';
 import { showToast } from '@/components/ui/Toast';
 import type { Ticket as TicketType, TicketStatus } from '@/types';
 
@@ -40,17 +40,20 @@ export default function TicketsPage() {
   function openCreate() { setEditing(null); setForm(emptyTicket); setShowForm(true); }
   function openEdit(ticket: TicketType) { setEditing(ticket); setForm(ticket); setShowForm(true); }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const now = new Date().toISOString();
-    if (editing) {
-      updateTicket(editing.id, form);
-      showToast('Ticket updated successfully');
-    } else {
-      addTicket({ ...form, id: uuid(), createdAt: now, updatedAt: now } as TicketType);
-      showToast('Ticket created successfully');
+    try {
+      if (editing) {
+        await updateTicket(editing.id, form);
+        showToast('Ticket updated successfully');
+      } else {
+        await addTicket(form);
+        showToast('Ticket created successfully');
+      }
+      setShowForm(false);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to save ticket', 'error');
     }
-    setShowForm(false);
   }
 
   const openCount = tickets.filter((t) => t.status === 'open').length;
@@ -105,7 +108,7 @@ export default function TicketsPage() {
                   <div className="flex items-center gap-2">
                     {assignee && <span>Assigned to {assignee.name}</span>}
                     <button
-                      onClick={(e) => { e.stopPropagation(); if (confirm('Delete this ticket?')) { deleteTicket(ticket.id); showToast('Ticket deleted'); } }}
+                      onClick={async (e) => { e.stopPropagation(); if (confirm('Delete this ticket?')) { try { await deleteTicket(ticket.id); showToast('Ticket deleted'); } catch (err) { showToast(err instanceof ApiError ? err.message : 'Failed to delete ticket', 'error'); } } }}
                       className="p-1 rounded hover:bg-gray-100"
                     >
                       <Trash2 className="h-3.5 w-3.5 text-red-400" />
