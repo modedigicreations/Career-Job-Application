@@ -264,15 +264,25 @@ export interface Payment {
   date: string;
 }
 
+export type TicketSource = 'whmcs' | 'contact_email' | 'billing_email' | 'portal' | 'manual';
+
 export interface Ticket {
   id: string;
+  ticketNumber?: string;
   clientName: string;
   clientId?: string;
+  clientEmail?: string;
+  department?: string;
   subject: string;
   description: string;
   status: 'open' | 'in-progress' | 'resolved' | 'closed';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   assignedTo?: string;
+  assignedStaffName?: string;
+  sourceChannel?: TicketSource;
+  whmcsTicketId?: string | number;
+  lastReplyBy?: string;
+  lastReplyAt?: string;
   createdAt: string;
   updatedAt?: string;
 }

@@ -119,6 +119,8 @@ interface AppContextType {
   tickets: Ticket[];
   addTicket: (ticket: Omit<Ticket, 'id' | 'createdAt'>) => void;
   updateTicketStatus: (id: string, status: Ticket['status']) => void;
+  updateTicket: (id: string, updates: Partial<Ticket>) => void;
+  syncWhmcsTickets: () => Promise<{ success: boolean; count?: number; message?: string }>;
 
   // Office Expense
   requisitions: Requisition[];
@@ -1677,10 +1679,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let changedItem: Ticket | undefined;
     setTickets(prev => prev.map(tk => {
       if (tk.id !== id) return tk;
-      changedItem = { ...tk, status };
+      changedItem = { ...tk, status, updatedAt: new Date().toISOString() };
       return changedItem;
     }));
     if (changedItem) syncDeltaToServer('tickets', 'upsert', changedItem);
+  };
+
+  const updateTicket = (id: string, updates: Partial<Ticket>) => {
+    let changedItem: Ticket | undefined;
+    setTickets(prev => prev.map(tk => {
+      if (tk.id !== id) return tk;
+      changedItem = { ...tk, ...updates, updatedAt: new Date().toISOString() };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('tickets', 'upsert', changedItem);
+  };
+
+  const syncWhmcsTickets = async (): Promise<{ success: boolean; count?: number; message?: string }> => {
+    try {
+      const res = await fetch('/api/whmcs/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isTestOnly: false })
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.tickets) && data.tickets.length > 0) {
+        setTickets(prev => {
+          const map = new Map<string, Ticket>();
+          prev.forEach(t => map.set(t.id, t));
+          data.tickets.forEach((t: Ticket) => {
+            map.set(t.id, { ...(map.get(t.id) || {}), ...t });
+          });
+          const merged = Array.from(map.values());
+          setStorageItem('mode_ops_tickets', merged);
+          return merged;
+        });
+        return { success: true, count: data.tickets.length, message: data.message };
+      }
+      return { success: false, message: data.message || 'No new tickets received from WHMCS' };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Failed to sync WHMCS tickets' };
+    }
   };
 
   // Office Expense Actions
@@ -2329,6 +2368,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         tickets,
         addTicket,
         updateTicketStatus,
+        updateTicket,
+        syncWhmcsTickets,
         requisitions,
         createRequisition,
         updateRequisition,

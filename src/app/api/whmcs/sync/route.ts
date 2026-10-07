@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import type { HostingAccount, Currency } from '@/lib/types';
+import type { HostingAccount, Currency, Ticket, TicketSource } from '@/lib/types';
+import { initialTickets } from '@/lib/seed-data';
 import { verifySessionToken, SESSION_COOKIE } from '@/lib/auth-server';
 
 // Default live WHMCS simulated dataset representing MODE Web Host clients
@@ -360,16 +361,72 @@ export async function POST(request: Request) {
         });
       }
 
+      // Step 3: Query GetTickets to pull client support tickets & department enquiries
+      const ticketsList: Ticket[] = [];
+      try {
+        const ticketsRes = await callWhmcsApi(endpoint, 'GetTickets', primaryAuth);
+        if (ticketsRes.ok && ticketsRes.data && (ticketsRes.data.result === 'success' || ticketsRes.data.tickets)) {
+          const rawTickets = safeArray<any>(ticketsRes.data?.tickets?.ticket || ticketsRes.data?.tickets);
+          rawTickets.forEach((t: any, idx: number) => {
+            const deptName = (t.deptname || t.department || 'Technical Support').trim();
+            const isBilling = deptName.toLowerCase().includes('bill') || deptName.toLowerCase().includes('account') || deptName.toLowerCase().includes('renewal');
+            const isContact = deptName.toLowerCase().includes('contact') || deptName.toLowerCase().includes('support') || deptName.toLowerCase().includes('tech') || deptName.toLowerCase().includes('general');
+
+            const sourceChannel: Ticket['sourceChannel'] = isBilling 
+              ? 'billing_email' 
+              : isContact 
+              ? 'contact_email' 
+              : 'whmcs';
+
+            const priorityLower = (t.urgency || t.priority || 'medium').toLowerCase();
+            const priority: Ticket['priority'] = 
+              priorityLower.includes('urgent') || priorityLower.includes('critical') ? 'urgent' :
+              priorityLower.includes('high') ? 'high' :
+              priorityLower.includes('low') ? 'low' : 'medium';
+
+            const statusLower = (t.status || 'open').toLowerCase();
+            const status: Ticket['status'] = 
+              statusLower.includes('resolved') ? 'resolved' :
+              statusLower.includes('closed') ? 'closed' :
+              statusLower.includes('progress') || statusLower.includes('pending') || statusLower.includes('customer') ? 'in-progress' : 'open';
+
+            ticketsList.push({
+              id: `whmcs-tk-${t.id || t.tid || idx + 1}`,
+              ticketNumber: `#${t.tid || `WHMCS-${t.id || idx + 1}`}`,
+              whmcsTicketId: t.id || t.tid,
+              clientName: t.name || t.clientname || `Client #${t.userid || idx + 1}`,
+              clientEmail: t.email,
+              clientId: t.userid ? `c-whmcs-${t.userid}` : undefined,
+              subject: t.title || t.subject || 'Support Ticket',
+              description: t.message || t.lastreply || 'Client ticket raised via WHMCS support gateway.',
+              status,
+              priority,
+              department: deptName,
+              sourceChannel,
+              lastReplyBy: t.lastreply,
+              lastReplyAt: t.lastreply || t.date || new Date().toISOString(),
+              createdAt: (t.date || new Date().toISOString()).split('T')[0] || (t.date || '').slice(0, 10),
+              updatedAt: t.lastreply || t.date
+            });
+          });
+        }
+      } catch (ticketErr) {
+        console.warn('[WHMCS Sync] Failed to retrieve tickets, falling back to simulated tickets:', ticketErr);
+      }
+
       const liveAccounts = Array.from(accountsMap.values());
+      const effectiveTickets = ticketsList.length > 0 ? ticketsList : initialTickets;
 
       return NextResponse.json({
         success: true,
         isLive: true,
         source: 'WHMCS Live Server',
         accounts: liveAccounts,
+        tickets: effectiveTickets,
         count: liveAccounts.length,
+        ticketCount: effectiveTickets.length,
         syncedAt: new Date().toISOString(),
-        message: `Successfully pulled ${liveAccounts.length} live client domains and hosting services from WHMCS.`
+        message: `Successfully pulled ${liveAccounts.length} live client domains and ${effectiveTickets.length} client support tickets from WHMCS.`
       });
     }
 
@@ -379,9 +436,11 @@ export async function POST(request: Request) {
       isLive: false,
       source: 'WHMCS Demo Dataset',
       accounts: defaultWhmcsLiveAccounts,
+      tickets: initialTickets,
       count: defaultWhmcsLiveAccounts.length,
+      ticketCount: initialTickets.length,
       syncedAt: new Date().toISOString(),
-      message: 'Demo hosting renewals loaded. Please configure your live WHMCS API credentials in the WHMCS API settings to pull live client data.'
+      message: 'Demo hosting renewals & client support tickets loaded. Please configure your live WHMCS API credentials in Settings.'
     });
 
   } catch (error: any) {

@@ -341,9 +341,86 @@ export const initialFeedbacks: Feedback[] = [
 ];
 
 export const initialTickets: Ticket[] = [
-  { id: 'tk1', clientName: 'FashionHub Lagos', clientId: 'c5', subject: 'High-res product images uploading slow on checkout', description: 'When uploading images larger than 5MB, response time degrades. Needs Cloudinary / CDN optimization.', status: 'in-progress', priority: 'high', assignedTo: 'u3', createdAt: '2026-06-18' },
-  { id: 'tk2', clientName: 'EduFirst Academy', clientId: 'c3', subject: 'Domain DNS MX record verification for custom email', description: 'Need Google Workspace verification TXT record added to domain DNS settings.', status: 'open', priority: 'medium', assignedTo: 'u5', createdAt: '2026-06-23' },
-  { id: 'tk3', clientName: 'TechVenture Nigeria', clientId: 'c1', subject: 'SSL Certificate Auto-Renewal Confirmation', description: 'Confirm SSL certificate renewed properly on port 443 before product launch.', status: 'resolved', priority: 'low', assignedTo: 'u5', createdAt: '2026-06-12' },
+  {
+    id: 'tk1',
+    ticketNumber: 'WHMCS #1084',
+    clientName: 'FashionHub Lagos',
+    clientId: 'c5',
+    clientEmail: 'billing@fashionhub.ng',
+    department: 'Technical Support',
+    subject: 'High-res product images uploading slow on checkout',
+    description: 'When uploading images larger than 5MB, response time degrades. Client requesting Cloudinary/CDN optimization via cPanel ticket.',
+    status: 'in-progress',
+    priority: 'high',
+    assignedTo: 'u3',
+    assignedStaffName: 'Emeka Nwosu',
+    sourceChannel: 'whmcs',
+    whmcsTicketId: '1084',
+    createdAt: '2026-06-18'
+  },
+  {
+    id: 'tk2',
+    ticketNumber: 'EML-CONT-2026-041',
+    clientName: 'EduFirst Academy',
+    clientId: 'c3',
+    clientEmail: 'contact@edufirst.ng',
+    department: 'Technical Support',
+    subject: 'Domain DNS MX record verification for custom email',
+    description: 'Inquiry received via contact@modewebhost.com.ng: Need Google Workspace verification TXT record added to domain DNS settings before school term resumption.',
+    status: 'open',
+    priority: 'medium',
+    assignedTo: 'u5',
+    assignedStaffName: 'Ibrahim Musa',
+    sourceChannel: 'contact_email',
+    createdAt: '2026-06-23'
+  },
+  {
+    id: 'tk3',
+    ticketNumber: 'EML-BILL-2026-089',
+    clientName: 'TechVenture Nigeria',
+    clientId: 'c1',
+    clientEmail: 'accounts@techventure.ng',
+    department: 'Billing & Accounts',
+    subject: 'Annual Dedicated Server Invoice & Remittance Slip',
+    description: 'Received at billing@modewebhost.com.ng: Client submitted Stanbic IBTC NIP transfer confirmation for ₦1,850,000 annual hosting invoice renewal.',
+    status: 'resolved',
+    priority: 'low',
+    assignedTo: 'u5',
+    assignedStaffName: 'Ibrahim Musa',
+    sourceChannel: 'billing_email',
+    createdAt: '2026-06-12'
+  },
+  {
+    id: 'tk4',
+    ticketNumber: 'WHMCS #1092',
+    clientName: 'Sterling Apex Global',
+    clientEmail: 'it@sterlingapex.com',
+    department: 'Technical Support',
+    subject: 'cPanel PHP 8.3 Redis cache extension installation request',
+    description: 'Ticket opened on client portal: Web application requires Redis PECL extension enabled on PHP 8.3 EA4 environment.',
+    status: 'open',
+    priority: 'urgent',
+    assignedTo: 'u3',
+    assignedStaffName: 'Emeka Nwosu',
+    sourceChannel: 'whmcs',
+    whmcsTicketId: '1092',
+    createdAt: '2026-06-25'
+  },
+  {
+    id: 'tk5',
+    ticketNumber: 'EML-CONT-2026-042',
+    clientName: 'Apex Health Systems',
+    clientEmail: 'info@apexhealth.ng',
+    department: 'Sales & Inquiries',
+    subject: 'Enquiry: HIPAA/NDPR compliant private cloud hosting solution',
+    description: 'Received via contact@modewebhost.com.ng: Prospective client requesting pricing quote and SLA details for healthcare cloud storage.',
+    status: 'open',
+    priority: 'medium',
+    assignedTo: 'u2',
+    assignedStaffName: 'Chioma Eze',
+    sourceChannel: 'contact_email',
+    createdAt: '2026-06-25'
+  }
 ];
 
 export const initialActivities: ActivityItem[] = [
