@@ -124,6 +124,8 @@ interface AppContextType {
   goals: Goal[];
   addGoal: (goal: Omit<Goal, 'id' | 'created_at' | 'progress' | 'status' | 'strategy_status'>) => void;
   updateGoalProgress: (id: string, progress: number) => void;
+  updateGoal: (id: string, updates: Partial<Pick<Goal, 'objective' | 'expected_result' | 'deadline'>>) => void;
+  deleteGoal: (id: string) => void;
   submitGoalStrategy: (id: string, strategyText: string) => void;
   approveGoalStrategy: (id: string, feedbackNote?: string) => void;
   requestGoalStrategyRevision: (id: string, feedbackNote: string) => void;
@@ -1784,6 +1786,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const updateGoal = (id: string, updates: Partial<Pick<Goal, 'objective' | 'expected_result' | 'deadline'>>) => {
+    setGoals(prev => {
+      const updated = prev.map(g => g.id === id ? { ...g, ...updates } : g);
+      syncEntityToServer('goals', updated);
+      return updated;
+    });
+    logActivity('omm_goal', `Updated 1-Minute Goal details`, 'Goal', id);
+  };
+
+  const deleteGoal = (id: string) => {
+    setGoals(prev => {
+      const updated = prev.filter(g => g.id !== id);
+      syncEntityToServer('goals', updated);
+      return updated;
+    });
+    logActivity('omm_goal', `Deleted 1-Minute Goal`, 'Goal', id);
+  };
+
   const submitGoalStrategy = (id: string, strategyText: string) => {
     setGoals(prev => {
       const updated = prev.map(g => g.id === id
@@ -2298,6 +2318,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         goals,
         addGoal,
         updateGoalProgress,
+        updateGoal,
+        deleteGoal,
         submitGoalStrategy,
         approveGoalStrategy,
         requestGoalStrategyRevision,

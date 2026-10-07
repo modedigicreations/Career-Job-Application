@@ -14,17 +14,21 @@ import {
   AlertCircle,
   ThumbsUp,
   User,
-  Filter
+  Filter,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import type { Goal, GoalStatus } from '@/lib/types';
-import { formatDate, canAssignTo, isManagementUser } from '@/lib/utils';
+import { formatDate, canAssignTo, isManagementUser, isSuperAdminUser } from '@/lib/utils';
 
 export default function GoalsPage() {
   const {
     goals,
     addGoal,
     updateGoalProgress,
+    updateGoal,
+    deleteGoal,
     submitGoalStrategy,
     approveGoalStrategy,
     requestGoalStrategyRevision,
@@ -43,6 +47,35 @@ export default function GoalsPage() {
   const [newGoalModalOpen, setNewGoalModalOpen] = useState(false);
   const [selectedGoalForStrategy, setSelectedGoalForStrategy] = useState<Goal | null>(null);
   const [praiseModalGoal, setPraiseModalGoal] = useState<Goal | null>(null);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+
+  // Only the goal's own creator (manager_id) or a super-admin can edit/delete it — the
+  // employee it's assigned to can still move the progress slider, that's unrestricted.
+  const canEditGoal = (goal: Goal) => goal.manager_id === currentUser.id || isSuperAdminUser(currentUser.role);
+
+  const [editObjective, setEditObjective] = useState('');
+  const [editExpectedResult, setEditExpectedResult] = useState('');
+  const [editDeadline, setEditDeadline] = useState('');
+
+  const openEditGoal = (goal: Goal) => {
+    setEditingGoal(goal);
+    setEditObjective(goal.objective);
+    setEditExpectedResult(goal.expected_result);
+    setEditDeadline(goal.deadline);
+  };
+
+  const handleEditGoalSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingGoal || !editObjective.trim() || !editExpectedResult.trim()) return;
+    updateGoal(editingGoal.id, { objective: editObjective, expected_result: editExpectedResult, deadline: editDeadline });
+    setEditingGoal(null);
+  };
+
+  const handleDeleteGoal = (goal: Goal) => {
+    if (confirm(`Delete the 1-Minute Goal "${goal.objective}"?`)) {
+      deleteGoal(goal.id);
+    }
+  };
 
   // Form State
   const [objective, setObjective] = useState('');
@@ -173,9 +206,31 @@ export default function GoalsPage() {
                   {goal.objective}
                 </h3>
               </div>
-              <span className="text-sm font-mono font-black text-slate-900 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
-                {goal.progress}%
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-sm font-mono font-black text-slate-900 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
+                  {goal.progress}%
+                </span>
+                {canEditGoal(goal) && (
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => openEditGoal(goal)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-[#0D52F8] hover:bg-blue-50 transition"
+                      title="Edit Goal"
+                    >
+                      <Edit3 size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteGoal(goal)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                      title="Delete Goal"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Expected Result */}
@@ -319,6 +374,67 @@ export default function GoalsPage() {
                   className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold transition"
                 >
                   Create Goal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Goal Modal */}
+      {editingGoal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setEditingGoal(null)} />
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 z-10">
+            <h2 className="text-base font-bold text-slate-900 mb-1">Edit 1-Minute Goal</h2>
+            <p className="text-xs text-slate-500 mb-4">Update the objective, expected result, or deadline.</p>
+
+            <form onSubmit={handleEditGoalSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Goal Objective *</label>
+                <input
+                  type="text"
+                  required
+                  value={editObjective}
+                  onChange={e => setEditObjective(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Expected Measurable Result *</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={editExpectedResult}
+                  onChange={e => setEditExpectedResult(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Target Deadline</label>
+                <input
+                  type="date"
+                  value={editDeadline}
+                  onChange={e => setEditDeadline(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingGoal(null)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg font-semibold hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold transition"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>
