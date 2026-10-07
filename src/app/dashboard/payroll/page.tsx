@@ -21,11 +21,13 @@ import {
   CreditCard,
   AlertCircle,
   FileSpreadsheet,
-  Check
+  Check,
+  Download
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import type { PayrollRecord, PayrollStatus, Currency, UserProfile, UserRole, StaffShift } from '@/lib/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { generateWeeklyShiftReportPdf, getWeekStart } from '@/lib/shiftReport';
 
 export default function PayrollPage() {
   const {
@@ -62,6 +64,7 @@ export default function PayrollPage() {
   const [shiftDateFilter, setShiftDateFilter] = useState<'all' | 'today' | 'yesterday' | 'week'>('all');
   const [shiftStaffFilter, setShiftStaffFilter] = useState('all');
   const [shiftSearchTerm, setShiftSearchTerm] = useState('');
+  const [reportWeekStart, setReportWeekStart] = useState(() => getWeekStart());
   const [syncToast, setSyncToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
   const [manualClockInModalOpen, setManualClockInModalOpen] = useState(false);
   const [manualStaffId, setManualStaffId] = useState('');
@@ -1103,6 +1106,33 @@ export default function PayrollPage() {
                 <option key={u.id} value={u.id}>{u.full_name}</option>
               ))}
             </select>
+
+            <input
+              type="date"
+              value={reportWeekStart}
+              onChange={e => setReportWeekStart(e.target.value)}
+              title="Week starting (Monday)"
+              className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:outline-none"
+            />
+
+            <button
+              type="button"
+              disabled={shiftStaffFilter === 'all'}
+              onClick={() => {
+                const target = users.find(u => u.id === shiftStaffFilter);
+                if (!target) return;
+                generateWeeklyShiftReportPdf(
+                  { id: target.id, full_name: target.full_name, email: target.email, department: target.department, job_title: target.job_title },
+                  reportWeekStart,
+                  shifts
+                );
+              }}
+              title={shiftStaffFilter === 'all' ? 'Select a staff member first' : 'Download weekly shift report PDF'}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0D52F8] hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white rounded-xl text-xs font-semibold cursor-pointer transition"
+            >
+              <Download size={13} />
+              Weekly Report
+            </button>
           </div>
 
           <div className="text-xs text-slate-500 font-medium">
