@@ -219,7 +219,7 @@ function MemosContent() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Top Banner */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#0B111E] via-[#0f245c] to-[#0D52F8] text-white shadow-xl relative overflow-hidden">
+      <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#0B111E] via-[#0f245c] to-mode-royal text-white shadow-xl relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-1.5">
@@ -598,7 +598,7 @@ function MemosContent() {
             <button
               type="button"
               onClick={() => setIsComposeOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-[#0D52F8] hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-2 rounded-xl bg-mode-royal hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
             >
               <Plus size={14} />
               <span>Draft New Memo</span>
@@ -1069,7 +1069,7 @@ function MemosContent() {
                   <button
                     type="button"
                     onClick={handleCreateMemo}
-                    className="px-5 py-2 rounded-xl bg-[#0D52F8] hover:bg-blue-700 text-white font-bold text-xs shadow-md transition flex items-center gap-2 cursor-pointer"
+                    className="px-5 py-2 rounded-xl bg-mode-royal hover:bg-blue-700 text-white font-bold text-xs shadow-md transition flex items-center gap-2 cursor-pointer"
                   >
                     <Send size={13} />
                     <span>Confirm &amp; Broadcast to Staff</span>
@@ -1088,7 +1088,7 @@ function MemosContent() {
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-6 animate-scale-up">
             {/* Modal Header */}
-            <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-[#0B1A3F] to-[#0D52F8] text-white flex items-center justify-between">
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-[#0B1A3F] to-mode-royal text-white flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-white/10 text-white">
                   <Megaphone size={18} />
@@ -1119,7 +1119,7 @@ function MemosContent() {
               {/* Formal Company Header */}
               <div className="border-b-2 border-slate-900 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#0D52F8] text-white flex items-center justify-center font-black text-lg shadow-md shadow-blue-500/20">
+                  <div className="w-10 h-10 rounded-xl bg-mode-royal text-white flex items-center justify-center font-black text-lg shadow-md shadow-blue-500/20">
                     M
                   </div>
                   <div>

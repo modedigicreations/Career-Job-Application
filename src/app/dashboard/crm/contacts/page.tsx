@@ -167,7 +167,7 @@ export default function ContactsPage() {
           <button
             type="button"
             onClick={openAddModal}
-            className="px-4 py-2 rounded-xl bg-[#0D52F8] hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-mode-royal hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer"
           >
             <Plus size={15} />
             <span>Add Contact</span>
@@ -261,7 +261,7 @@ export default function ContactsPage() {
             <button
               type="button"
               onClick={openAddModal}
-              className="mt-3 px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition cursor-pointer inline-flex items-center gap-1.5"
+              className="mt-3 px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition cursor-pointer inline-flex items-center gap-1.5"
             >
               <Plus size={14} />
               <span>Add First Client</span>
@@ -298,7 +298,7 @@ export default function ContactsPage() {
                       {isSelected && <Check size={11} />}
                     </button>
 
-                    <div className="w-10 h-10 rounded-full bg-blue-100 text-[#0D52F8] flex items-center justify-center font-bold text-sm shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 text-mode-royal flex items-center justify-center font-bold text-sm shrink-0">
                       {contact.name ? contact.name[0] : 'C'}
                     </div>
 
@@ -386,7 +386,7 @@ export default function ContactsPage() {
                     )}
                     <a
                       href={formatMailtoUrl(contact.email, `MODE DIGITAL CREATIONS - Communication with ${contact.name}`)}
-                      className="px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#0D52F8] border border-blue-200 font-semibold text-[11px] flex items-center gap-1 transition cursor-pointer"
+                      className="px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-mode-royal border border-blue-200 font-semibold text-[11px] flex items-center gap-1 transition cursor-pointer"
                       title="Send Email"
                     >
                       <Mail size={12} />
@@ -528,7 +528,7 @@ export default function ContactsPage() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold transition cursor-pointer shadow-xs"
+                    className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold transition cursor-pointer shadow-xs"
                   >
                     {editingContact ? 'Save Changes' : 'Save Contact'}
                   </button>

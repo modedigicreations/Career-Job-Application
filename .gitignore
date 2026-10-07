@@ -37,3 +37,7 @@ next-env.d.ts
 # references
 _references/
 
+# runtime data (the live company DB — never commit this; see README's
+# "Persistent storage" section for how production data should be handled)
+/data/
+

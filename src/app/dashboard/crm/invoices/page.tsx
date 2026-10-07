@@ -281,7 +281,7 @@ export default function InvoicesPage() {
         <button
           type="button"
           onClick={handleOpenCreateModal}
-          className="px-4 py-2 rounded-xl bg-[#0D52F8] hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer self-start sm:self-auto"
+          className="px-4 py-2 rounded-xl bg-mode-royal hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer self-start sm:self-auto"
         >
           <Plus size={15} />
           <span>Create Invoice</span>
@@ -517,7 +517,7 @@ export default function InvoicesPage() {
           <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 z-10 text-xs my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-200">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-[#0D52F8] text-white flex items-center justify-center font-bold">
+                <div className="w-8 h-8 rounded-lg bg-mode-royal text-white flex items-center justify-center font-bold">
                   <FileText size={16} />
                 </div>
                 <div>
@@ -592,7 +592,7 @@ export default function InvoicesPage() {
                       />
                     ) : (
                       <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
-                        <div className="w-6 h-6 rounded bg-[#0D52F8] text-white flex items-center justify-center font-bold text-xs">M</div>
+                        <div className="w-6 h-6 rounded bg-mode-royal text-white flex items-center justify-center font-bold text-xs">M</div>
                         <span className="font-semibold text-slate-600">Default MODE Logo</span>
                       </div>
                     )}
@@ -701,7 +701,7 @@ export default function InvoicesPage() {
                   <button
                     type="button"
                     onClick={handleAddItem}
-                    className="px-2.5 py-1 bg-blue-50 text-[#0D52F8] hover:bg-blue-100 rounded-lg font-semibold text-[11px] flex items-center gap-1 transition"
+                    className="px-2.5 py-1 bg-blue-50 text-mode-royal hover:bg-blue-100 rounded-lg font-semibold text-[11px] flex items-center gap-1 transition"
                   >
                     <Plus size={12} />
                     <span>Add Item</span>
@@ -782,7 +782,7 @@ export default function InvoicesPage() {
                 </div>
                 <div className="flex justify-between font-extrabold text-sm text-slate-900 pt-2 border-t border-slate-200">
                   <span>Total Due</span>
-                  <span className="text-[#0D52F8]">{formatCurrency(total, currency)}</span>
+                  <span className="text-mode-royal">{formatCurrency(total, currency)}</span>
                 </div>
               </div>
 
@@ -843,7 +843,7 @@ export default function InvoicesPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold shadow-xs flex items-center gap-1.5 transition cursor-pointer"
+                  className="px-5 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold shadow-xs flex items-center gap-1.5 transition cursor-pointer"
                 >
                   <CheckCircle2 size={14} />
                   <span>{editingInvoiceId ? 'Update & Save Changes' : 'Save & Generate Invoice'}</span>
@@ -887,7 +887,7 @@ export default function InvoicesPage() {
                 ) : (
                   <div>
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-[#0D52F8] text-white flex items-center justify-center font-bold text-xs">M</div>
+                      <div className="w-7 h-7 rounded-lg bg-mode-royal text-white flex items-center justify-center font-bold text-xs">M</div>
                       <span className="text-sm font-black tracking-tight text-slate-900">MODE DIGITAL CREATIONS</span>
                     </div>
                     <p className="text-[9px] text-slate-500 mt-0.5">Technology, Cloud & Educational Platforms</p>
@@ -1044,7 +1044,7 @@ export default function InvoicesPage() {
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="px-4 py-1.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                className="px-4 py-1.5 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
                 <Printer size={13} />
                 <span>Print Official Invoice</span>

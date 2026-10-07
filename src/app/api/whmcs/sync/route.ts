@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import type { HostingAccount, Currency } from '@/lib/types';
+import { verifySessionToken, SESSION_COOKIE } from '@/lib/auth-server';
 
 // Default live WHMCS simulated dataset representing MODE Web Host clients
 const defaultWhmcsLiveAccounts: HostingAccount[] = [
@@ -198,6 +200,13 @@ async function callWhmcsApi(endpoint: string, action: string, auth: { identifier
 }
 
 export async function POST(request: Request) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const session = token ? verifySessionToken(token) : null;
+  if (!session) {
+    return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 });
+  }
+
   try {
     const body = await request.json().catch(() => ({}));
     const { apiUrl, identifier, secret, isTestOnly, authMethod } = body;

@@ -28,6 +28,7 @@ export interface UserProfile {
   hourly_rate?: number;
   currency?: Currency;
   created_at?: string;
+  last_login?: string;
 }
 
 export interface StaffShift {
@@ -117,6 +118,8 @@ export interface Lead {
   budget: number;
   currency: Currency;
   notes: string;
+  designation?: string;
+  address?: string;
   status: LeadStatus;
   estimatedValue: number;
   probability: number;

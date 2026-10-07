@@ -35,12 +35,13 @@ import type {
   TaskStatus,
   ShiftTask
 } from '@/lib/types';
-import { formatCurrency, formatDate, getProjectStatusBadge } from '@/lib/utils';
+import { formatCurrency, formatDate, getProjectStatusBadge, canAssignTo, isManagementUser } from '@/lib/utils';
 
 export default function ProjectsPage() {
   const {
     projects,
     tasks,
+    users,
     toggleTask,
     addTask,
     updateTask,
@@ -60,6 +61,11 @@ export default function ProjectsPage() {
     setShiftReviewModalOpen
   } = useAppStore();
 
+  // Who the current user is allowed to assign a task to: themselves always, plus
+  // their direct reports if they're a department head, plus anyone if super-admin.
+  const assignableUsers = users.filter(u => u.id === currentUser.id || canAssignTo(currentUser, u));
+  const canAssignOthers = isManagementUser(currentUser.role) && assignableUsers.length > 1;
+
   // Top Tab Switcher: 'shift-checklist' vs 'project-deliverables'
   const [activeTab, setActiveTab] = useState<'shift-checklist' | 'project-deliverables'>('shift-checklist');
 
@@ -70,6 +76,7 @@ export default function ProjectsPage() {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('high');
   const [newTaskDueDate, setNewTaskDueDate] = useState('2026-10-15');
+  const [newTaskAssignedTo, setNewTaskAssignedTo] = useState('');
 
   // Project Modal State
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -91,6 +98,7 @@ export default function ProjectsPage() {
   const [editTaskPriority, setEditTaskPriority] = useState<TaskPriority>('medium');
   const [editTaskDueDate, setEditTaskDueDate] = useState('');
   const [editTaskStatus, setEditTaskStatus] = useState<TaskStatus>('pending');
+  const [editTaskAssignedTo, setEditTaskAssignedTo] = useState('');
 
   // ----------------------------------------------------
   // DAILY SHIFT CHECKLIST STATE
@@ -269,6 +277,10 @@ export default function ProjectsPage() {
     e.preventDefault();
     if (!newTaskTitle.trim() || !activeProject) return;
 
+    // A non-management user can only ever create a task assigned to themselves —
+    // department heads/admins can assign to anyone in assignableUsers.
+    const assignee = canAssignOthers && newTaskAssignedTo ? newTaskAssignedTo : currentUser.id;
+
     addTask({
       projectId: activeProject.id,
       title: newTaskTitle,
@@ -276,9 +288,11 @@ export default function ProjectsPage() {
       priority: newTaskPriority,
       dueDate: newTaskDueDate || '2026-10-15',
       order: projectTasks.length + 1,
+      assignedTo: assignee,
     });
 
     setNewTaskTitle('');
+    setNewTaskAssignedTo('');
   };
 
   const openEditTaskModal = (task: Task) => {
@@ -287,6 +301,7 @@ export default function ProjectsPage() {
     setEditTaskPriority(task.priority);
     setEditTaskDueDate(task.dueDate);
     setEditTaskStatus(task.status);
+    setEditTaskAssignedTo(task.assignedTo || '');
   };
 
   const closeTaskModal = () => {
@@ -297,8 +312,18 @@ export default function ProjectsPage() {
     e.preventDefault();
     if (!editingTask || !editTaskTitle.trim()) return;
 
+    // Only allow changing the assignee if the current user is actually allowed to
+    // assign to the chosen person (or it's unchanged) — mirrors handleAddTask's rule.
+    const requestedAssignee = editTaskAssignedTo || undefined;
+    const canSetRequested = !requestedAssignee
+      || requestedAssignee === editingTask.assignedTo
+      || requestedAssignee === currentUser.id
+      || (canAssignOthers && assignableUsers.some(u => u.id === requestedAssignee));
+    const assignee = canSetRequested ? requestedAssignee : editingTask.assignedTo;
+
     updateTask(editingTask.id, {
       title: editTaskTitle,
+      assignedTo: assignee,
       priority: editTaskPriority,
       dueDate: editTaskDueDate,
       status: editTaskStatus,
@@ -348,7 +373,7 @@ export default function ProjectsPage() {
               <button
                 type="button"
                 onClick={() => setResumeShiftModalOpen(true)}
-                className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0 cursor-pointer"
+                className="inline-flex items-center gap-2 px-3.5 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0 cursor-pointer"
               >
                 <Clock size={15} />
                 <span>Resume Shift &amp; Set Plan</span>
@@ -359,7 +384,7 @@ export default function ProjectsPage() {
           <button
             type="button"
             onClick={openAddProjectModal}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0 self-start sm:self-auto cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0 self-start sm:self-auto cursor-pointer"
           >
             <Plus size={15} />
             <span>New Project</span>
@@ -375,7 +400,7 @@ export default function ProjectsPage() {
             onClick={() => setActiveTab('shift-checklist')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
               activeTab === 'shift-checklist'
-                ? 'bg-[#0D52F8] text-white shadow-xs'
+                ? 'bg-mode-royal text-white shadow-xs'
                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
             }`}
           >
@@ -393,7 +418,7 @@ export default function ProjectsPage() {
             onClick={() => setActiveTab('project-deliverables')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
               activeTab === 'project-deliverables'
-                ? 'bg-[#0D52F8] text-white shadow-xs'
+                ? 'bg-mode-royal text-white shadow-xs'
                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
             }`}
           >
@@ -547,7 +572,7 @@ export default function ProjectsPage() {
           {/* Quick-Add Shift Task Bar */}
           <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
-              <Plus size={14} className="text-[#0D52F8]" />
+              <Plus size={14} className="text-mode-royal" />
               <span>Add Goal to Today&apos;s Shift Checklist ({todayStr})</span>
             </h3>
 
@@ -588,7 +613,7 @@ export default function ProjectsPage() {
 
                 <button
                   type="submit"
-                  className="px-4 py-2.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0 cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-2.5 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0 cursor-pointer flex items-center gap-1.5"
                 >
                   <Plus size={14} />
                   <span>Add to Plan</span>
@@ -819,7 +844,7 @@ export default function ProjectsPage() {
             <button
               type="button"
               onClick={() => setShiftReviewModalOpen(true)}
-              className="px-4 py-2.5 bg-[#0D52F8] hover:bg-blue-600 text-white rounded-xl text-xs font-black shadow-xs transition shrink-0 cursor-pointer self-start sm:self-auto flex items-center gap-2"
+              className="px-4 py-2.5 bg-mode-royal hover:bg-blue-600 text-white rounded-xl text-xs font-black shadow-xs transition shrink-0 cursor-pointer self-start sm:self-auto flex items-center gap-2"
             >
               <CheckCircle2 size={15} />
               <span>Launch Shift Review &amp; Rollover</span>
@@ -859,7 +884,7 @@ export default function ProjectsPage() {
                   onClick={() => setSelectedProjectId(proj.id)}
                   className={`p-4 rounded-xl border cursor-pointer transition space-y-2.5 relative group ${
                     isSelected
-                      ? 'bg-white border-[#0D52F8] shadow-md ring-1 ring-blue-500/20'
+                      ? 'bg-white border-mode-royal shadow-md ring-1 ring-blue-500/20'
                       : 'bg-white/80 border-slate-200/80 hover:bg-white hover:border-slate-300'
                   }`}
                 >
@@ -895,7 +920,7 @@ export default function ProjectsPage() {
                     </div>
                     <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                       <div
-                        className="bg-[#0D52F8] h-1.5 rounded-full transition-all duration-300"
+                        className="bg-mode-royal h-1.5 rounded-full transition-all duration-300"
                         style={{ width: `${proj.progress}%` }}
                       />
                     </div>
@@ -949,7 +974,7 @@ export default function ProjectsPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <CheckSquare size={16} className="text-[#0D52F8]" />
+                      <CheckSquare size={16} className="text-mode-royal" />
                       <h3 className="text-xs font-bold text-slate-900">
                         Project Sprint Deliverables ({projectTasks.length})
                       </h3>
@@ -982,6 +1007,23 @@ export default function ProjectsPage() {
                       className="px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-700"
                     >
                     </input>
+                    {canAssignOthers ? (
+                      <select
+                        value={newTaskAssignedTo}
+                        onChange={e => setNewTaskAssignedTo(e.target.value)}
+                        className="px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-700"
+                        title="Assign to"
+                      >
+                        <option value="">Assign to me</option>
+                        {assignableUsers.filter(u => u.id !== currentUser.id).map(u => (
+                          <option key={u.id} value={u.id}>{u.full_name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="px-2.5 py-2 border border-slate-100 rounded-lg text-xs bg-slate-50 text-slate-400" title="Only a department head can assign tasks to someone else">
+                        Assigned to me
+                      </span>
+                    )}
                     <button
                       type="submit"
                       className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold text-xs shrink-0 transition cursor-pointer"
@@ -1023,6 +1065,11 @@ export default function ProjectsPage() {
                             </div>
 
                             <div className="flex items-center gap-2.5 text-[10px] text-slate-400 font-mono shrink-0">
+                              {task.assignedTo && (
+                                <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 font-semibold normal-case" title="Assigned to">
+                                  {users.find(u => u.id === task.assignedTo)?.full_name.split(' ')[0] || 'Unknown'}
+                                </span>
+                              )}
                               <span>Due {formatDate(task.dueDate)}</span>
                               <span className={`px-1.5 py-0.5 rounded font-bold uppercase ${
                                 task.priority === 'urgent'
@@ -1127,7 +1174,7 @@ export default function ProjectsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
+                  className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
                 >
                   <Check size={14} />
                   <span>Save Changes</span>
@@ -1304,7 +1351,7 @@ export default function ProjectsPage() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
+                    className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
                   >
                     <Check size={14} />
                     <span>{editingProject ? 'Save Changes' : 'Create Project'}</span>
@@ -1383,6 +1430,29 @@ export default function ProjectsPage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Assigned To</label>
+                {canAssignOthers ? (
+                  <select
+                    value={editTaskAssignedTo}
+                    onChange={e => setEditTaskAssignedTo(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                  >
+                    <option value={currentUser.id}>Me</option>
+                    {assignableUsers.filter(u => u.id !== currentUser.id).map(u => (
+                      <option key={u.id} value={u.id}>{u.full_name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    disabled
+                    value={users.find(u => u.id === editTaskAssignedTo)?.full_name || 'Unassigned'}
+                    className="w-full px-3 py-2 border border-slate-100 rounded-lg text-xs bg-slate-50 text-slate-400"
+                    title="Only a department head can reassign this task"
+                  />
+                )}
+              </div>
+
               <div className="flex items-center justify-between pt-4 border-t border-slate-100">
                 <button
                   type="button"
@@ -1403,7 +1473,7 @@ export default function ProjectsPage() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
+                    className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
                   >
                     <Check size={14} />
                     <span>Save Deliverable</span>

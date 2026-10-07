@@ -20,18 +20,18 @@ import { initStorage, setStorageItem } from './storage';
 interface AppContextType {
   // Authentication & Shift Attendance
   isAuthenticated: boolean;
-  login: (email: string, password: string) => { success: boolean; message?: string };
+  authLoading: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
-  changeUserPassword: (email: string, newPassword: string) => { success: boolean; message: string };
+  changeUserPassword: (newPassword: string, targetUserId?: string, currentPassword?: string) => Promise<{ success: boolean; message: string }>;
   shifts: StaffShift[];
   activeShift: StaffShift | null;
   clockOutStaff: (shiftId: string, customHours?: number, notes?: string) => void;
   clockInStaff: (staffId: string) => void;
   applyShiftHoursToPayroll: (staffId: string, period?: string) => { hours: number; amount: number };
 
-  // Current active user / impersonation
+  // Current active user
   currentUser: UserProfile;
-  setCurrentUserRole: (role: UserRole) => void;
   users: UserProfile[];
   updateUserProfile: (id: string, updates: Partial<UserProfile>) => void;
   addUserProfile: (profile: Omit<UserProfile, 'id'>) => void;
@@ -41,6 +41,7 @@ interface AppContextType {
   leads: Lead[];
   addLead: (lead: Omit<Lead, 'id' | 'createdAt'>) => void;
   updateLeadStatus: (id: string, status: LeadStatus) => void;
+  updateLead: (id: string, updates: Partial<Lead>) => void;
   deleteLead: (id: string) => void;
 
   contacts: Contact[];
@@ -123,6 +124,8 @@ interface AppContextType {
   goals: Goal[];
   addGoal: (goal: Omit<Goal, 'id' | 'created_at' | 'progress' | 'status' | 'strategy_status'>) => void;
   updateGoalProgress: (id: string, progress: number) => void;
+  updateGoal: (id: string, updates: Partial<Pick<Goal, 'objective' | 'expected_result' | 'deadline'>>) => void;
+  deleteGoal: (id: string) => void;
   submitGoalStrategy: (id: string, strategyText: string) => void;
   approveGoalStrategy: (id: string, feedbackNote?: string) => void;
   requestGoalStrategyRevision: (id: string, feedbackNote: string) => void;
@@ -179,20 +182,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return initialProfiles;
   });
 
-  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
-    if (typeof window !== 'undefined') {
-      const savedUser = localStorage.getItem('mode_ops_current_user');
-      if (savedUser) {
-        try {
-          const u = JSON.parse(savedUser);
-          if (u && u.id && u.email) {
-            return u;
-          }
-        } catch {}
-      }
-    }
-    return initialProfiles[0];
-  });
+  // currentUser/isAuthenticated start empty/false and are only set once GET /api/auth/me
+  // confirms a real server-verified session (see the bootstrap effect below) — they are
+  // never trusted from localStorage alone, which previously let anyone impersonate any
+  // account just by editing their own browser storage.
+  const [currentUser, setCurrentUser] = useState<UserProfile>(initialProfiles[0]);
+  const [authLoading, setAuthLoading] = useState(true);
 
   const [leads, setLeads] = useState<Lead[]>(() => {
     if (typeof window !== 'undefined') {
@@ -459,13 +454,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return initialShiftTasks;
   });
 
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      const auth = localStorage.getItem('mode_ops_auth');
-      return !!auth;
-    }
-    return true; // Default during SSR
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   const activeShift = shifts.find(s => (s.staffId === currentUser.id || (Boolean(s.staffEmail) && Boolean(currentUser.email) && s.staffEmail.toLowerCase() === currentUser.email.toLowerCase())) && s.status === 'active') || null;
 
@@ -534,6 +523,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Warm IndexedDB cache on boot
   useEffect(() => {
     initStorage();
+  }, []);
+
+  // Establish the real, server-verified session. The httpOnly cookie (if any) was already
+  // set by a prior login — this just confirms it's still valid and fetches the current
+  // profile fresh from the server, rather than ever trusting a cached client-side copy.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const result = await res.json();
+          if (!cancelled && result?.success && result.user) {
+            setCurrentUser(result.user);
+            setIsAuthenticated(true);
+          }
+        }
+      } catch {
+        // treated as not authenticated
+      } finally {
+        if (!cancelled) setAuthLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   // Optimized asynchronous IndexedDB + localStorage persistence (non-blocking)
@@ -649,6 +662,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               return serverDb.shiftTasks;
             });
           }
+
+          // Simple last-write-wins merge for entities with no bespoke conflict logic of
+          // their own (contrast services/shifts above, which protect specific invariants
+          // like "never overwrite a customized catalog" or "never clobber an active shift").
+          // Guards against a concurrent local edit being clobbered by a slightly-stale
+          // server read landing in between.
+          function mergeSimple<T>(entity: string, serverArray: T[] | undefined, serverTsIso: string | undefined, setter: React.Dispatch<React.SetStateAction<T[]>>) {
+            if (!Array.isArray(serverArray)) return;
+            setter(prev => {
+              if (JSON.stringify(prev) === JSON.stringify(serverArray)) return prev;
+              const localTs = lastLocalEditRef.current[entity] || 0;
+              const serverTs = serverTsIso ? new Date(serverTsIso).getTime() : 0;
+              if (localTs > serverTs) return prev;
+              return serverArray;
+            });
+          }
+
+          mergeSimple('requisitions', serverDb.requisitions, serverDb.requisitionsLastUpdated, setRequisitions);
+          mergeSimple('leads', serverDb.leads, serverDb.leadsLastUpdated, setLeads);
+          mergeSimple('contacts', serverDb.contacts, undefined, setContacts);
+          mergeSimple('companies', serverDb.companies, undefined, setCompanies);
+          mergeSimple('projects', serverDb.projects, serverDb.projectsLastUpdated, setProjects);
+          mergeSimple('tasks', serverDb.tasks, undefined, setTasks);
+          mergeSimple('hostingAccounts', serverDb.hostingAccounts, undefined, setHostingAccounts);
+          mergeSimple('invoices', serverDb.invoices, serverDb.invoicesLastUpdated, setInvoices);
+          mergeSimple('payments', serverDb.payments, serverDb.paymentsLastUpdated, setPayments);
+          mergeSimple('tickets', serverDb.tickets, serverDb.ticketsLastUpdated, setTickets);
+          mergeSimple('goals', serverDb.goals, serverDb.goalsLastUpdated, setGoals);
+          mergeSimple('feedbacks', serverDb.feedbacks, serverDb.feedbacksLastUpdated, setFeedbacks);
+          mergeSimple('payrollRecords', serverDb.payrollRecords, serverDb.payrollRecordsLastUpdated, setPayrollRecords);
 
           // Sync staff memos safely with timestamp protection
           if (Array.isArray(serverDb.memos) && serverDb.memos.length > 0) {
@@ -861,88 +904,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Switch Role
-  const setCurrentUserRole = (role: UserRole) => {
-    let targetUser: UserProfile | undefined = users.find(u => {
-      if (role === 'administration' || role === 'accounts') {
-        return u.role === 'administration' || u.role === 'accounts' || u.id === 'u5';
-      }
-      return u.role === role;
-    });
-
-    if (!targetUser) {
-      if (role === 'administration' || role === 'accounts') {
-        targetUser = {
-          id: 'u5',
-          email: 'admin@modedigitalcreations.ng',
-          full_name: 'Ibrahim Musa',
-          role: 'administration',
-          department: 'Administration',
-          job_title: 'Administration & Finance Lead',
-          avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-          hourly_rate: 6500,
-          currency: 'NGN',
-          hasPayrollAccess: true,
-        };
-      } else {
-        targetUser = {
-          id: `u-${role}`,
-          email: role === 'managing_director' ? 'info@modedigitalcreations.ng' : `${role}@modedigitalcreations.ng`,
-          full_name: role.replace('_', ' ').toUpperCase(),
-          role,
-          department: 'Operations',
-          job_title: `${role.toUpperCase()} Lead`,
-        };
-      }
-    }
-
-    if (targetUser.role === 'accounts' || targetUser.id === 'u5') {
-      targetUser = {
-        ...targetUser,
-        role: 'administration',
-        department: 'Administration',
-        job_title: 'Administration & Finance Lead',
-      };
-    }
-
-    const found: UserProfile = targetUser;
-
-    setCurrentUser(found);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('mode_ops_current_user', JSON.stringify(found));
-    }
-
-    // Auto-ensure active shift for this staff member so they are NOT left "Shift Inactive" when viewing as that staff
-    const today = new Date().toISOString().split('T')[0];
-    const now = new Date().toISOString();
-    const currentShifts = shiftsRef.current && shiftsRef.current.length > 0 ? shiftsRef.current : shifts;
-    const hasActive = currentShifts.some(s => (s.staffId === found.id || (Boolean(s.staffEmail) && Boolean(found.email) && s.staffEmail.toLowerCase() === found.email.toLowerCase())) && s.status === 'active');
-    if (!hasActive) {
-      const newShift: StaffShift = {
-        id: `shift-${Date.now()}`,
-        staffId: found.id,
-        staffName: found.full_name,
-        staffEmail: found.email,
-        department: found.department || 'Operations',
-        jobTitle: found.job_title || 'Staff',
-        clockInTime: now,
-        clockOutTime: null,
-        durationHours: 0,
-        status: 'active',
-        hourlyRate: found.hourly_rate || (found.role === 'managing_director' ? 5000 : found.role === 'administration' ? 6500 : 3500),
-        notes: `Shift activated on role view switch at ${new Date().toLocaleTimeString()}`,
-        date: today,
-      };
-      const updated = [newShift, ...currentShifts];
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
-        localStorage.setItem('mode_ops_shifts_timestamp', String(Date.now()));
-        window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: updated }));
-      }
-      setShifts(updated);
-      syncEntityToServer('shifts', updated);
-    }
-  };
-
   const updateUserProfile = (id: string, updates: Partial<UserProfile>) => {
     let resolvedName = updates.full_name;
     const currentUsers = usersRef.current && usersRef.current.length > 0 ? usersRef.current : users;
@@ -1087,20 +1048,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `l-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setLeads(prev => [newLead, ...prev]);
+    setLeads(prev => {
+      const updated = [newLead, ...prev];
+      syncEntityToServer('leads', updated);
+      return updated;
+    });
     logActivity('crm_lead', `Added lead: ${newLead.name} (${newLead.company})`, 'Lead', newLead.id);
   };
 
   const updateLeadStatus = (id: string, status: LeadStatus) => {
-    setLeads(prev => prev.map(l => l.id === id ? { ...l, status, updatedAt: new Date().toISOString().split('T')[0] } : l));
+    setLeads(prev => {
+      const updated = prev.map(l => l.id === id ? { ...l, status, updatedAt: new Date().toISOString().split('T')[0] } : l);
+      syncEntityToServer('leads', updated);
+      return updated;
+    });
     const target = leads.find(l => l.id === id);
     if (target) {
       logActivity('crm_pipeline', `Moved ${target.company} to ${status.replace('-', ' ')}`, 'Lead', id);
     }
   };
 
+  const updateLead = (id: string, updates: Partial<Lead>) => {
+    setLeads(prev => {
+      const updated = prev.map(l => l.id === id ? { ...l, ...updates, updatedAt: new Date().toISOString().split('T')[0] } : l);
+      syncEntityToServer('leads', updated);
+      return updated;
+    });
+    logActivity('crm_lead', `Updated lead details for ${updates.name || id}`, 'Lead', id);
+  };
+
   const deleteLead = (id: string) => {
-    setLeads(prev => prev.filter(l => l.id !== id));
+    setLeads(prev => {
+      const updated = prev.filter(l => l.id !== id);
+      syncEntityToServer('leads', updated);
+      return updated;
+    });
   };
 
   const addContact = (contactData: Omit<Contact, 'id' | 'createdAt'>) => {
@@ -1114,6 +1096,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_contacts', JSON.stringify(updated));
       }
+      syncEntityToServer('contacts', updated);
       return updated;
     });
     logActivity('crm_contact', `Added client contact: ${newContact.name}`, 'Contact', newContact.id);
@@ -1125,6 +1108,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_contacts', JSON.stringify(updated));
       }
+      syncEntityToServer('contacts', updated);
       return updated;
     });
     logActivity('crm_contact', `Updated client contact: ${updates.name || id}`, 'Contact', id);
@@ -1136,6 +1120,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_contacts', JSON.stringify(updated));
       }
+      syncEntityToServer('contacts', updated);
       return updated;
     });
     logActivity('crm_contact', `Removed contact from client directory`, 'Contact', id);
@@ -1147,17 +1132,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `co-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setCompanies(prev => [newCompany, ...prev]);
+    setCompanies(prev => {
+      const updated = [newCompany, ...prev];
+      syncEntityToServer('companies', updated);
+      return updated;
+    });
     logActivity('crm_company', `Added corporate client org: ${newCompany.name}`, 'Company', newCompany.id);
   };
 
   const updateCompany = (id: string, updates: Partial<Company>) => {
-    setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+    setCompanies(prev => {
+      const updated = prev.map(c => c.id === id ? { ...c, ...updates } : c);
+      syncEntityToServer('companies', updated);
+      return updated;
+    });
     logActivity('crm_company', `Updated corporate client org: ${updates.name || id}`, 'Company', id);
   };
 
   const deleteCompany = (id: string) => {
-    setCompanies(prev => prev.filter(c => c.id !== id));
+    setCompanies(prev => {
+      const updated = prev.filter(c => c.id !== id);
+      syncEntityToServer('companies', updated);
+      return updated;
+    });
     logActivity('crm_company', `Deleted corporate client org (${id})`, 'Company', id);
   };
 
@@ -1168,29 +1165,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `p-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setProjects(prev => [newProject, ...prev]);
+    setProjects(prev => {
+      const updated = [newProject, ...prev];
+      syncEntityToServer('projects', updated);
+      return updated;
+    });
     logActivity('crm_project', `Created client project: ${newProject.name}`, 'Project', newProject.id);
   };
 
   const updateProject = (id: string, updates: Partial<Project>) => {
-    setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+    setProjects(prev => {
+      const updated = prev.map(p => p.id === id ? { ...p, ...updates } : p);
+      syncEntityToServer('projects', updated);
+      return updated;
+    });
     logActivity('crm_project', `Updated client project: ${updates.name || id}`, 'Project', id);
   };
 
   const deleteProject = (id: string) => {
-    setProjects(prev => prev.filter(p => p.id !== id));
-    setTasks(prev => prev.filter(t => t.projectId !== id));
+    setProjects(prev => {
+      const updated = prev.filter(p => p.id !== id);
+      syncEntityToServer('projects', updated);
+      return updated;
+    });
+    setTasks(prev => {
+      const updated = prev.filter(t => t.projectId !== id);
+      syncEntityToServer('tasks', updated);
+      return updated;
+    });
     logActivity('crm_project', `Deleted client project (${id})`, 'Project', id);
   };
 
   const toggleTask = (id: string) => {
-    setTasks(prev => prev.map(t => {
-      if (t.id === id) {
-        const nextStatus = t.status === 'completed' ? 'pending' : 'completed';
-        return { ...t, status: nextStatus };
-      }
-      return t;
-    }));
+    setTasks(prev => {
+      const updated = prev.map(t => t.id === id ? { ...t, status: (t.status === 'completed' ? 'pending' : 'completed') as Task['status'] } : t);
+      syncEntityToServer('tasks', updated);
+      return updated;
+    });
   };
 
   const addTask = (taskData: Omit<Task, 'id' | 'createdAt'>) => {
@@ -1199,15 +1210,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `t-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setTasks(prev => [newTask, ...prev]);
+    setTasks(prev => {
+      const updated = [newTask, ...prev];
+      syncEntityToServer('tasks', updated);
+      return updated;
+    });
   };
 
   const updateTask = (id: string, updates: Partial<Task>) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+    setTasks(prev => {
+      const updated = prev.map(t => t.id === id ? { ...t, ...updates } : t);
+      syncEntityToServer('tasks', updated);
+      return updated;
+    });
   };
 
   const deleteTask = (id: string) => {
-    setTasks(prev => prev.filter(t => t.id !== id));
+    setTasks(prev => {
+      const updated = prev.filter(t => t.id !== id);
+      syncEntityToServer('tasks', updated);
+      return updated;
+    });
   };
 
   // Daily Shift Task Checklist
@@ -1422,19 +1445,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const renewHosting = (id: string, additionalMonths = 12) => {
-    setHostingAccounts(prev => prev.map(h => {
-      if (h.id === id) {
-        const curr = new Date(h.expiryDate);
-        curr.setMonth(curr.getMonth() + additionalMonths);
-        return {
-          ...h,
-          expiryDate: curr.toISOString().split('T')[0],
-          status: 'active',
-          sslStatus: 'active',
-        };
-      }
-      return h;
-    }));
+    setHostingAccounts(prev => {
+      const updated = prev.map(h => {
+        if (h.id === id) {
+          const curr = new Date(h.expiryDate);
+          curr.setMonth(curr.getMonth() + additionalMonths);
+          return {
+            ...h,
+            expiryDate: curr.toISOString().split('T')[0],
+            status: 'active' as const,
+            sslStatus: 'active' as const,
+          };
+        }
+        return h;
+      });
+      syncEntityToServer('hostingAccounts', updated);
+      return updated;
+    });
     const target = hostingAccounts.find(h => h.id === id);
     if (target) {
       logActivity('hosting_renew', `Extended domain & hosting renewal for ${target.domainName} by ${additionalMonths} months`, 'Hosting', id);
@@ -1465,6 +1492,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
       if (data && data.success && Array.isArray(data.accounts)) {
         setHostingAccounts(data.accounts);
+        syncEntityToServer('hostingAccounts', data.accounts);
         const now = new Date().toISOString();
         updateWhmcsConfig({
           isConnected: true,
@@ -1487,7 +1515,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `inv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setInvoices(prev => [newInvoice, ...prev]);
+    setInvoices(prev => {
+      const updated = [newInvoice, ...prev];
+      syncEntityToServer('invoices', updated);
+      return updated;
+    });
     logActivity('crm_invoice', `Created invoice #${newInvoice.invoiceNumber} for ${newInvoice.clientName}`, 'Invoice', newInvoice.id);
   };
 
@@ -1506,45 +1538,59 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_payments', JSON.stringify(nextPayments));
       }
+      syncEntityToServer('payments', nextPayments);
       return nextPayments;
     });
 
-    setInvoices(prev => prev.map(inv => {
-      if (inv.id === invoiceId) {
-        const updatedPaid = inv.amountPaid + amount;
-        const newStatus = updatedPaid >= inv.total ? 'paid' : 'partially-paid';
-        return { ...inv, amountPaid: updatedPaid, status: newStatus };
-      }
-      return inv;
-    }));
+    setInvoices(prev => {
+      const updated = prev.map(inv => {
+        if (inv.id === invoiceId) {
+          const updatedPaid = inv.amountPaid + amount;
+          const newStatus = updatedPaid >= inv.total ? 'paid' : 'partially-paid';
+          return { ...inv, amountPaid: updatedPaid, status: newStatus as Invoice['status'] };
+        }
+        return inv;
+      });
+      syncEntityToServer('invoices', updated);
+      return updated;
+    });
 
     logActivity('crm_payment', `Recorded payment of ₦${amount.toLocaleString()} for Invoice`, 'Payment', newPayment.id);
   };
 
   const updateInvoice = (id: string, updates: Partial<Invoice>) => {
-    setInvoices(prev => prev.map(inv => {
-      if (inv.id === id) {
-        const next = { ...inv, ...updates };
-        if (updates.amountPaid !== undefined || updates.total !== undefined) {
-          const paid = next.amountPaid ?? 0;
-          const tot = next.total ?? 0;
-          if (paid >= tot && tot > 0) next.status = 'paid';
-          else if (paid > 0) next.status = 'partially-paid';
+    setInvoices(prev => {
+      const updated = prev.map(inv => {
+        if (inv.id === id) {
+          const next = { ...inv, ...updates };
+          if (updates.amountPaid !== undefined || updates.total !== undefined) {
+            const paid = next.amountPaid ?? 0;
+            const tot = next.total ?? 0;
+            if (paid >= tot && tot > 0) next.status = 'paid';
+            else if (paid > 0) next.status = 'partially-paid';
+          }
+          return next;
         }
-        return next;
-      }
-      return inv;
-    }));
+        return inv;
+      });
+      syncEntityToServer('invoices', updated);
+      return updated;
+    });
     logActivity('crm_invoice', `Updated invoice details for #${updates.invoiceNumber || id}`, 'Invoice', id);
   };
 
   const deleteInvoice = (id: string) => {
-    setInvoices(prev => prev.filter(inv => inv.id !== id));
+    setInvoices(prev => {
+      const updated = prev.filter(inv => inv.id !== id);
+      syncEntityToServer('invoices', updated);
+      return updated;
+    });
     setPayments(prev => {
       const next = prev.filter(p => p.invoiceId !== id);
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_payments', JSON.stringify(next));
       }
+      syncEntityToServer('payments', next);
       return next;
     });
     logActivity('crm_invoice', `Deleted invoice #${id}`, 'Invoice', id);
@@ -1557,34 +1603,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `payr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setPayrollRecords(prev => [newRecord, ...prev]);
+    setPayrollRecords(prev => {
+      const updated = [newRecord, ...prev];
+      syncEntityToServer('payrollRecords', updated);
+      return updated;
+    });
     logActivity('payroll', `Generated payroll record for ${newRecord.staffName} (${newRecord.period})`, 'Payroll', newRecord.id);
   };
 
   const updatePayrollRecord = (id: string, updates: Partial<PayrollRecord>) => {
-    setPayrollRecords(prev => prev.map(rec => rec.id === id ? { ...rec, ...updates } : rec));
+    setPayrollRecords(prev => {
+      const updated = prev.map(rec => rec.id === id ? { ...rec, ...updates } : rec);
+      syncEntityToServer('payrollRecords', updated);
+      return updated;
+    });
     logActivity('payroll', `Updated payroll record for #${id}`, 'Payroll', id);
   };
 
   const deletePayrollRecord = (id: string) => {
-    setPayrollRecords(prev => prev.filter(rec => rec.id !== id));
+    setPayrollRecords(prev => {
+      const updated = prev.filter(rec => rec.id !== id);
+      syncEntityToServer('payrollRecords', updated);
+      return updated;
+    });
     logActivity('payroll', `Removed payroll record #${id}`, 'Payroll', id);
   };
 
   const processPayrollBatch = (period: string) => {
     const now = new Date().toISOString();
-    setPayrollRecords(prev => prev.map(rec => {
-      if (rec.period === period && rec.status !== 'paid') {
-        return {
-          ...rec,
-          status: 'paid' as const,
-          approvedBy: currentUser.full_name,
-          approvedAt: now,
-          paidAt: now
-        };
-      }
-      return rec;
-    }));
+    setPayrollRecords(prev => {
+      const updated = prev.map(rec => {
+        if (rec.period === period && rec.status !== 'paid') {
+          return {
+            ...rec,
+            status: 'paid' as const,
+            approvedBy: currentUser.full_name,
+            approvedAt: now,
+            paidAt: now
+          };
+        }
+        return rec;
+      });
+      syncEntityToServer('payrollRecords', updated);
+      return updated;
+    });
     logActivity('payroll_batch', `Batch disbursed payroll for period: ${period}`, 'Payroll', period);
   };
 
@@ -1599,11 +1661,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `tk-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setTickets(prev => [newTicket, ...prev]);
+    setTickets(prev => {
+      const updated = [newTicket, ...prev];
+      syncEntityToServer('tickets', updated);
+      return updated;
+    });
   };
 
   const updateTicketStatus = (id: string, status: Ticket['status']) => {
-    setTickets(prev => prev.map(tk => tk.id === id ? { ...tk, status } : tk));
+    setTickets(prev => {
+      const updated = prev.map(tk => tk.id === id ? { ...tk, status } : tk);
+      syncEntityToServer('tickets', updated);
+      return updated;
+    });
   };
 
   // Office Expense Actions
@@ -1626,7 +1696,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       staffId: currentUser.id,
       createdAt: new Date().toISOString(),
     };
-    setRequisitions(prev => [newReq, ...prev]);
+    setRequisitions(prev => {
+      const updated = [newReq, ...prev];
+      syncEntityToServer('requisitions', updated);
+      return updated;
+    });
     logActivity('expense_create', `Staff ${currentUser.full_name} submitted requisition: ${title} (${currency} ${amount.toLocaleString()})`, 'Requisition', newReq.id);
 
     // Notify Manager/MD
@@ -1644,54 +1718,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateRequisitionDecision = (id: string, status: 'Approved' | 'Rejected', decisionNotes: string) => {
-    setRequisitions(prev => prev.map(r => {
-      if (r.id === id) {
-        return {
-          ...r,
-          status,
-          decisionNotes,
-          decidedAt: new Date().toISOString(),
-          decidedBy: currentUser.full_name,
-        };
-      }
-      return r;
-    }));
+    setRequisitions(prev => {
+      const updated = prev.map(r => r.id === id
+        ? { ...r, status, decisionNotes, decidedAt: new Date().toISOString(), decidedBy: currentUser.full_name }
+        : r);
+      syncEntityToServer('requisitions', updated);
+      return updated;
+    });
     logActivity('expense_decision', `${currentUser.full_name} marked requisition as ${status}`, 'Requisition', id);
   };
 
   const updateRequisition = (id: string, updates: Partial<Requisition>) => {
-    setRequisitions(prev => prev.map(r => {
-      if (r.id === id) {
-        return {
-          ...r,
-          ...updates,
-          currency: 'NGN' as Currency,
-        };
-      }
-      return r;
-    }));
+    setRequisitions(prev => {
+      const updated = prev.map(r => r.id === id ? { ...r, ...updates, currency: 'NGN' as Currency } : r);
+      syncEntityToServer('requisitions', updated);
+      return updated;
+    });
     logActivity('expense_update', `Updated requisition #${id}`, 'Requisition', id);
   };
 
   const deleteRequisition = (id: string) => {
     const existing = requisitions.find(r => r.id === id);
-    setRequisitions(prev => prev.filter(r => r.id !== id));
+    setRequisitions(prev => {
+      const updated = prev.filter(r => r.id !== id);
+      syncEntityToServer('requisitions', updated);
+      return updated;
+    });
     logActivity('expense_delete', `Deleted requisition ${existing?.receiptNumber || id} (${existing?.title || ''})`, 'Requisition', id);
   };
 
   const disburseRequisition = (id: string, transactionId: string) => {
-    setRequisitions(prev => prev.map(r => {
-      if (r.id === id) {
-        return {
-          ...r,
-          status: 'Completed',
-          completedAt: new Date().toISOString(),
-          disbursedBy: currentUser.full_name,
-          transactionId,
-        };
-      }
-      return r;
-    }));
+    setRequisitions(prev => {
+      const updated = prev.map(r => r.id === id
+        ? { ...r, status: 'Completed' as const, completedAt: new Date().toISOString(), disbursedBy: currentUser.full_name, transactionId }
+        : r);
+      syncEntityToServer('requisitions', updated);
+      return updated;
+    });
     logActivity('expense_disburse', `Accounts disbursed requisition funds (${transactionId})`, 'Requisition', id);
   };
 
@@ -1705,57 +1768,72 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       strategy_status: 'pending_submission',
       created_at: new Date().toISOString(),
     };
-    setGoals(prev => [newGoal, ...prev]);
+    setGoals(prev => {
+      const updated = [newGoal, ...prev];
+      syncEntityToServer('goals', updated);
+      return updated;
+    });
     logActivity('omm_goal', `Assigned One-Minute Goal: ${goalData.objective}`, 'Goal', newGoal.id);
   };
 
   const updateGoalProgress = (id: string, progress: number) => {
     const bounded = Math.max(0, Math.min(100, progress));
     const status: GoalStatus = bounded === 100 ? 'completed' : bounded > 0 ? 'in_progress' : 'not_started';
-    setGoals(prev => prev.map(g => g.id === id ? { ...g, progress: bounded, status } : g));
+    setGoals(prev => {
+      const updated = prev.map(g => g.id === id ? { ...g, progress: bounded, status } : g);
+      syncEntityToServer('goals', updated);
+      return updated;
+    });
+  };
+
+  const updateGoal = (id: string, updates: Partial<Pick<Goal, 'objective' | 'expected_result' | 'deadline'>>) => {
+    setGoals(prev => {
+      const updated = prev.map(g => g.id === id ? { ...g, ...updates } : g);
+      syncEntityToServer('goals', updated);
+      return updated;
+    });
+    logActivity('omm_goal', `Updated 1-Minute Goal details`, 'Goal', id);
+  };
+
+  const deleteGoal = (id: string) => {
+    setGoals(prev => {
+      const updated = prev.filter(g => g.id !== id);
+      syncEntityToServer('goals', updated);
+      return updated;
+    });
+    logActivity('omm_goal', `Deleted 1-Minute Goal`, 'Goal', id);
   };
 
   const submitGoalStrategy = (id: string, strategyText: string) => {
-    setGoals(prev => prev.map(g => {
-      if (g.id === id) {
-        return {
-          ...g,
-          strategy_text: strategyText,
-          strategy_status: 'submitted',
-          strategy_submitted_at: new Date().toISOString(),
-        };
-      }
-      return g;
-    }));
+    setGoals(prev => {
+      const updated = prev.map(g => g.id === id
+        ? { ...g, strategy_text: strategyText, strategy_status: 'submitted' as const, strategy_submitted_at: new Date().toISOString() }
+        : g);
+      syncEntityToServer('goals', updated);
+      return updated;
+    });
     logActivity('omm_strategy', `Submitted 1-Minute Strategy Plan`, 'Goal', id);
   };
 
   const approveGoalStrategy = (id: string, feedbackNote?: string) => {
-    setGoals(prev => prev.map(g => {
-      if (g.id === id) {
-        return {
-          ...g,
-          strategy_status: 'approved',
-          strategy_feedback: feedbackNote,
-          strategy_approved_at: new Date().toISOString(),
-        };
-      }
-      return g;
-    }));
+    setGoals(prev => {
+      const updated = prev.map(g => g.id === id
+        ? { ...g, strategy_status: 'approved' as const, strategy_feedback: feedbackNote, strategy_approved_at: new Date().toISOString() }
+        : g);
+      syncEntityToServer('goals', updated);
+      return updated;
+    });
     logActivity('omm_strategy', `Approved 1-Minute Strategy Plan`, 'Goal', id);
   };
 
   const requestGoalStrategyRevision = (id: string, feedbackNote: string) => {
-    setGoals(prev => prev.map(g => {
-      if (g.id === id) {
-        return {
-          ...g,
-          strategy_status: 'revision_requested',
-          strategy_feedback: feedbackNote,
-        };
-      }
-      return g;
-    }));
+    setGoals(prev => {
+      const updated = prev.map(g => g.id === id
+        ? { ...g, strategy_status: 'revision_requested' as const, strategy_feedback: feedbackNote }
+        : g);
+      syncEntityToServer('goals', updated);
+      return updated;
+    });
   };
 
   const addFeedback = (fbData: Omit<Feedback, 'id' | 'created_at'>) => {
@@ -1764,7 +1842,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `fb-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       created_at: new Date().toISOString(),
     };
-    setFeedbacks(prev => [newFb, ...prev]);
+    setFeedbacks(prev => {
+      const updated = [newFb, ...prev];
+      syncEntityToServer('feedbacks', updated);
+      return updated;
+    });
     logActivity('omm_feedback', `Sent One-Minute ${fbData.type === 'praise' ? 'Praise 🎉' : 'Redirect 🎯'} to ${fbData.employee_name}`, 'Feedback', newFb.id);
   };
 
@@ -1928,106 +2010,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Authentication & Shift Actions
-  const login = (email: string, password: string): { success: boolean; message?: string } => {
-    const cleanEmail = email.trim().toLowerCase();
-
-    // Company email domain check - STRICTLY @modedigitalcreations.ng and @modewebhost.com.ng only
-    const isCompanyDomain = 
-      cleanEmail.endsWith('@modedigitalcreations.ng') ||
-      cleanEmail.endsWith('@modewebhost.com.ng');
-
-    if (!isCompanyDomain) {
-      return {
-        success: false,
-        message: 'Access Restricted: Only official @modedigitalcreations.ng and @modewebhost.com.ng company email addresses are allowed.'
-      };
-    }
-
-    let matchedUser = 
-      users.find(u => u.email.toLowerCase() === cleanEmail) ||
-      (cleanEmail === 'info@modedigitalcreations.ng' ? users.find(u => u.id === 'u1') : undefined) ||
-      users.find(u => {
-        const uPrefix = u.email.split('@')[0].toLowerCase();
-        const inputPrefix = cleanEmail.split('@')[0].toLowerCase();
-        return uPrefix === inputPrefix;
+  const login = async (email: string, password: string): Promise<{ success: boolean; message?: string }> => {
+    let res: Response;
+    try {
+      res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
       });
-
-    if (!matchedUser) {
-      // Check if entering default password to allow instant activation
-      const isDefaultPass = password === 'password123' || password === 'Mode2026!';
-      if (isDefaultPass) {
-        const prefix = cleanEmail.split('@')[0];
-        let derivedName = '';
-        if (cleanEmail === 'ben@modewebhost.com.ng' || prefix.toLowerCase() === 'ben') {
-          derivedName = 'Ben Asiedu';
-        } else {
-          derivedName = prefix
-            .split(/[._-]/)
-            .filter(Boolean)
-            .map(s => s.charAt(0).toUpperCase() + s.slice(1))
-            .join(' ') || 'Staff Member';
-        }
-
-        const isWebHost = cleanEmail.endsWith('@modewebhost.com.ng');
-        const isAdmin = cleanEmail.startsWith('admin@') || cleanEmail.startsWith('info@');
-
-        const newProfile: UserProfile = {
-          id: `u-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          email: cleanEmail,
-          password: password,
-          full_name: derivedName,
-          role: isAdmin ? 'managing_director' : 'employee',
-          department: isWebHost ? 'Web Hosting & Support' : 'Operations',
-          job_title: isAdmin 
-            ? 'Super Admin & Lead Hostmaster' 
-            : (isWebHost ? 'Hosting & Technical Support Specialist' : 'Operations Specialist'),
-          phone: '+234 802 888 7777',
-          is_active: true,
-          hasPayrollAccess: isAdmin
-        };
-
-        matchedUser = newProfile;
-        const currentUsers = usersRef.current && usersRef.current.length > 0 ? usersRef.current : users;
-        const updatedUsers = [...currentUsers, newProfile];
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('mode_ops_users', JSON.stringify(updatedUsers));
-          localStorage.setItem('mode_ops_users_customized', 'true');
-          localStorage.setItem('mode_ops_users_timestamp', String(Date.now()));
-          window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updatedUsers }));
-        }
-        setUsers(updatedUsers);
-        syncEntityToServer('users', updatedUsers);
-
-        logActivity('staff_registered', `Staff profile for ${derivedName} (${cleanEmail}) activated.`, 'User', newProfile.id);
-      } else {
-        return {
-          success: false,
-          message: 'No registered staff profile found with this company email yet. Please click the "Change Password" tab above to set your password and activate your access.'
-        };
-      }
+    } catch {
+      return { success: false, message: 'Could not reach the server. Please check your connection and try again.' };
     }
 
-    if (matchedUser.is_active === false) {
-      return {
-        success: false,
-        message: 'This staff account has been deactivated. Please reach out to your administrator.'
-      };
+    const result = await res.json().catch(() => ({ success: false, message: 'Unexpected server response.' }));
+    if (!res.ok || !result.success) {
+      return { success: false, message: result.message || 'Login failed.' };
     }
 
-    const validPassword = matchedUser.password || 'password123';
-    if (password !== validPassword && password !== 'Mode2026!' && password !== 'password123') {
-      return {
-        success: false,
-        message: 'Incorrect password. You can reset or update your password using the "Change Password" tab on this page.'
-      };
-    }
-
+    const matchedUser: UserProfile = result.user;
     setCurrentUser(matchedUser);
     setIsAuthenticated(true);
+    // The server already set the httpOnly session cookie; this is just a non-sensitive
+    // local hint other tabs/components can read without a round trip (never auth-authoritative).
     if (typeof window !== 'undefined') {
       localStorage.setItem('mode_ops_current_user', JSON.stringify(matchedUser));
       localStorage.setItem('mode_ops_auth', JSON.stringify({ userId: matchedUser.id, loggedInAt: new Date().toISOString() }));
     }
+    setUsers(prev => prev.map(u => (u.id === matchedUser.id ? matchedUser : u)));
 
     // Daily Shift Tracking: Start of Shift
     const today = new Date().toISOString().split('T')[0];
@@ -2097,116 +2106,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticated(false);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('mode_ops_auth');
+      localStorage.removeItem('mode_ops_current_user');
     }
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
   };
 
-  const changeUserPassword = (email: string, newPassword: string): { success: boolean; message: string } => {
-    const cleanEmail = email.trim().toLowerCase();
-
-    // Company email domain check - STRICTLY @modedigitalcreations.ng and @modewebhost.com.ng only
-    const isCompanyDomain = 
-      cleanEmail.endsWith('@modedigitalcreations.ng') ||
-      cleanEmail.endsWith('@modewebhost.com.ng');
-
-    if (!isCompanyDomain) {
-      return {
-        success: false,
-        message: 'Access Restricted: Only official @modedigitalcreations.ng and @modewebhost.com.ng company email addresses are allowed.'
-      };
-    }
-
+  // Self-service (no targetUserId: changes the caller's own password) or a manager-tier
+  // admin resetting someone else's (targetUserId set) — requires an authenticated session
+  // either way. Replaces the old client-only version that accepted any email with zero auth.
+  const changeUserPassword = async (newPassword: string, targetUserId?: string, currentPassword?: string): Promise<{ success: boolean; message: string }> => {
     if (!newPassword || newPassword.length < 6) {
-      return {
-        success: false,
-        message: 'New password must be at least 6 characters long.'
-      };
+      return { success: false, message: 'New password must be at least 6 characters long.' };
     }
 
-    const target = 
-      users.find(u => u.email.toLowerCase() === cleanEmail) ||
-      (cleanEmail === 'info@modedigitalcreations.ng' ? users.find(u => u.id === 'u1') : undefined) ||
-      users.find(u => {
-        const uPrefix = u.email.split('@')[0].toLowerCase();
-        const inputPrefix = cleanEmail.split('@')[0].toLowerCase();
-        return uPrefix === inputPrefix;
+    let res: Response;
+    try {
+      res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword, targetUserId, currentPassword }),
       });
-
-    if (!target) {
-      // Auto-provision and register new company staff profile
-      const prefix = cleanEmail.split('@')[0];
-      let derivedName = '';
-      if (cleanEmail === 'ben@modewebhost.com.ng' || prefix.toLowerCase() === 'ben') {
-        derivedName = 'Ben Asiedu';
-      } else {
-        derivedName = prefix
-          .split(/[._-]/)
-          .filter(Boolean)
-          .map(s => s.charAt(0).toUpperCase() + s.slice(1))
-          .join(' ') || 'Staff Member';
-      }
-
-      const isWebHost = cleanEmail.endsWith('@modewebhost.com.ng');
-      const isAdmin = cleanEmail.startsWith('admin@') || cleanEmail.startsWith('info@');
-
-      const newProfile: UserProfile = {
-        id: `u-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        email: cleanEmail,
-        password: newPassword,
-        full_name: derivedName,
-        role: isAdmin ? 'managing_director' : 'employee',
-        department: isWebHost ? 'Web Hosting & Support' : 'Operations',
-        job_title: isAdmin 
-          ? 'Super Admin & Lead Hostmaster' 
-          : (isWebHost ? 'Hosting & Technical Support Specialist' : 'Operations Specialist'),
-        phone: '+234 802 888 7777',
-        is_active: true,
-        hasPayrollAccess: isAdmin
-      };
-
-      const currentUsers = usersRef.current && usersRef.current.length > 0 ? usersRef.current : users;
-      const updatedUsers = [...currentUsers, newProfile];
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_users', JSON.stringify(updatedUsers));
-        localStorage.setItem('mode_ops_users_customized', 'true');
-        localStorage.setItem('mode_ops_users_timestamp', String(Date.now()));
-        window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updatedUsers }));
-      }
-      setUsers(updatedUsers);
-      syncEntityToServer('users', updatedUsers);
-
-      logActivity('staff_registered', `Staff profile for ${derivedName} (${cleanEmail}) activated and password set.`, 'User', newProfile.id);
-
-      return {
-        success: true,
-        message: 'Password set and company staff profile activated successfully! You can now log in.'
-      };
+    } catch {
+      return { success: false, message: 'Could not reach the server. Please try again.' };
     }
 
-    const currentUsers = usersRef.current && usersRef.current.length > 0 ? usersRef.current : users;
-    const updatedUsers = currentUsers.map(u => u.id === target.id ? { ...u, password: newPassword } : u);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('mode_ops_users', JSON.stringify(updatedUsers));
-      localStorage.setItem('mode_ops_users_customized', 'true');
-      localStorage.setItem('mode_ops_users_timestamp', String(Date.now()));
-      window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updatedUsers }));
-    }
-    setUsers(updatedUsers);
-    syncEntityToServer('users', updatedUsers);
-
-    if (currentUser && currentUser.id === target.id) {
-      const updatedCurrentUser = { ...currentUser, password: newPassword };
-      setCurrentUser(updatedCurrentUser);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_current_user', JSON.stringify(updatedCurrentUser));
-      }
+    const result = await res.json().catch(() => ({ success: false, message: 'Unexpected server response.' }));
+    if (!res.ok || !result.success) {
+      return { success: false, message: result.message || 'Failed to change password.' };
     }
 
-    logActivity('password_change', `Staff member ${target.full_name} changed their password.`, 'User', target.id);
+    const effectiveTargetId = targetUserId || currentUser.id;
+    const targetProfile = users.find(u => u.id === effectiveTargetId);
+    logActivity('password_change', `${targetProfile ? targetProfile.full_name : 'A staff member'}'s password was changed${targetUserId && targetUserId !== currentUser.id ? ` by ${currentUser.full_name}` : ''}.`, 'User', effectiveTargetId);
 
-    return {
-      success: true,
-      message: 'Password changed successfully! You can now log in with your new password.'
-    };
+    return { success: true, message: 'Password changed successfully.' };
   };
 
   const clockOutStaff = (shiftId: string, customHours?: number, notes?: string) => {
@@ -2305,6 +2238,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider
       value={{
         isAuthenticated,
+        authLoading,
         login,
         logout,
         changeUserPassword,
@@ -2314,7 +2248,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         clockInStaff,
         applyShiftHoursToPayroll,
         currentUser,
-        setCurrentUserRole,
         users,
         updateUserProfile,
         addUserProfile,
@@ -2322,6 +2255,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         leads,
         addLead,
         updateLeadStatus,
+        updateLead,
         deleteLead,
         contacts,
         addContact,
@@ -2384,6 +2318,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         goals,
         addGoal,
         updateGoalProgress,
+        updateGoal,
+        deleteGoal,
         submitGoalStrategy,
         approveGoalStrategy,
         requestGoalStrategyRevision,

@@ -14,17 +14,21 @@ import {
   AlertCircle,
   ThumbsUp,
   User,
-  Filter
+  Filter,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import type { Goal, GoalStatus } from '@/lib/types';
-import { formatDate } from '@/lib/utils';
+import { formatDate, canAssignTo, isManagementUser, isSuperAdminUser } from '@/lib/utils';
 
 export default function GoalsPage() {
   const {
     goals,
     addGoal,
     updateGoalProgress,
+    updateGoal,
+    deleteGoal,
     submitGoalStrategy,
     approveGoalStrategy,
     requestGoalStrategyRevision,
@@ -33,16 +37,51 @@ export default function GoalsPage() {
     currentUser
   } = useAppStore();
 
+  // A personal 1-Minute Goal is always yours alone unless you're a department head/admin
+  // setting one for a direct report (or super-admin, for anyone) — the OMM Goals page is
+  // the only place a goal can be created at all, so this is the entire assignment surface.
+  const assignableUsers = users.filter(u => u.id === currentUser.id || canAssignTo(currentUser, u));
+  const canAssignOthers = isManagementUser(currentUser.role) && assignableUsers.length > 1;
+
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [newGoalModalOpen, setNewGoalModalOpen] = useState(false);
   const [selectedGoalForStrategy, setSelectedGoalForStrategy] = useState<Goal | null>(null);
   const [praiseModalGoal, setPraiseModalGoal] = useState<Goal | null>(null);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+
+  // Only the goal's own creator (manager_id) or a super-admin can edit/delete it — the
+  // employee it's assigned to can still move the progress slider, that's unrestricted.
+  const canEditGoal = (goal: Goal) => goal.manager_id === currentUser.id || isSuperAdminUser(currentUser.role);
+
+  const [editObjective, setEditObjective] = useState('');
+  const [editExpectedResult, setEditExpectedResult] = useState('');
+  const [editDeadline, setEditDeadline] = useState('');
+
+  const openEditGoal = (goal: Goal) => {
+    setEditingGoal(goal);
+    setEditObjective(goal.objective);
+    setEditExpectedResult(goal.expected_result);
+    setEditDeadline(goal.deadline);
+  };
+
+  const handleEditGoalSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingGoal || !editObjective.trim() || !editExpectedResult.trim()) return;
+    updateGoal(editingGoal.id, { objective: editObjective, expected_result: editExpectedResult, deadline: editDeadline });
+    setEditingGoal(null);
+  };
+
+  const handleDeleteGoal = (goal: Goal) => {
+    if (confirm(`Delete the 1-Minute Goal "${goal.objective}"?`)) {
+      deleteGoal(goal.id);
+    }
+  };
 
   // Form State
   const [objective, setObjective] = useState('');
   const [expectedResult, setExpectedResult] = useState('');
   const [deadline, setDeadline] = useState('2026-10-30');
-  const [employeeId, setEmployeeId] = useState('u2');
+  const [employeeId, setEmployeeId] = useState(currentUser.id);
 
   // Strategy Input State
   const [strategyInput, setStrategyInput] = useState('');
@@ -60,12 +99,15 @@ export default function GoalsPage() {
     e.preventDefault();
     if (!objective.trim() || !expectedResult.trim()) return;
 
-    const emp = users.find(u => u.id === employeeId);
+    // Defensive re-check even though the dropdown is already restricted — a personal goal
+    // can only be set for yourself unless you're actually allowed to assign to that person.
+    const targetId = assignableUsers.some(u => u.id === employeeId) ? employeeId : currentUser.id;
+    const emp = users.find(u => u.id === targetId);
 
     addGoal({
       manager_id: currentUser.id,
       manager_name: currentUser.full_name,
-      employee_id: employeeId,
+      employee_id: targetId,
       employee_name: emp ? emp.full_name : 'Team Member',
       objective,
       expected_result: expectedResult,
@@ -115,8 +157,8 @@ export default function GoalsPage() {
 
         <button
           type="button"
-          onClick={() => setNewGoalModalOpen(true)}
-          className="px-4 py-2 rounded-xl bg-[#0D52F8] hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer self-start sm:self-auto"
+          onClick={() => { setEmployeeId(currentUser.id); setNewGoalModalOpen(true); }}
+          className="px-4 py-2 rounded-xl bg-mode-royal hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer self-start sm:self-auto"
         >
           <Plus size={15} />
           <span>Set 1-Minute Goal</span>
@@ -164,9 +206,31 @@ export default function GoalsPage() {
                   {goal.objective}
                 </h3>
               </div>
-              <span className="text-sm font-mono font-black text-slate-900 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
-                {goal.progress}%
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-sm font-mono font-black text-slate-900 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
+                  {goal.progress}%
+                </span>
+                {canEditGoal(goal) && (
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => openEditGoal(goal)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-mode-royal hover:bg-blue-50 transition"
+                      title="Edit Goal"
+                    >
+                      <Edit3 size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteGoal(goal)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                      title="Delete Goal"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Expected Result */}
@@ -187,7 +251,7 @@ export default function GoalsPage() {
                 max="100"
                 value={goal.progress}
                 onChange={e => updateGoalProgress(goal.id, parseInt(e.target.value))}
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0D52F8]"
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-mode-royal"
               />
             </div>
 
@@ -262,16 +326,28 @@ export default function GoalsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Assign To Team Member</label>
-                  <select
-                    value={employeeId}
-                    onChange={e => setEmployeeId(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                  >
-                    {users.map(u => (
-                      <option key={u.id} value={u.id}>{u.full_name} ({u.job_title})</option>
-                    ))}
-                  </select>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    {canAssignOthers ? 'Assign To Team Member' : 'For'}
+                  </label>
+                  {canAssignOthers ? (
+                    <select
+                      value={employeeId}
+                      onChange={e => setEmployeeId(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                    >
+                      <option value={currentUser.id}>Me ({currentUser.job_title})</option>
+                      {assignableUsers.filter(u => u.id !== currentUser.id).map(u => (
+                        <option key={u.id} value={u.id}>{u.full_name} ({u.job_title})</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      disabled
+                      value={`Me (${currentUser.job_title || currentUser.full_name})`}
+                      className="w-full px-3 py-2 border border-slate-100 rounded-lg text-xs bg-slate-50 text-slate-400"
+                      title="Personal goals are self-only — only a department head can set a goal for someone else"
+                    />
+                  )}
                 </div>
 
                 <div>
@@ -295,9 +371,70 @@ export default function GoalsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold transition"
+                  className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold transition"
                 >
                   Create Goal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Goal Modal */}
+      {editingGoal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setEditingGoal(null)} />
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 z-10">
+            <h2 className="text-base font-bold text-slate-900 mb-1">Edit 1-Minute Goal</h2>
+            <p className="text-xs text-slate-500 mb-4">Update the objective, expected result, or deadline.</p>
+
+            <form onSubmit={handleEditGoalSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Goal Objective *</label>
+                <input
+                  type="text"
+                  required
+                  value={editObjective}
+                  onChange={e => setEditObjective(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Expected Measurable Result *</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={editExpectedResult}
+                  onChange={e => setEditExpectedResult(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Target Deadline</label>
+                <input
+                  type="date"
+                  value={editDeadline}
+                  onChange={e => setEditDeadline(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingGoal(null)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg font-semibold hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold transition"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>

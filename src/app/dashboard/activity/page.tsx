@@ -106,7 +106,7 @@ export default function ActivityPage() {
           }
           renderItem={(act) => (
             <div className="flex items-start gap-3 sm:gap-4 p-3 rounded-xl hover:bg-slate-50/80 transition-colors h-[76px] box-border border-b border-slate-100/80">
-              <div className="w-8 h-8 rounded-full bg-blue-50 text-[#0D52F8] flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+              <div className="w-8 h-8 rounded-full bg-blue-50 text-mode-royal flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
                 <Activity size={15} />
               </div>
               <div className="flex-1 min-w-0 space-y-1">

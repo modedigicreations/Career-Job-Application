@@ -197,7 +197,7 @@ export default function ExpensesPage() {
         <button
           type="button"
           onClick={() => setNewReqModalOpen(true)}
-          className="px-4 py-2 rounded-xl bg-[#0D52F8] hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer self-start sm:self-auto"
+          className="px-4 py-2 rounded-xl bg-mode-royal hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer self-start sm:self-auto"
         >
           <Plus size={15} />
           <span>New Requisition</span>
@@ -334,7 +334,7 @@ export default function ExpensesPage() {
                           <button
                             type="button"
                             onClick={() => setDecisionModalReq(req)}
-                            className="px-2.5 py-1 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs transition cursor-pointer"
+                            className="px-2.5 py-1 bg-mode-royal hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs transition cursor-pointer"
                           >
                             Review
                           </button>
@@ -487,7 +487,7 @@ export default function ExpensesPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold transition shadow-xs"
+                  className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold transition shadow-xs"
                 >
                   Submit for Approval
                 </button>
@@ -506,7 +506,7 @@ export default function ExpensesPage() {
             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 my-3 text-xs space-y-1">
               <div className="font-bold text-slate-900">{decisionModalReq.title}</div>
               <div className="text-slate-500">Requested by: {decisionModalReq.staffName}</div>
-              <div className="text-base font-extrabold text-[#0D52F8]">
+              <div className="text-base font-extrabold text-mode-royal">
                 {formatCurrency(decisionModalReq.amount, decisionModalReq.currency)}
               </div>
             </div>
@@ -607,7 +607,7 @@ export default function ExpensesPage() {
             {/* Receipt Header */}
             <div className="flex items-center justify-between border-b pb-3 border-slate-200">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-[#0D52F8] text-white flex items-center justify-center font-bold">M</div>
+                <div className="w-8 h-8 rounded-lg bg-mode-royal text-white flex items-center justify-center font-bold">M</div>
                 <div>
                   <span className="text-base font-black tracking-tight text-slate-900 block leading-tight">MODE DIGITAL CREATIONS</span>
                   <p className="text-[10px] text-slate-500">Enterprise Operations Suite • Internal Payment Voucher</p>
@@ -678,7 +678,7 @@ export default function ExpensesPage() {
             <button
               type="button"
               onClick={() => window.print()}
-              className="px-4 py-1.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+              className="px-4 py-1.5 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
               <Printer size={13} />
               <span>Print Official Voucher</span>
@@ -874,7 +874,7 @@ export default function ExpensesPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  className="px-4 py-1.5 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
                 >
                   <Check size={13} />
                   <span>Save Changes</span>

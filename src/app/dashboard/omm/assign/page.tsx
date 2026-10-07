@@ -17,13 +17,23 @@ import {
   KeyRound,
   Eye,
   EyeOff,
-  CheckCircle2
+  CheckCircle2,
+  Lock
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
+import { isManagementUser } from '@/lib/utils';
 import type { UserProfile, UserRole } from '@/lib/types';
+
+function formatLastLogin(iso?: string): string {
+  if (!iso) return 'Never';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return 'Never';
+  return d.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 
 export default function StaffAllocationPage() {
   const { users, updateUserProfile, addUserProfile, deleteUserProfile, currentUser } = useAppStore();
+  const canManageStaff = isManagementUser(currentUser.role);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
 
@@ -34,6 +44,7 @@ export default function StaffAllocationPage() {
   const [department, setDepartment] = useState('');
   const [role, setRole] = useState<UserRole>('employee');
   const [phone, setPhone] = useState('');
+  const [managerId, setManagerId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -47,6 +58,7 @@ export default function StaffAllocationPage() {
     setDepartment('Operations');
     setRole('employee');
     setPhone('');
+    setManagerId('');
     setPassword('password123');
     setShowPassword(false);
     setIsModalOpen(true);
@@ -60,7 +72,8 @@ export default function StaffAllocationPage() {
     setDepartment(u.department || 'Operations');
     setRole(u.role);
     setPhone(u.phone || '');
-    setPassword(u.password || '');
+    setManagerId(u.manager_id || '');
+    setPassword(''); // never pre-fill — the stored value is a hash, and re-submitting it would hash-the-hash
     setShowPassword(false);
     setIsModalOpen(true);
   };
@@ -116,6 +129,7 @@ export default function StaffAllocationPage() {
         department: department.trim(),
         role,
         phone: phone.trim(),
+        manager_id: managerId || null,
         ...(password.trim() ? { password: password.trim() } : {}),
       });
       setToastMessage(`Staff credentials for "${fullName.trim()}" updated and synced to server!`);
@@ -127,6 +141,7 @@ export default function StaffAllocationPage() {
         department: department.trim() || 'Operations',
         role,
         phone: phone.trim(),
+        manager_id: managerId || null,
         is_active: true,
         password: password.trim() || 'password123',
       });
@@ -150,6 +165,27 @@ export default function StaffAllocationPage() {
       closeModal();
     }
   };
+
+  if (!canManageStaff) {
+    return (
+      <div className="max-w-3xl mx-auto py-12 px-4">
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-8 text-center animate-in fade-in duration-200">
+          <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100 shadow-xs">
+            <Lock size={28} />
+          </div>
+          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-rose-600 bg-rose-50 px-3 py-1 rounded-full border border-rose-200">
+            Restricted
+          </span>
+          <h1 className="text-2xl font-black text-slate-900 mt-3 mb-2 tracking-tight">
+            Staff Allocation &amp; Management Hierarchy
+          </h1>
+          <p className="text-slate-600 text-sm max-w-lg mx-auto leading-relaxed">
+            Editing staff roles, credentials, and the reporting hierarchy is restricted to managers, administrators, and the Managing Director.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -204,7 +240,7 @@ export default function StaffAllocationPage() {
           <button
             type="button"
             onClick={openAddModal}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0"
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0"
           >
             <Plus size={15} />
             <span>Add Staff Member</span>
@@ -221,7 +257,7 @@ export default function StaffAllocationPage() {
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full bg-[#0D52F8] text-white flex items-center justify-center font-bold text-base shadow-sm shrink-0">
+                  <div className="w-11 h-11 rounded-full bg-mode-royal text-white flex items-center justify-center font-bold text-base shadow-sm shrink-0">
                     {u.full_name ? u.full_name[0] : 'U'}
                   </div>
                   <div>
@@ -261,6 +297,16 @@ export default function StaffAllocationPage() {
                     <span className="text-slate-700 text-[11px]">{u.phone}</span>
                   </div>
                 )}
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Last Login:</span>
+                  <span className={`text-[11px] ${u.last_login ? 'text-slate-700' : 'text-slate-400 italic'}`}>{formatLastLogin(u.last_login)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Reports To:</span>
+                  <span className="text-slate-700 text-[11px]">
+                    {u.manager_id ? (users.find(m => m.id === u.manager_id)?.full_name || 'Unknown') : '—'}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -271,7 +317,7 @@ export default function StaffAllocationPage() {
               <button
                 type="button"
                 onClick={() => openEditModal(u)}
-                className="text-xs font-semibold text-[#0D52F8] hover:underline"
+                className="text-xs font-semibold text-mode-royal hover:underline"
               >
                 Edit Credentials
               </button>
@@ -375,6 +421,23 @@ export default function StaffAllocationPage() {
               </div>
 
               <div>
+                <label className="block text-slate-700 font-semibold mb-1">Reports To (Department Head)</label>
+                <select
+                  value={managerId}
+                  onChange={e => setManagerId(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                >
+                  <option value="">No direct manager</option>
+                  {users.filter(u => !editingUser || u.id !== editingUser.id).map(u => (
+                    <option key={u.id} value={u.id}>{u.full_name} ({u.role.replace('_', ' ')})</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Determines who can assign tasks and 1-Minute Goals to this person.
+                </p>
+              </div>
+
+              <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-slate-700 font-semibold">Staff Password & Credentials</label>
                   <button
@@ -423,7 +486,7 @@ export default function StaffAllocationPage() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
+                    className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
                   >
                     <Check size={14} />
                     <span>{editingUser ? 'Update Credentials' : 'Add Staff Member'}</span>

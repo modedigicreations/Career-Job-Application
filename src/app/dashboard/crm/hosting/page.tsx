@@ -243,7 +243,7 @@ export default function HostingPage() {
             type="button"
             onClick={handleSyncWhmcs}
             disabled={isSyncing}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition disabled:opacity-50 cursor-pointer"
             title="Fetch latest domain and hosting renewals from WHMCS API"
           >
             <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
@@ -544,8 +544,12 @@ export default function HostingPage() {
                       <td className="py-3.5 px-4 text-right">
                         <button
                           type="button"
-                          onClick={() => renewHosting(h.id, 12)}
-                          className="px-2.5 py-1 bg-slate-900 hover:bg-[#0D52F8] text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
+                          onClick={() => {
+                            if (confirm(`Confirm renewal of ${h.domainName} (${h.clientName}) for 1 year? The expiry date will move forward 12 months.`)) {
+                              renewHosting(h.id, 12);
+                            }
+                          }}
+                          className="px-2.5 py-1 bg-slate-900 hover:bg-mode-royal text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
                           title="Renew domain and hosting for 1 year"
                         >
                           <RefreshCw size={11} />
