@@ -14,7 +14,7 @@ import {
   initialFeedbacks, initialTickets, initialActivities, initialNotifications,
   initialPayrollRecords, initialShifts, initialMemos, initialShiftTasks
 } from './seed-data';
-import { generateReceiptNumber, canAssignTo } from './utils';
+import { generateReceiptNumber, canAssignTo, isManagementUser, isSuperAdminUser } from './utils';
 import { initStorage, setStorageItem } from './storage';
 
 interface AppContextType {
@@ -1725,6 +1725,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateRequisitionDecision = (id: string, status: 'Approved' | 'Rejected', decisionNotes: string) => {
+    // Defense in depth — the UI already hides this action from non-management users, but this
+    // app has no server-side per-request authorization, so guard the store function itself too.
+    if (!isManagementUser(currentUser.role)) return;
     let changedItem: Requisition | undefined;
     setRequisitions(prev => prev.map(r => {
       if (r.id !== id) return r;
@@ -1755,6 +1758,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const disburseRequisition = (id: string, transactionId: string) => {
+    if (!isManagementUser(currentUser.role)) return;
     let changedItem: Requisition | undefined;
     setRequisitions(prev => prev.map(r => {
       if (r.id !== id) return r;
@@ -1820,7 +1824,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     logActivity('omm_strategy', `Submitted 1-Minute Strategy Plan`, 'Goal', id);
   };
 
+  // Only the goal's own manager (or a super-admin) may approve/send-back a strategy — matches
+  // the canEditGoal check the OMM Goals page UI uses to show these actions in the first place.
+  const canDecideGoalStrategy = (goal: Goal) => goal.manager_id === currentUser.id || isSuperAdminUser(currentUser.role);
+
   const approveGoalStrategy = (id: string, feedbackNote?: string) => {
+    const goal = goals.find(g => g.id === id);
+    if (!goal || !canDecideGoalStrategy(goal)) return;
     let changedItem: Goal | undefined;
     setGoals(prev => prev.map(g => {
       if (g.id !== id) return g;
@@ -1832,6 +1842,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const requestGoalStrategyRevision = (id: string, feedbackNote: string) => {
+    const goal = goals.find(g => g.id === id);
+    if (!goal || !canDecideGoalStrategy(goal)) return;
     let changedItem: Goal | undefined;
     setGoals(prev => prev.map(g => {
       if (g.id !== id) return g;
