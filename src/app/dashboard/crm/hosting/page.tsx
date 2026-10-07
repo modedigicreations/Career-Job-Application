@@ -106,11 +106,11 @@ export default function HostingPage() {
     .filter(h => h.status === 'active')
     .reduce((acc, curr) => acc + curr.monthlyFee, 0);
 
-  const handleSyncWhmcs = async () => {
+  const handleSyncWhmcs = async (overrideCreds?: { apiUrl?: string; identifier?: string; secret?: string }) => {
     setIsSyncing(true);
     setSyncNotice(null);
     try {
-      const res = await syncWhmcsHosting();
+      const res = await syncWhmcsHosting(overrideCreds);
       if (res.success) {
         setSyncNotice({
           type: 'success',
@@ -199,7 +199,11 @@ export default function HostingPage() {
       isConnected: true,
     });
     setIsWhmcsModalOpen(false);
-    handleSyncWhmcs();
+    // Pass the just-typed values directly rather than relying on the updateWhmcsConfig
+    // state update above having applied yet — setState is async, so without this the sync
+    // below would run against last render's (possibly empty) whmcsConfig, not what was
+    // just entered and tested.
+    handleSyncWhmcs({ apiUrl: modalApiUrl, identifier: modalIdentifier, secret: modalSecret });
   };
 
   return (
@@ -241,7 +245,7 @@ export default function HostingPage() {
 
           <button
             type="button"
-            onClick={handleSyncWhmcs}
+            onClick={() => handleSyncWhmcs()}
             disabled={isSyncing}
             className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition disabled:opacity-50 cursor-pointer"
             title="Fetch latest domain and hosting renewals from WHMCS API"
