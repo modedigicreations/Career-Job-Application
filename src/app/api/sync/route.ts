@@ -10,6 +10,17 @@ async function requireSession() {
   return token ? verifySessionToken(token) : null;
 }
 
+// Every legitimate array-valued entity in ServerState. `entity` arrives as a raw client
+// string in both the delta and full-snapshot paths below — without this whitelist, a client
+// could pass entity: "lastUpdated" (or any other top-level field name) and the code would
+// happily do `current[entity] = [...]`, corrupting that field with an array it was never
+// meant to hold. 'integrations' is deliberately excluded (write-only via a role-gated route).
+const SYNCABLE_ENTITIES = new Set([
+  'services', 'shifts', 'users', 'shiftTasks', 'memos', 'leads', 'projects', 'invoices',
+  'requisitions', 'companies', 'contacts', 'hostingAccounts', 'tasks', 'payments', 'tickets',
+  'goals', 'feedbacks', 'payrollRecords'
+]);
+
 function sanitizeUsers(users: any[]) {
   return users.map(({ password, ...safe }) => safe);
 }
@@ -79,7 +90,7 @@ export async function POST(request: Request) {
     const nowIso = new Date().toISOString();
 
     // 1. Delta / Patch Sync Optimization
-    if (body.delta && body.delta.entity && body.delta.entity !== 'integrations') {
+    if (body.delta && body.delta.entity && SYNCABLE_ENTITIES.has(body.delta.entity)) {
       const { entity, action, item, id } = body.delta;
       const targetList = Array.isArray((current as any)[entity]) ? [...(current as any)[entity]] : [];
 
@@ -140,9 +151,9 @@ export async function POST(request: Request) {
     // 2. Full Snapshot Entity Update
     // `integrations` (holds the WATI API key) is deliberately excluded from this generic,
     // any-authenticated-user-writable path — it can only be changed via the role-gated
-    // /api/settings/integrations route.
+    // /api/settings/integrations route. Same SYNCABLE_ENTITIES whitelist as the delta path.
     let updatedEntity: string = 'all';
-    if (body.entity && body.entity !== 'integrations' && body.data !== undefined) {
+    if (body.entity && SYNCABLE_ENTITIES.has(body.entity) && body.data !== undefined) {
       updatedEntity = body.entity;
       (current as any)[body.entity] = body.entity === 'users' && Array.isArray(body.data)
         ? await hashAnyPlaintextPasswords(mergeUsersPreservingPassword(body.data, current.users))
