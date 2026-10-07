@@ -47,7 +47,6 @@ export default function Sidebar() {
     mobileSidebarOpen,
     setMobileSidebarOpen,
     activeShift,
-    clockInStaff,
     setResumeShiftModalOpen,
     setShiftReviewModalOpen,
     logout,

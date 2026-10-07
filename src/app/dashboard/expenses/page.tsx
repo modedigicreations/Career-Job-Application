@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import type { Requisition, RequisitionUrgency, RequisitionStatus, Currency } from '@/lib/types';
-import { formatCurrency, formatDate, getUrgencyBadge, getRequisitionStatusBadge } from '@/lib/utils';
+import { formatCurrency, formatDate, getUrgencyBadge, getRequisitionStatusBadge, isManagementUser } from '@/lib/utils';
 
 export default function ExpensesPage() {
   const {
@@ -34,6 +34,9 @@ export default function ExpensesPage() {
     disburseRequisition,
     currentUser
   } = useAppStore();
+  // Approving/rejecting and disbursing are management-tier actions — staff submit their own
+  // requisitions but must not be able to approve or pay out ANY requisition, including their own.
+  const canApprove = isManagementUser(currentUser.role);
 
   const [activeTab, setActiveTab] = useState<'All' | 'Pending' | 'Approved' | 'Completed'>('All');
   const [filterCategory, setFilterCategory] = useState<string>('All');
@@ -329,8 +332,8 @@ export default function ExpensesPage() {
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        {/* If Pending: Review / Decision */}
-                        {req.status === 'Pending' && (
+                        {/* If Pending: Review / Decision — management-tier only */}
+                        {req.status === 'Pending' && canApprove && (
                           <button
                             type="button"
                             onClick={() => setDecisionModalReq(req)}
@@ -339,9 +342,12 @@ export default function ExpensesPage() {
                             Review
                           </button>
                         )}
+                        {req.status === 'Pending' && !canApprove && (
+                          <span className="text-[10px] text-slate-400 italic">Awaiting manager review</span>
+                        )}
 
-                        {/* If Approved: Disburse */}
-                        {req.status === 'Approved' && (
+                        {/* If Approved: Disburse — management-tier only */}
+                        {req.status === 'Approved' && canApprove && (
                           <button
                             type="button"
                             onClick={() => setDisburseModalReq(req)}
@@ -418,6 +424,7 @@ export default function ExpensesPage() {
                   <label className="block text-slate-700 font-semibold mb-1">Amount Required *</label>
                   <input
                     type="number"
+                    min="0"
                     required
                     value={amount}
                     onChange={e => setAmount(e.target.value)}
@@ -765,6 +772,7 @@ export default function ExpensesPage() {
                   <span className="absolute left-3 top-2 font-bold text-slate-400">₦</span>
                   <input
                     type="number"
+                    min="0"
                     required
                     value={editAmount}
                     onChange={e => setEditAmount(e.target.value)}

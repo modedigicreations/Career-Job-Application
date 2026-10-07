@@ -377,9 +377,21 @@ export default function LeadsPage() {
                     {formatCurrency(lead.budget, lead.currency)}
                   </td>
                   <td className="py-3.5 px-4">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border capitalize ${getLeadStatusBadge(lead.status)}`}>
-                      {lead.status.replace('-', ' ')}
-                    </span>
+                    <select
+                      value={lead.status}
+                      onChange={e => updateLeadStatus(lead.id, e.target.value as LeadStatus)}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border capitalize cursor-pointer focus:outline-none ${getLeadStatusBadge(lead.status)}`}
+                      title="Change pipeline stage"
+                    >
+                      <option value="new-lead">New Lead</option>
+                      <option value="qualified">Qualified</option>
+                      <option value="contacted">Contacted</option>
+                      <option value="discovery-call">Discovery Call</option>
+                      <option value="proposal-sent">Proposal Sent</option>
+                      <option value="negotiation">Negotiation</option>
+                      <option value="won">Won</option>
+                      <option value="lost">Lost</option>
+                    </select>
                   </td>
                   <td className="py-3.5 px-4 text-right">
                     <div className="flex items-center justify-end gap-1.5">
