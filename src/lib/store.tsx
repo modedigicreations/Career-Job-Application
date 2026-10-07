@@ -660,21 +660,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             });
           }
 
-          // Sync requisitions safely — guards against a concurrent local edit being
-          // clobbered by a slightly-stale server read that lands in between.
-          if (Array.isArray(serverDb.requisitions)) {
-            setRequisitions(prev => {
-              const prevStr = JSON.stringify(prev);
-              const serverStr = JSON.stringify(serverDb.requisitions);
-              if (prevStr === serverStr) return prev;
-
-              const localTs = lastLocalEditRef.current['requisitions'] || 0;
-              const serverTs = serverDb.requisitionsLastUpdated ? new Date(serverDb.requisitionsLastUpdated).getTime() : 0;
+          // Simple last-write-wins merge for entities with no bespoke conflict logic of
+          // their own (contrast services/shifts above, which protect specific invariants
+          // like "never overwrite a customized catalog" or "never clobber an active shift").
+          // Guards against a concurrent local edit being clobbered by a slightly-stale
+          // server read landing in between.
+          function mergeSimple<T>(entity: string, serverArray: T[] | undefined, serverTsIso: string | undefined, setter: React.Dispatch<React.SetStateAction<T[]>>) {
+            if (!Array.isArray(serverArray)) return;
+            setter(prev => {
+              if (JSON.stringify(prev) === JSON.stringify(serverArray)) return prev;
+              const localTs = lastLocalEditRef.current[entity] || 0;
+              const serverTs = serverTsIso ? new Date(serverTsIso).getTime() : 0;
               if (localTs > serverTs) return prev;
-
-              return serverDb.requisitions;
+              return serverArray;
             });
           }
+
+          mergeSimple('requisitions', serverDb.requisitions, serverDb.requisitionsLastUpdated, setRequisitions);
+          mergeSimple('leads', serverDb.leads, serverDb.leadsLastUpdated, setLeads);
+          mergeSimple('contacts', serverDb.contacts, undefined, setContacts);
+          mergeSimple('companies', serverDb.companies, undefined, setCompanies);
+          mergeSimple('projects', serverDb.projects, serverDb.projectsLastUpdated, setProjects);
+          mergeSimple('tasks', serverDb.tasks, undefined, setTasks);
+          mergeSimple('hostingAccounts', serverDb.hostingAccounts, undefined, setHostingAccounts);
+          mergeSimple('invoices', serverDb.invoices, serverDb.invoicesLastUpdated, setInvoices);
+          mergeSimple('payments', serverDb.payments, serverDb.paymentsLastUpdated, setPayments);
+          mergeSimple('tickets', serverDb.tickets, serverDb.ticketsLastUpdated, setTickets);
+          mergeSimple('goals', serverDb.goals, serverDb.goalsLastUpdated, setGoals);
+          mergeSimple('feedbacks', serverDb.feedbacks, serverDb.feedbacksLastUpdated, setFeedbacks);
+          mergeSimple('payrollRecords', serverDb.payrollRecords, serverDb.payrollRecordsLastUpdated, setPayrollRecords);
 
           // Sync staff memos safely with timestamp protection
           if (Array.isArray(serverDb.memos) && serverDb.memos.length > 0) {
@@ -1031,12 +1045,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `l-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setLeads(prev => [newLead, ...prev]);
+    setLeads(prev => {
+      const updated = [newLead, ...prev];
+      syncEntityToServer('leads', updated);
+      return updated;
+    });
     logActivity('crm_lead', `Added lead: ${newLead.name} (${newLead.company})`, 'Lead', newLead.id);
   };
 
   const updateLeadStatus = (id: string, status: LeadStatus) => {
-    setLeads(prev => prev.map(l => l.id === id ? { ...l, status, updatedAt: new Date().toISOString().split('T')[0] } : l));
+    setLeads(prev => {
+      const updated = prev.map(l => l.id === id ? { ...l, status, updatedAt: new Date().toISOString().split('T')[0] } : l);
+      syncEntityToServer('leads', updated);
+      return updated;
+    });
     const target = leads.find(l => l.id === id);
     if (target) {
       logActivity('crm_pipeline', `Moved ${target.company} to ${status.replace('-', ' ')}`, 'Lead', id);
@@ -1044,7 +1066,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteLead = (id: string) => {
-    setLeads(prev => prev.filter(l => l.id !== id));
+    setLeads(prev => {
+      const updated = prev.filter(l => l.id !== id);
+      syncEntityToServer('leads', updated);
+      return updated;
+    });
   };
 
   const addContact = (contactData: Omit<Contact, 'id' | 'createdAt'>) => {
@@ -1058,6 +1084,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_contacts', JSON.stringify(updated));
       }
+      syncEntityToServer('contacts', updated);
       return updated;
     });
     logActivity('crm_contact', `Added client contact: ${newContact.name}`, 'Contact', newContact.id);
@@ -1069,6 +1096,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_contacts', JSON.stringify(updated));
       }
+      syncEntityToServer('contacts', updated);
       return updated;
     });
     logActivity('crm_contact', `Updated client contact: ${updates.name || id}`, 'Contact', id);
@@ -1080,6 +1108,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_contacts', JSON.stringify(updated));
       }
+      syncEntityToServer('contacts', updated);
       return updated;
     });
     logActivity('crm_contact', `Removed contact from client directory`, 'Contact', id);
@@ -1091,17 +1120,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `co-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setCompanies(prev => [newCompany, ...prev]);
+    setCompanies(prev => {
+      const updated = [newCompany, ...prev];
+      syncEntityToServer('companies', updated);
+      return updated;
+    });
     logActivity('crm_company', `Added corporate client org: ${newCompany.name}`, 'Company', newCompany.id);
   };
 
   const updateCompany = (id: string, updates: Partial<Company>) => {
-    setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+    setCompanies(prev => {
+      const updated = prev.map(c => c.id === id ? { ...c, ...updates } : c);
+      syncEntityToServer('companies', updated);
+      return updated;
+    });
     logActivity('crm_company', `Updated corporate client org: ${updates.name || id}`, 'Company', id);
   };
 
   const deleteCompany = (id: string) => {
-    setCompanies(prev => prev.filter(c => c.id !== id));
+    setCompanies(prev => {
+      const updated = prev.filter(c => c.id !== id);
+      syncEntityToServer('companies', updated);
+      return updated;
+    });
     logActivity('crm_company', `Deleted corporate client org (${id})`, 'Company', id);
   };
 
@@ -1112,29 +1153,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `p-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setProjects(prev => [newProject, ...prev]);
+    setProjects(prev => {
+      const updated = [newProject, ...prev];
+      syncEntityToServer('projects', updated);
+      return updated;
+    });
     logActivity('crm_project', `Created client project: ${newProject.name}`, 'Project', newProject.id);
   };
 
   const updateProject = (id: string, updates: Partial<Project>) => {
-    setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+    setProjects(prev => {
+      const updated = prev.map(p => p.id === id ? { ...p, ...updates } : p);
+      syncEntityToServer('projects', updated);
+      return updated;
+    });
     logActivity('crm_project', `Updated client project: ${updates.name || id}`, 'Project', id);
   };
 
   const deleteProject = (id: string) => {
-    setProjects(prev => prev.filter(p => p.id !== id));
-    setTasks(prev => prev.filter(t => t.projectId !== id));
+    setProjects(prev => {
+      const updated = prev.filter(p => p.id !== id);
+      syncEntityToServer('projects', updated);
+      return updated;
+    });
+    setTasks(prev => {
+      const updated = prev.filter(t => t.projectId !== id);
+      syncEntityToServer('tasks', updated);
+      return updated;
+    });
     logActivity('crm_project', `Deleted client project (${id})`, 'Project', id);
   };
 
   const toggleTask = (id: string) => {
-    setTasks(prev => prev.map(t => {
-      if (t.id === id) {
-        const nextStatus = t.status === 'completed' ? 'pending' : 'completed';
-        return { ...t, status: nextStatus };
-      }
-      return t;
-    }));
+    setTasks(prev => {
+      const updated = prev.map(t => t.id === id ? { ...t, status: (t.status === 'completed' ? 'pending' : 'completed') as Task['status'] } : t);
+      syncEntityToServer('tasks', updated);
+      return updated;
+    });
   };
 
   const addTask = (taskData: Omit<Task, 'id' | 'createdAt'>) => {
@@ -1143,15 +1198,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `t-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setTasks(prev => [newTask, ...prev]);
+    setTasks(prev => {
+      const updated = [newTask, ...prev];
+      syncEntityToServer('tasks', updated);
+      return updated;
+    });
   };
 
   const updateTask = (id: string, updates: Partial<Task>) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+    setTasks(prev => {
+      const updated = prev.map(t => t.id === id ? { ...t, ...updates } : t);
+      syncEntityToServer('tasks', updated);
+      return updated;
+    });
   };
 
   const deleteTask = (id: string) => {
-    setTasks(prev => prev.filter(t => t.id !== id));
+    setTasks(prev => {
+      const updated = prev.filter(t => t.id !== id);
+      syncEntityToServer('tasks', updated);
+      return updated;
+    });
   };
 
   // Daily Shift Task Checklist
@@ -1366,19 +1433,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const renewHosting = (id: string, additionalMonths = 12) => {
-    setHostingAccounts(prev => prev.map(h => {
-      if (h.id === id) {
-        const curr = new Date(h.expiryDate);
-        curr.setMonth(curr.getMonth() + additionalMonths);
-        return {
-          ...h,
-          expiryDate: curr.toISOString().split('T')[0],
-          status: 'active',
-          sslStatus: 'active',
-        };
-      }
-      return h;
-    }));
+    setHostingAccounts(prev => {
+      const updated = prev.map(h => {
+        if (h.id === id) {
+          const curr = new Date(h.expiryDate);
+          curr.setMonth(curr.getMonth() + additionalMonths);
+          return {
+            ...h,
+            expiryDate: curr.toISOString().split('T')[0],
+            status: 'active' as const,
+            sslStatus: 'active' as const,
+          };
+        }
+        return h;
+      });
+      syncEntityToServer('hostingAccounts', updated);
+      return updated;
+    });
     const target = hostingAccounts.find(h => h.id === id);
     if (target) {
       logActivity('hosting_renew', `Extended domain & hosting renewal for ${target.domainName} by ${additionalMonths} months`, 'Hosting', id);
@@ -1409,6 +1480,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
       if (data && data.success && Array.isArray(data.accounts)) {
         setHostingAccounts(data.accounts);
+        syncEntityToServer('hostingAccounts', data.accounts);
         const now = new Date().toISOString();
         updateWhmcsConfig({
           isConnected: true,
@@ -1431,7 +1503,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `inv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setInvoices(prev => [newInvoice, ...prev]);
+    setInvoices(prev => {
+      const updated = [newInvoice, ...prev];
+      syncEntityToServer('invoices', updated);
+      return updated;
+    });
     logActivity('crm_invoice', `Created invoice #${newInvoice.invoiceNumber} for ${newInvoice.clientName}`, 'Invoice', newInvoice.id);
   };
 
@@ -1450,45 +1526,59 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_payments', JSON.stringify(nextPayments));
       }
+      syncEntityToServer('payments', nextPayments);
       return nextPayments;
     });
 
-    setInvoices(prev => prev.map(inv => {
-      if (inv.id === invoiceId) {
-        const updatedPaid = inv.amountPaid + amount;
-        const newStatus = updatedPaid >= inv.total ? 'paid' : 'partially-paid';
-        return { ...inv, amountPaid: updatedPaid, status: newStatus };
-      }
-      return inv;
-    }));
+    setInvoices(prev => {
+      const updated = prev.map(inv => {
+        if (inv.id === invoiceId) {
+          const updatedPaid = inv.amountPaid + amount;
+          const newStatus = updatedPaid >= inv.total ? 'paid' : 'partially-paid';
+          return { ...inv, amountPaid: updatedPaid, status: newStatus as Invoice['status'] };
+        }
+        return inv;
+      });
+      syncEntityToServer('invoices', updated);
+      return updated;
+    });
 
     logActivity('crm_payment', `Recorded payment of ₦${amount.toLocaleString()} for Invoice`, 'Payment', newPayment.id);
   };
 
   const updateInvoice = (id: string, updates: Partial<Invoice>) => {
-    setInvoices(prev => prev.map(inv => {
-      if (inv.id === id) {
-        const next = { ...inv, ...updates };
-        if (updates.amountPaid !== undefined || updates.total !== undefined) {
-          const paid = next.amountPaid ?? 0;
-          const tot = next.total ?? 0;
-          if (paid >= tot && tot > 0) next.status = 'paid';
-          else if (paid > 0) next.status = 'partially-paid';
+    setInvoices(prev => {
+      const updated = prev.map(inv => {
+        if (inv.id === id) {
+          const next = { ...inv, ...updates };
+          if (updates.amountPaid !== undefined || updates.total !== undefined) {
+            const paid = next.amountPaid ?? 0;
+            const tot = next.total ?? 0;
+            if (paid >= tot && tot > 0) next.status = 'paid';
+            else if (paid > 0) next.status = 'partially-paid';
+          }
+          return next;
         }
-        return next;
-      }
-      return inv;
-    }));
+        return inv;
+      });
+      syncEntityToServer('invoices', updated);
+      return updated;
+    });
     logActivity('crm_invoice', `Updated invoice details for #${updates.invoiceNumber || id}`, 'Invoice', id);
   };
 
   const deleteInvoice = (id: string) => {
-    setInvoices(prev => prev.filter(inv => inv.id !== id));
+    setInvoices(prev => {
+      const updated = prev.filter(inv => inv.id !== id);
+      syncEntityToServer('invoices', updated);
+      return updated;
+    });
     setPayments(prev => {
       const next = prev.filter(p => p.invoiceId !== id);
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_payments', JSON.stringify(next));
       }
+      syncEntityToServer('payments', next);
       return next;
     });
     logActivity('crm_invoice', `Deleted invoice #${id}`, 'Invoice', id);
@@ -1501,34 +1591,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `payr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setPayrollRecords(prev => [newRecord, ...prev]);
+    setPayrollRecords(prev => {
+      const updated = [newRecord, ...prev];
+      syncEntityToServer('payrollRecords', updated);
+      return updated;
+    });
     logActivity('payroll', `Generated payroll record for ${newRecord.staffName} (${newRecord.period})`, 'Payroll', newRecord.id);
   };
 
   const updatePayrollRecord = (id: string, updates: Partial<PayrollRecord>) => {
-    setPayrollRecords(prev => prev.map(rec => rec.id === id ? { ...rec, ...updates } : rec));
+    setPayrollRecords(prev => {
+      const updated = prev.map(rec => rec.id === id ? { ...rec, ...updates } : rec);
+      syncEntityToServer('payrollRecords', updated);
+      return updated;
+    });
     logActivity('payroll', `Updated payroll record for #${id}`, 'Payroll', id);
   };
 
   const deletePayrollRecord = (id: string) => {
-    setPayrollRecords(prev => prev.filter(rec => rec.id !== id));
+    setPayrollRecords(prev => {
+      const updated = prev.filter(rec => rec.id !== id);
+      syncEntityToServer('payrollRecords', updated);
+      return updated;
+    });
     logActivity('payroll', `Removed payroll record #${id}`, 'Payroll', id);
   };
 
   const processPayrollBatch = (period: string) => {
     const now = new Date().toISOString();
-    setPayrollRecords(prev => prev.map(rec => {
-      if (rec.period === period && rec.status !== 'paid') {
-        return {
-          ...rec,
-          status: 'paid' as const,
-          approvedBy: currentUser.full_name,
-          approvedAt: now,
-          paidAt: now
-        };
-      }
-      return rec;
-    }));
+    setPayrollRecords(prev => {
+      const updated = prev.map(rec => {
+        if (rec.period === period && rec.status !== 'paid') {
+          return {
+            ...rec,
+            status: 'paid' as const,
+            approvedBy: currentUser.full_name,
+            approvedAt: now,
+            paidAt: now
+          };
+        }
+        return rec;
+      });
+      syncEntityToServer('payrollRecords', updated);
+      return updated;
+    });
     logActivity('payroll_batch', `Batch disbursed payroll for period: ${period}`, 'Payroll', period);
   };
 
@@ -1543,11 +1649,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `tk-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setTickets(prev => [newTicket, ...prev]);
+    setTickets(prev => {
+      const updated = [newTicket, ...prev];
+      syncEntityToServer('tickets', updated);
+      return updated;
+    });
   };
 
   const updateTicketStatus = (id: string, status: Ticket['status']) => {
-    setTickets(prev => prev.map(tk => tk.id === id ? { ...tk, status } : tk));
+    setTickets(prev => {
+      const updated = prev.map(tk => tk.id === id ? { ...tk, status } : tk);
+      syncEntityToServer('tickets', updated);
+      return updated;
+    });
   };
 
   // Office Expense Actions
@@ -1642,57 +1756,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       strategy_status: 'pending_submission',
       created_at: new Date().toISOString(),
     };
-    setGoals(prev => [newGoal, ...prev]);
+    setGoals(prev => {
+      const updated = [newGoal, ...prev];
+      syncEntityToServer('goals', updated);
+      return updated;
+    });
     logActivity('omm_goal', `Assigned One-Minute Goal: ${goalData.objective}`, 'Goal', newGoal.id);
   };
 
   const updateGoalProgress = (id: string, progress: number) => {
     const bounded = Math.max(0, Math.min(100, progress));
     const status: GoalStatus = bounded === 100 ? 'completed' : bounded > 0 ? 'in_progress' : 'not_started';
-    setGoals(prev => prev.map(g => g.id === id ? { ...g, progress: bounded, status } : g));
+    setGoals(prev => {
+      const updated = prev.map(g => g.id === id ? { ...g, progress: bounded, status } : g);
+      syncEntityToServer('goals', updated);
+      return updated;
+    });
   };
 
   const submitGoalStrategy = (id: string, strategyText: string) => {
-    setGoals(prev => prev.map(g => {
-      if (g.id === id) {
-        return {
-          ...g,
-          strategy_text: strategyText,
-          strategy_status: 'submitted',
-          strategy_submitted_at: new Date().toISOString(),
-        };
-      }
-      return g;
-    }));
+    setGoals(prev => {
+      const updated = prev.map(g => g.id === id
+        ? { ...g, strategy_text: strategyText, strategy_status: 'submitted' as const, strategy_submitted_at: new Date().toISOString() }
+        : g);
+      syncEntityToServer('goals', updated);
+      return updated;
+    });
     logActivity('omm_strategy', `Submitted 1-Minute Strategy Plan`, 'Goal', id);
   };
 
   const approveGoalStrategy = (id: string, feedbackNote?: string) => {
-    setGoals(prev => prev.map(g => {
-      if (g.id === id) {
-        return {
-          ...g,
-          strategy_status: 'approved',
-          strategy_feedback: feedbackNote,
-          strategy_approved_at: new Date().toISOString(),
-        };
-      }
-      return g;
-    }));
+    setGoals(prev => {
+      const updated = prev.map(g => g.id === id
+        ? { ...g, strategy_status: 'approved' as const, strategy_feedback: feedbackNote, strategy_approved_at: new Date().toISOString() }
+        : g);
+      syncEntityToServer('goals', updated);
+      return updated;
+    });
     logActivity('omm_strategy', `Approved 1-Minute Strategy Plan`, 'Goal', id);
   };
 
   const requestGoalStrategyRevision = (id: string, feedbackNote: string) => {
-    setGoals(prev => prev.map(g => {
-      if (g.id === id) {
-        return {
-          ...g,
-          strategy_status: 'revision_requested',
-          strategy_feedback: feedbackNote,
-        };
-      }
-      return g;
-    }));
+    setGoals(prev => {
+      const updated = prev.map(g => g.id === id
+        ? { ...g, strategy_status: 'revision_requested' as const, strategy_feedback: feedbackNote }
+        : g);
+      syncEntityToServer('goals', updated);
+      return updated;
+    });
   };
 
   const addFeedback = (fbData: Omit<Feedback, 'id' | 'created_at'>) => {
@@ -1701,7 +1812,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `fb-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       created_at: new Date().toISOString(),
     };
-    setFeedbacks(prev => [newFb, ...prev]);
+    setFeedbacks(prev => {
+      const updated = [newFb, ...prev];
+      syncEntityToServer('feedbacks', updated);
+      return updated;
+    });
     logActivity('omm_feedback', `Sent One-Minute ${fbData.type === 'praise' ? 'Praise 🎉' : 'Redirect 🎯'} to ${fbData.employee_name}`, 'Feedback', newFb.id);
   };
 

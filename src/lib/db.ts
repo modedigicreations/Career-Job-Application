@@ -12,7 +12,12 @@ import {
   initialCompanies,
   initialContacts,
   initialHostingAccounts,
-  initialTasks
+  initialTasks,
+  initialPayments,
+  initialTickets,
+  initialGoals,
+  initialFeedbacks,
+  initialPayrollRecords
 } from '@/lib/seed-data';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -41,6 +46,16 @@ export interface ServerState {
   contacts: any[];
   hostingAccounts: any[];
   tasks: any[];
+  payments: any[];
+  paymentsLastUpdated?: string;
+  tickets: any[];
+  ticketsLastUpdated?: string;
+  goals: any[];
+  goalsLastUpdated?: string;
+  feedbacks: any[];
+  feedbacksLastUpdated?: string;
+  payrollRecords: any[];
+  payrollRecordsLastUpdated?: string;
   lastUpdated: string;
 }
 
@@ -65,6 +80,16 @@ export function getInitialDbState(): ServerState {
     contacts: initialContacts,
     hostingAccounts: initialHostingAccounts.map(h => ({ ...h, currency: 'NGN' })),
     tasks: initialTasks,
+    payments: initialPayments.map(p => ({ ...p, currency: 'NGN' })),
+    paymentsLastUpdated: new Date().toISOString(),
+    tickets: initialTickets,
+    ticketsLastUpdated: new Date().toISOString(),
+    goals: initialGoals,
+    goalsLastUpdated: new Date().toISOString(),
+    feedbacks: initialFeedbacks,
+    feedbacksLastUpdated: new Date().toISOString(),
+    payrollRecords: initialPayrollRecords.map(p => ({ ...p, currency: 'NGN' })),
+    payrollRecordsLastUpdated: new Date().toISOString(),
     lastUpdated: new Date().toISOString()
   };
 }
@@ -114,6 +139,15 @@ export function readDb(): ServerState {
       hostingAccounts: Array.isArray(parsed.hostingAccounts)
         ? parsed.hostingAccounts.map((h: any) => ({ ...h, currency: 'NGN' }))
         : initialHostingAccounts.map(h => ({ ...h, currency: 'NGN' })),
+      payments: Array.isArray(parsed.payments)
+        ? parsed.payments.map((p: any) => ({ ...p, currency: 'NGN' }))
+        : initialPayments.map(p => ({ ...p, currency: 'NGN' })),
+      tickets: Array.isArray(parsed.tickets) ? parsed.tickets : initialTickets,
+      goals: Array.isArray(parsed.goals) ? parsed.goals : initialGoals,
+      feedbacks: Array.isArray(parsed.feedbacks) ? parsed.feedbacks : initialFeedbacks,
+      payrollRecords: Array.isArray(parsed.payrollRecords)
+        ? parsed.payrollRecords.map((p: any) => ({ ...p, currency: 'NGN' }))
+        : initialPayrollRecords.map(p => ({ ...p, currency: 'NGN' })),
     };
   } catch (err) {
     console.error('[db] Error reading DB:', err);
