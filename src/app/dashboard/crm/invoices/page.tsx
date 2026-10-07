@@ -426,6 +426,18 @@ export default function InvoicesPage() {
                           <Printer size={12} />
                           <span>View</span>
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm(`Delete invoice ${inv.invoiceNumber} for ${inv.clientName}? This also removes any payments recorded against it. This cannot be undone.`)) {
+                              deleteInvoice(inv.id);
+                            }
+                          }}
+                          className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition cursor-pointer"
+                          title="Delete this invoice"
+                        >
+                          <Trash2 size={12} />
+                        </button>
                       </div>
                     </td>
                   </tr>
