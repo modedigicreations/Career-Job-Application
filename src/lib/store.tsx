@@ -1730,11 +1730,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       staffId: currentUser.id,
       createdAt: new Date().toISOString(),
     };
-    setRequisitions(prev => {
-      const updated = [newReq, ...prev];
-      syncEntityToServer('requisitions', updated);
-      return updated;
-    });
+    setRequisitions(prev => [newReq, ...prev]);
+    // Delta upsert (merges this one requisition into whatever's actually on the server right
+    // now) rather than pushing this browser's whole local array — a full-array push here would
+    // silently erase any OTHER staff member's requisition that this browser hadn't pulled yet.
+    syncDeltaToServer('requisitions', 'upsert', newReq);
     logActivity('expense_create', `Staff ${currentUser.full_name} submitted requisition: ${title} (${currency} ${amount.toLocaleString()})`, 'Requisition', newReq.id);
 
     // Notify Manager/MD
@@ -1752,43 +1752,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateRequisitionDecision = (id: string, status: 'Approved' | 'Rejected', decisionNotes: string) => {
-    setRequisitions(prev => {
-      const updated = prev.map(r => r.id === id
-        ? { ...r, status, decisionNotes, decidedAt: new Date().toISOString(), decidedBy: currentUser.full_name }
-        : r);
-      syncEntityToServer('requisitions', updated);
-      return updated;
-    });
+    let changedItem: Requisition | undefined;
+    setRequisitions(prev => prev.map(r => {
+      if (r.id !== id) return r;
+      changedItem = { ...r, status, decisionNotes, decidedAt: new Date().toISOString(), decidedBy: currentUser.full_name };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('requisitions', 'upsert', changedItem);
     logActivity('expense_decision', `${currentUser.full_name} marked requisition as ${status}`, 'Requisition', id);
   };
 
   const updateRequisition = (id: string, updates: Partial<Requisition>) => {
-    setRequisitions(prev => {
-      const updated = prev.map(r => r.id === id ? { ...r, ...updates, currency: 'NGN' as Currency } : r);
-      syncEntityToServer('requisitions', updated);
-      return updated;
-    });
+    let changedItem: Requisition | undefined;
+    setRequisitions(prev => prev.map(r => {
+      if (r.id !== id) return r;
+      changedItem = { ...r, ...updates, currency: 'NGN' as Currency };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('requisitions', 'upsert', changedItem);
     logActivity('expense_update', `Updated requisition #${id}`, 'Requisition', id);
   };
 
   const deleteRequisition = (id: string) => {
     const existing = requisitions.find(r => r.id === id);
-    setRequisitions(prev => {
-      const updated = prev.filter(r => r.id !== id);
-      syncEntityToServer('requisitions', updated);
-      return updated;
-    });
+    setRequisitions(prev => prev.filter(r => r.id !== id));
+    syncDeltaToServer('requisitions', 'delete', id);
     logActivity('expense_delete', `Deleted requisition ${existing?.receiptNumber || id} (${existing?.title || ''})`, 'Requisition', id);
   };
 
   const disburseRequisition = (id: string, transactionId: string) => {
-    setRequisitions(prev => {
-      const updated = prev.map(r => r.id === id
-        ? { ...r, status: 'Completed' as const, completedAt: new Date().toISOString(), disbursedBy: currentUser.full_name, transactionId }
-        : r);
-      syncEntityToServer('requisitions', updated);
-      return updated;
-    });
+    let changedItem: Requisition | undefined;
+    setRequisitions(prev => prev.map(r => {
+      if (r.id !== id) return r;
+      changedItem = { ...r, status: 'Completed' as const, completedAt: new Date().toISOString(), disbursedBy: currentUser.full_name, transactionId };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('requisitions', 'upsert', changedItem);
     logActivity('expense_disburse', `Accounts disbursed requisition funds (${transactionId})`, 'Requisition', id);
   };
 
