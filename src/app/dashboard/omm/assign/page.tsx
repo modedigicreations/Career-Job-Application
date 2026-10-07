@@ -24,6 +24,13 @@ import { useAppStore } from '@/lib/store';
 import { isManagementUser } from '@/lib/utils';
 import type { UserProfile, UserRole } from '@/lib/types';
 
+function formatLastLogin(iso?: string): string {
+  if (!iso) return 'Never';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return 'Never';
+  return d.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 export default function StaffAllocationPage() {
   const { users, updateUserProfile, addUserProfile, deleteUserProfile, currentUser } = useAppStore();
   const canManageStaff = isManagementUser(currentUser.role);
@@ -37,6 +44,7 @@ export default function StaffAllocationPage() {
   const [department, setDepartment] = useState('');
   const [role, setRole] = useState<UserRole>('employee');
   const [phone, setPhone] = useState('');
+  const [managerId, setManagerId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -50,6 +58,7 @@ export default function StaffAllocationPage() {
     setDepartment('Operations');
     setRole('employee');
     setPhone('');
+    setManagerId('');
     setPassword('password123');
     setShowPassword(false);
     setIsModalOpen(true);
@@ -63,6 +72,7 @@ export default function StaffAllocationPage() {
     setDepartment(u.department || 'Operations');
     setRole(u.role);
     setPhone(u.phone || '');
+    setManagerId(u.manager_id || '');
     setPassword(''); // never pre-fill — the stored value is a hash, and re-submitting it would hash-the-hash
     setShowPassword(false);
     setIsModalOpen(true);
@@ -119,6 +129,7 @@ export default function StaffAllocationPage() {
         department: department.trim(),
         role,
         phone: phone.trim(),
+        manager_id: managerId || null,
         ...(password.trim() ? { password: password.trim() } : {}),
       });
       setToastMessage(`Staff credentials for "${fullName.trim()}" updated and synced to server!`);
@@ -130,6 +141,7 @@ export default function StaffAllocationPage() {
         department: department.trim() || 'Operations',
         role,
         phone: phone.trim(),
+        manager_id: managerId || null,
         is_active: true,
         password: password.trim() || 'password123',
       });
@@ -285,6 +297,16 @@ export default function StaffAllocationPage() {
                     <span className="text-slate-700 text-[11px]">{u.phone}</span>
                   </div>
                 )}
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Last Login:</span>
+                  <span className={`text-[11px] ${u.last_login ? 'text-slate-700' : 'text-slate-400 italic'}`}>{formatLastLogin(u.last_login)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Reports To:</span>
+                  <span className="text-slate-700 text-[11px]">
+                    {u.manager_id ? (users.find(m => m.id === u.manager_id)?.full_name || 'Unknown') : '—'}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -396,6 +418,23 @@ export default function StaffAllocationPage() {
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Reports To (Department Head)</label>
+                <select
+                  value={managerId}
+                  onChange={e => setManagerId(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                >
+                  <option value="">No direct manager</option>
+                  {users.filter(u => !editingUser || u.id !== editingUser.id).map(u => (
+                    <option key={u.id} value={u.id}>{u.full_name} ({u.role.replace('_', ' ')})</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Determines who can assign tasks and 1-Minute Goals to this person.
+                </p>
               </div>
 
               <div>

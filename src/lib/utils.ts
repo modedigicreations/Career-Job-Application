@@ -123,6 +123,21 @@ export function isManagementUser(role?: string): boolean {
   return role === 'managing_director' || role === 'manager' || role === 'super_admin' || role === 'admin' || role === 'administration';
 }
 
+// The MD (managing_director) is this app's de facto top tier — the login screen has always
+// labeled that account "Super Admin" — so treat it as equivalent to the otherwise-unused
+// 'super_admin' role value rather than forcing every check to know about both.
+export function isSuperAdminUser(role?: string): boolean {
+  return role === 'super_admin' || role === 'managing_director';
+}
+
+// Department-head scoping: a manager-tier user may act on behalf of (assign tasks/goals to)
+// only the staff who report directly to them; a super-admin may act on anyone.
+export function canAssignTo(currentUser: { id: string; role: string }, target: { manager_id?: string | null }): boolean {
+  if (isSuperAdminUser(currentUser.role)) return true;
+  if (!isManagementUser(currentUser.role)) return false;
+  return target.manager_id === currentUser.id;
+}
+
 export function getMemoPriorityBadge(priority: string) {
   switch (priority) {
     case 'urgent':

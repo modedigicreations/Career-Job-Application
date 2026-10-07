@@ -35,12 +35,13 @@ import type {
   TaskStatus,
   ShiftTask
 } from '@/lib/types';
-import { formatCurrency, formatDate, getProjectStatusBadge } from '@/lib/utils';
+import { formatCurrency, formatDate, getProjectStatusBadge, canAssignTo, isManagementUser } from '@/lib/utils';
 
 export default function ProjectsPage() {
   const {
     projects,
     tasks,
+    users,
     toggleTask,
     addTask,
     updateTask,
@@ -60,6 +61,11 @@ export default function ProjectsPage() {
     setShiftReviewModalOpen
   } = useAppStore();
 
+  // Who the current user is allowed to assign a task to: themselves always, plus
+  // their direct reports if they're a department head, plus anyone if super-admin.
+  const assignableUsers = users.filter(u => u.id === currentUser.id || canAssignTo(currentUser, u));
+  const canAssignOthers = isManagementUser(currentUser.role) && assignableUsers.length > 1;
+
   // Top Tab Switcher: 'shift-checklist' vs 'project-deliverables'
   const [activeTab, setActiveTab] = useState<'shift-checklist' | 'project-deliverables'>('shift-checklist');
 
@@ -70,6 +76,7 @@ export default function ProjectsPage() {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('high');
   const [newTaskDueDate, setNewTaskDueDate] = useState('2026-10-15');
+  const [newTaskAssignedTo, setNewTaskAssignedTo] = useState('');
 
   // Project Modal State
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -91,6 +98,7 @@ export default function ProjectsPage() {
   const [editTaskPriority, setEditTaskPriority] = useState<TaskPriority>('medium');
   const [editTaskDueDate, setEditTaskDueDate] = useState('');
   const [editTaskStatus, setEditTaskStatus] = useState<TaskStatus>('pending');
+  const [editTaskAssignedTo, setEditTaskAssignedTo] = useState('');
 
   // ----------------------------------------------------
   // DAILY SHIFT CHECKLIST STATE
@@ -269,6 +277,10 @@ export default function ProjectsPage() {
     e.preventDefault();
     if (!newTaskTitle.trim() || !activeProject) return;
 
+    // A non-management user can only ever create a task assigned to themselves —
+    // department heads/admins can assign to anyone in assignableUsers.
+    const assignee = canAssignOthers && newTaskAssignedTo ? newTaskAssignedTo : currentUser.id;
+
     addTask({
       projectId: activeProject.id,
       title: newTaskTitle,
@@ -276,9 +288,11 @@ export default function ProjectsPage() {
       priority: newTaskPriority,
       dueDate: newTaskDueDate || '2026-10-15',
       order: projectTasks.length + 1,
+      assignedTo: assignee,
     });
 
     setNewTaskTitle('');
+    setNewTaskAssignedTo('');
   };
 
   const openEditTaskModal = (task: Task) => {
@@ -287,6 +301,7 @@ export default function ProjectsPage() {
     setEditTaskPriority(task.priority);
     setEditTaskDueDate(task.dueDate);
     setEditTaskStatus(task.status);
+    setEditTaskAssignedTo(task.assignedTo || '');
   };
 
   const closeTaskModal = () => {
@@ -297,8 +312,18 @@ export default function ProjectsPage() {
     e.preventDefault();
     if (!editingTask || !editTaskTitle.trim()) return;
 
+    // Only allow changing the assignee if the current user is actually allowed to
+    // assign to the chosen person (or it's unchanged) — mirrors handleAddTask's rule.
+    const requestedAssignee = editTaskAssignedTo || undefined;
+    const canSetRequested = !requestedAssignee
+      || requestedAssignee === editingTask.assignedTo
+      || requestedAssignee === currentUser.id
+      || (canAssignOthers && assignableUsers.some(u => u.id === requestedAssignee));
+    const assignee = canSetRequested ? requestedAssignee : editingTask.assignedTo;
+
     updateTask(editingTask.id, {
       title: editTaskTitle,
+      assignedTo: assignee,
       priority: editTaskPriority,
       dueDate: editTaskDueDate,
       status: editTaskStatus,
@@ -982,6 +1007,23 @@ export default function ProjectsPage() {
                       className="px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-700"
                     >
                     </input>
+                    {canAssignOthers ? (
+                      <select
+                        value={newTaskAssignedTo}
+                        onChange={e => setNewTaskAssignedTo(e.target.value)}
+                        className="px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-700"
+                        title="Assign to"
+                      >
+                        <option value="">Assign to me</option>
+                        {assignableUsers.filter(u => u.id !== currentUser.id).map(u => (
+                          <option key={u.id} value={u.id}>{u.full_name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="px-2.5 py-2 border border-slate-100 rounded-lg text-xs bg-slate-50 text-slate-400" title="Only a department head can assign tasks to someone else">
+                        Assigned to me
+                      </span>
+                    )}
                     <button
                       type="submit"
                       className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold text-xs shrink-0 transition cursor-pointer"
@@ -1023,6 +1065,11 @@ export default function ProjectsPage() {
                             </div>
 
                             <div className="flex items-center gap-2.5 text-[10px] text-slate-400 font-mono shrink-0">
+                              {task.assignedTo && (
+                                <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 font-semibold normal-case" title="Assigned to">
+                                  {users.find(u => u.id === task.assignedTo)?.full_name.split(' ')[0] || 'Unknown'}
+                                </span>
+                              )}
                               <span>Due {formatDate(task.dueDate)}</span>
                               <span className={`px-1.5 py-0.5 rounded font-bold uppercase ${
                                 task.priority === 'urgent'
@@ -1381,6 +1428,29 @@ export default function ProjectsPage() {
                   onChange={e => setEditTaskDueDate(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
                 />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Assigned To</label>
+                {canAssignOthers ? (
+                  <select
+                    value={editTaskAssignedTo}
+                    onChange={e => setEditTaskAssignedTo(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                  >
+                    <option value={currentUser.id}>Me</option>
+                    {assignableUsers.filter(u => u.id !== currentUser.id).map(u => (
+                      <option key={u.id} value={u.id}>{u.full_name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    disabled
+                    value={users.find(u => u.id === editTaskAssignedTo)?.full_name || 'Unassigned'}
+                    className="w-full px-3 py-2 border border-slate-100 rounded-lg text-xs bg-slate-50 text-slate-400"
+                    title="Only a department head can reassign this task"
+                  />
+                )}
               </div>
 
               <div className="flex items-center justify-between pt-4 border-t border-slate-100">

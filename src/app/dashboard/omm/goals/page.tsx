@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import type { Goal, GoalStatus } from '@/lib/types';
-import { formatDate } from '@/lib/utils';
+import { formatDate, canAssignTo, isManagementUser } from '@/lib/utils';
 
 export default function GoalsPage() {
   const {
@@ -33,6 +33,12 @@ export default function GoalsPage() {
     currentUser
   } = useAppStore();
 
+  // A personal 1-Minute Goal is always yours alone unless you're a department head/admin
+  // setting one for a direct report (or super-admin, for anyone) — the OMM Goals page is
+  // the only place a goal can be created at all, so this is the entire assignment surface.
+  const assignableUsers = users.filter(u => u.id === currentUser.id || canAssignTo(currentUser, u));
+  const canAssignOthers = isManagementUser(currentUser.role) && assignableUsers.length > 1;
+
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [newGoalModalOpen, setNewGoalModalOpen] = useState(false);
   const [selectedGoalForStrategy, setSelectedGoalForStrategy] = useState<Goal | null>(null);
@@ -42,7 +48,7 @@ export default function GoalsPage() {
   const [objective, setObjective] = useState('');
   const [expectedResult, setExpectedResult] = useState('');
   const [deadline, setDeadline] = useState('2026-10-30');
-  const [employeeId, setEmployeeId] = useState('u2');
+  const [employeeId, setEmployeeId] = useState(currentUser.id);
 
   // Strategy Input State
   const [strategyInput, setStrategyInput] = useState('');
@@ -60,12 +66,15 @@ export default function GoalsPage() {
     e.preventDefault();
     if (!objective.trim() || !expectedResult.trim()) return;
 
-    const emp = users.find(u => u.id === employeeId);
+    // Defensive re-check even though the dropdown is already restricted — a personal goal
+    // can only be set for yourself unless you're actually allowed to assign to that person.
+    const targetId = assignableUsers.some(u => u.id === employeeId) ? employeeId : currentUser.id;
+    const emp = users.find(u => u.id === targetId);
 
     addGoal({
       manager_id: currentUser.id,
       manager_name: currentUser.full_name,
-      employee_id: employeeId,
+      employee_id: targetId,
       employee_name: emp ? emp.full_name : 'Team Member',
       objective,
       expected_result: expectedResult,
@@ -115,7 +124,7 @@ export default function GoalsPage() {
 
         <button
           type="button"
-          onClick={() => setNewGoalModalOpen(true)}
+          onClick={() => { setEmployeeId(currentUser.id); setNewGoalModalOpen(true); }}
           className="px-4 py-2 rounded-xl bg-[#0D52F8] hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer self-start sm:self-auto"
         >
           <Plus size={15} />
@@ -262,16 +271,28 @@ export default function GoalsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Assign To Team Member</label>
-                  <select
-                    value={employeeId}
-                    onChange={e => setEmployeeId(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                  >
-                    {users.map(u => (
-                      <option key={u.id} value={u.id}>{u.full_name} ({u.job_title})</option>
-                    ))}
-                  </select>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    {canAssignOthers ? 'Assign To Team Member' : 'For'}
+                  </label>
+                  {canAssignOthers ? (
+                    <select
+                      value={employeeId}
+                      onChange={e => setEmployeeId(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                    >
+                      <option value={currentUser.id}>Me ({currentUser.job_title})</option>
+                      {assignableUsers.filter(u => u.id !== currentUser.id).map(u => (
+                        <option key={u.id} value={u.id}>{u.full_name} ({u.job_title})</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      disabled
+                      value={`Me (${currentUser.job_title || currentUser.full_name})`}
+                      className="w-full px-3 py-2 border border-slate-100 rounded-lg text-xs bg-slate-50 text-slate-400"
+                      title="Personal goals are self-only — only a department head can set a goal for someone else"
+                    />
+                  )}
                 </div>
 
                 <div>

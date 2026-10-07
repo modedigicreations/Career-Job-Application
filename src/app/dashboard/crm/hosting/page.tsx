@@ -544,7 +544,11 @@ export default function HostingPage() {
                       <td className="py-3.5 px-4 text-right">
                         <button
                           type="button"
-                          onClick={() => renewHosting(h.id, 12)}
+                          onClick={() => {
+                            if (confirm(`Confirm renewal of ${h.domainName} (${h.clientName}) for 1 year? The expiry date will move forward 12 months.`)) {
+                              renewHosting(h.id, 12);
+                            }
+                          }}
                           className="px-2.5 py-1 bg-slate-900 hover:bg-[#0D52F8] text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
                           title="Renew domain and hosting for 1 year"
                         >

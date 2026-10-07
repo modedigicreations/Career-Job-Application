@@ -26,11 +26,12 @@ import {
   ShieldCheck,
   Clock,
   LogOut,
-  Megaphone
+  Megaphone,
+  PiggyBank
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
-import { isManagementUser } from '@/lib/utils';
+import { isManagementUser, isSuperAdminUser } from '@/lib/utils';
 
 export default function Sidebar() {
   const router = useRouter();
@@ -71,6 +72,7 @@ export default function Sidebar() {
     icon: React.ComponentType<{ size?: number; className?: string }>;
     badge?: string;
     badgeColor?: string;
+    superAdminOnly?: boolean;
   }
 
   const navSections: { title: string; items: NavItem[] }[] = [
@@ -116,10 +118,16 @@ export default function Sidebar() {
           badge: pendingRequisitions > 0 ? `${pendingRequisitions}` : undefined,
           badgeColor: 'bg-amber-500 text-white'
         },
-        { 
-          href: '/dashboard/payroll', 
-          label: 'Staff Payroll', 
+        {
+          href: '/dashboard/payroll',
+          label: 'Staff Payroll',
           icon: Banknote,
+        },
+        {
+          href: '/dashboard/pnl',
+          label: 'Profit & Loss',
+          icon: PiggyBank,
+          superAdminOnly: true,
         },
       ],
     },
@@ -193,7 +201,7 @@ export default function Sidebar() {
               {sec.title}
             </div>
             <div className="space-y-0.5">
-              {sec.items.map(item => {
+              {sec.items.filter(item => !item.superAdminOnly || isSuperAdminUser(currentUser.role)).map(item => {
                 const isActive = pathname === item.href;
                 const Icon = item.icon;
                 return (
