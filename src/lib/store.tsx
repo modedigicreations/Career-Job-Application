@@ -41,6 +41,7 @@ interface AppContextType {
   leads: Lead[];
   addLead: (lead: Omit<Lead, 'id' | 'createdAt'>) => void;
   updateLeadStatus: (id: string, status: LeadStatus) => void;
+  updateLead: (id: string, updates: Partial<Lead>) => void;
   deleteLead: (id: string) => void;
 
   contacts: Contact[];
@@ -1063,6 +1064,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (target) {
       logActivity('crm_pipeline', `Moved ${target.company} to ${status.replace('-', ' ')}`, 'Lead', id);
     }
+  };
+
+  const updateLead = (id: string, updates: Partial<Lead>) => {
+    setLeads(prev => {
+      const updated = prev.map(l => l.id === id ? { ...l, ...updates, updatedAt: new Date().toISOString().split('T')[0] } : l);
+      syncEntityToServer('leads', updated);
+      return updated;
+    });
+    logActivity('crm_lead', `Updated lead details for ${updates.name || id}`, 'Lead', id);
   };
 
   const deleteLead = (id: string) => {
@@ -2225,6 +2235,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         leads,
         addLead,
         updateLeadStatus,
+        updateLead,
         deleteLead,
         contacts,
         addContact,

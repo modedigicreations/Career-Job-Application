@@ -118,6 +118,8 @@ export interface Lead {
   budget: number;
   currency: Currency;
   notes: string;
+  designation?: string;
+  address?: string;
   status: LeadStatus;
   estimatedValue: number;
   probability: number;

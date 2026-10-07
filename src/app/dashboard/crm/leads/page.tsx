@@ -11,7 +11,10 @@ import {
   Mail,
   Phone,
   Building,
-  Kanban
+  Kanban,
+  Edit3,
+  MapPin,
+  Briefcase
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import type { Lead, LeadStatus, Currency } from '@/lib/types';
@@ -24,16 +27,19 @@ const WhatsAppIcon = ({ className = "w-3 h-3 fill-current" }: { className?: stri
 );
 
 export default function LeadsPage() {
-  const { leads, addLead, updateLeadStatus, deleteLead } = useAppStore();
+  const { leads, addLead, updateLead, updateLeadStatus, deleteLead } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [newModalOpen, setNewModalOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
-  // New Lead Form State
+  // Lead Form State — shared by both "New Lead" and "Edit Lead"
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [designation, setDesignation] = useState('');
+  const [address, setAddress] = useState('');
   const [serviceInterested, setServiceInterested] = useState<Lead['serviceInterested']>('website-development');
   const [source, setSource] = useState<Lead['source']>('website');
   const [budget, setBudget] = useState('1500000');
@@ -48,32 +54,67 @@ export default function LeadsPage() {
     return true;
   });
 
-  const handleCreate = (e: React.FormEvent) => {
+  const resetForm = () => {
+    setName(''); setCompany(''); setEmail(''); setPhone('');
+    setDesignation(''); setAddress(''); setNotes('');
+    setServiceInterested('website-development'); setSource('website');
+    setBudget('1500000'); setCurrency('NGN');
+  };
+
+  const openEditModal = (lead: Lead) => {
+    setEditingLead(lead);
+    setName(lead.name);
+    setCompany(lead.company);
+    setEmail(lead.email);
+    setPhone(lead.phone);
+    setDesignation(lead.designation || '');
+    setAddress(lead.address || '');
+    setServiceInterested(lead.serviceInterested);
+    setSource(lead.source);
+    setBudget(String(lead.budget));
+    setCurrency(lead.currency);
+    setNotes(lead.notes || '');
+  };
+
+  const closeModal = () => {
+    setNewModalOpen(false);
+    setEditingLead(null);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !company) return;
 
-    addLead({
-      name,
-      company,
-      email,
-      phone,
-      serviceInterested,
-      source,
-      budget: parseFloat(budget) || 0,
-      currency,
-      notes,
-      status: 'new-lead',
-      estimatedValue: parseFloat(budget) || 0,
-      probability: 25,
-      expectedCloseDate: '2026-10-30',
-      assignedTo: 'u2',
-    });
+    if (editingLead) {
+      updateLead(editingLead.id, {
+        name, company, email, phone, designation, address,
+        serviceInterested, source,
+        budget: parseFloat(budget) || 0,
+        currency, notes,
+      });
+    } else {
+      addLead({
+        name,
+        company,
+        email,
+        phone,
+        designation,
+        address,
+        serviceInterested,
+        source,
+        budget: parseFloat(budget) || 0,
+        currency,
+        notes,
+        status: 'new-lead',
+        estimatedValue: parseFloat(budget) || 0,
+        probability: 25,
+        expectedCloseDate: '2026-10-30',
+        assignedTo: 'u2',
+      });
+    }
 
-    setName('');
-    setCompany('');
-    setEmail('');
-    setPhone('');
-    setNewModalOpen(false);
+    resetForm();
+    closeModal();
   };
 
   const handleExportCSV = () => {
@@ -128,7 +169,7 @@ export default function LeadsPage() {
           </button>
           <button
             type="button"
-            onClick={() => setNewModalOpen(true)}
+            onClick={() => { resetForm(); setNewModalOpen(true); }}
             className="px-4 py-2 rounded-xl bg-[#0D52F8] hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer"
           >
             <Plus size={15} />
@@ -189,7 +230,15 @@ export default function LeadsPage() {
                 <tr key={lead.id} className="hover:bg-slate-50/60 transition">
                   <td className="py-3.5 px-4">
                     <div className="font-bold text-slate-900 leading-snug">{lead.name}</div>
-                    <div className="text-[11px] text-slate-400 font-medium">{lead.company}</div>
+                    <div className="text-[11px] text-slate-400 font-medium">
+                      {lead.designation ? `${lead.designation}, ` : ''}{lead.company}
+                    </div>
+                    {lead.address && (
+                      <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                        <MapPin size={10} className="shrink-0" />
+                        <span className="truncate max-w-[180px]">{lead.address}</span>
+                      </div>
+                    )}
                   </td>
                   <td className="py-3.5 px-4 space-y-1 text-[11px]">
                     <div className="flex items-center gap-1.5">
@@ -266,7 +315,15 @@ export default function LeadsPage() {
                       </Link>
                       <button
                         type="button"
-                        onClick={() => deleteLead(lead.id)}
+                        onClick={() => openEditModal(lead)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-[#0D52F8] hover:bg-blue-50 transition"
+                        title="Edit Lead"
+                      >
+                        <Edit3 size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { if (confirm(`Delete lead "${lead.name}"?`)) deleteLead(lead.id); }}
                         className="text-slate-400 hover:text-rose-600 text-xs px-1"
                         title="Delete Lead"
                       >
@@ -282,12 +339,12 @@ export default function LeadsPage() {
       </div>
 
       {/* New Lead Modal */}
-      {newModalOpen && (
+      {(newModalOpen || editingLead) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setNewModalOpen(false)} />
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 z-10 text-xs">
-            <h2 className="text-base font-bold text-slate-900 mb-1">New Client Lead</h2>
-            <form onSubmit={handleCreate} className="space-y-3.5 mt-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={closeModal} />
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 z-10 text-xs max-h-[90vh] overflow-y-auto">
+            <h2 className="text-base font-bold text-slate-900 mb-1">{editingLead ? 'Edit Lead' : 'New Client Lead'}</h2>
+            <form onSubmit={handleSubmit} className="space-y-3.5 mt-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">Lead Name *</label>
@@ -338,6 +395,33 @@ export default function LeadsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
+                  <label className="block text-slate-700 font-semibold mb-1 flex items-center gap-1">
+                    <Briefcase size={11} className="text-slate-400" /> Contact&apos;s Designation
+                  </label>
+                  <input
+                    type="text"
+                    value={designation}
+                    onChange={e => setDesignation(e.target.value)}
+                    placeholder="e.g. CEO, Procurement Manager"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1 flex items-center gap-1">
+                    <MapPin size={11} className="text-slate-400" /> Address
+                  </label>
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={e => setAddress(e.target.value)}
+                    placeholder="Lead / company address"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <label className="block text-slate-700 font-semibold mb-1">Estimated Budget (₦)</label>
                   <input
                     type="number"
@@ -362,10 +446,21 @@ export default function LeadsPage() {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Notes</label>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Any context about this lead..."
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs resize-none"
+                />
+              </div>
+
               <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setNewModalOpen(false)}
+                  onClick={closeModal}
                   className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg font-semibold"
                 >
                   Cancel
@@ -374,7 +469,7 @@ export default function LeadsPage() {
                   type="submit"
                   className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold"
                 >
-                  Save Lead
+                  {editingLead ? 'Save Changes' : 'Save Lead'}
                 </button>
               </div>
             </form>
