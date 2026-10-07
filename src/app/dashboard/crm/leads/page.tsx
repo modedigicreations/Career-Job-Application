@@ -243,7 +243,7 @@ export default function LeadsPage() {
           <button
             type="button"
             onClick={() => { resetForm(); setNewModalOpen(true); }}
-            className="px-4 py-2 rounded-xl bg-[#0D52F8] hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-mode-royal hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer"
           >
             <Plus size={15} />
             <span>New Lead</span>
@@ -341,7 +341,7 @@ export default function LeadsPage() {
                       <Mail size={12} className="text-slate-400 shrink-0" />
                       <a
                         href={formatMailtoUrl(lead.email, `Inquiry regarding ${lead.serviceInterested.replace('-', ' ')} - MODE DIGITAL CREATIONS`, `Hello ${lead.name},\n\nThank you for reaching out to MODE DIGITAL CREATIONS regarding ${lead.serviceInterested.replace('-', ' ')}.`)}
-                        className="text-slate-600 hover:text-[#0D52F8] hover:underline transition truncate max-w-[170px]"
+                        className="text-slate-600 hover:text-mode-royal hover:underline transition truncate max-w-[170px]"
                         title={`Email ${lead.email}`}
                       >
                         {lead.email}
@@ -397,7 +397,7 @@ export default function LeadsPage() {
                       )}
                       <a
                         href={formatMailtoUrl(lead.email, `MODE DIGITAL CREATIONS - Follow-up on ${lead.serviceInterested.replace('-', ' ')}`, `Hello ${lead.name},\n\nWe are following up on your inquiry for ${lead.serviceInterested.replace('-', ' ')} at MODE DIGITAL CREATIONS.`)}
-                        className="px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#0D52F8] border border-blue-200 text-[11px] font-semibold flex items-center gap-1 transition"
+                        className="px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-mode-royal border border-blue-200 text-[11px] font-semibold flex items-center gap-1 transition"
                         title="Direct Email"
                       >
                         <Mail size={12} />
@@ -405,14 +405,14 @@ export default function LeadsPage() {
                       </a>
                       <Link
                         href="/dashboard/crm/pipeline"
-                        className="text-slate-500 hover:text-[#0D52F8] font-semibold text-xs px-1.5 py-1"
+                        className="text-slate-500 hover:text-mode-royal font-semibold text-xs px-1.5 py-1"
                       >
                         Pipeline
                       </Link>
                       <button
                         type="button"
                         onClick={() => openEditModal(lead)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-[#0D52F8] hover:bg-blue-50 transition"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-mode-royal hover:bg-blue-50 transition"
                         title="Edit Lead"
                       >
                         <Edit3 size={13} />
@@ -563,7 +563,7 @@ export default function LeadsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold"
+                  className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold"
                 >
                   {editingLead ? 'Save Changes' : 'Save Lead'}
                 </button>

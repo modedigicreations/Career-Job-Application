@@ -373,7 +373,7 @@ export default function ProjectsPage() {
               <button
                 type="button"
                 onClick={() => setResumeShiftModalOpen(true)}
-                className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0 cursor-pointer"
+                className="inline-flex items-center gap-2 px-3.5 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0 cursor-pointer"
               >
                 <Clock size={15} />
                 <span>Resume Shift &amp; Set Plan</span>
@@ -384,7 +384,7 @@ export default function ProjectsPage() {
           <button
             type="button"
             onClick={openAddProjectModal}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0 self-start sm:self-auto cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0 self-start sm:self-auto cursor-pointer"
           >
             <Plus size={15} />
             <span>New Project</span>
@@ -400,7 +400,7 @@ export default function ProjectsPage() {
             onClick={() => setActiveTab('shift-checklist')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
               activeTab === 'shift-checklist'
-                ? 'bg-[#0D52F8] text-white shadow-xs'
+                ? 'bg-mode-royal text-white shadow-xs'
                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
             }`}
           >
@@ -418,7 +418,7 @@ export default function ProjectsPage() {
             onClick={() => setActiveTab('project-deliverables')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
               activeTab === 'project-deliverables'
-                ? 'bg-[#0D52F8] text-white shadow-xs'
+                ? 'bg-mode-royal text-white shadow-xs'
                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
             }`}
           >
@@ -572,7 +572,7 @@ export default function ProjectsPage() {
           {/* Quick-Add Shift Task Bar */}
           <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
-              <Plus size={14} className="text-[#0D52F8]" />
+              <Plus size={14} className="text-mode-royal" />
               <span>Add Goal to Today&apos;s Shift Checklist ({todayStr})</span>
             </h3>
 
@@ -613,7 +613,7 @@ export default function ProjectsPage() {
 
                 <button
                   type="submit"
-                  className="px-4 py-2.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0 cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-2.5 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0 cursor-pointer flex items-center gap-1.5"
                 >
                   <Plus size={14} />
                   <span>Add to Plan</span>
@@ -844,7 +844,7 @@ export default function ProjectsPage() {
             <button
               type="button"
               onClick={() => setShiftReviewModalOpen(true)}
-              className="px-4 py-2.5 bg-[#0D52F8] hover:bg-blue-600 text-white rounded-xl text-xs font-black shadow-xs transition shrink-0 cursor-pointer self-start sm:self-auto flex items-center gap-2"
+              className="px-4 py-2.5 bg-mode-royal hover:bg-blue-600 text-white rounded-xl text-xs font-black shadow-xs transition shrink-0 cursor-pointer self-start sm:self-auto flex items-center gap-2"
             >
               <CheckCircle2 size={15} />
               <span>Launch Shift Review &amp; Rollover</span>
@@ -884,7 +884,7 @@ export default function ProjectsPage() {
                   onClick={() => setSelectedProjectId(proj.id)}
                   className={`p-4 rounded-xl border cursor-pointer transition space-y-2.5 relative group ${
                     isSelected
-                      ? 'bg-white border-[#0D52F8] shadow-md ring-1 ring-blue-500/20'
+                      ? 'bg-white border-mode-royal shadow-md ring-1 ring-blue-500/20'
                       : 'bg-white/80 border-slate-200/80 hover:bg-white hover:border-slate-300'
                   }`}
                 >
@@ -920,7 +920,7 @@ export default function ProjectsPage() {
                     </div>
                     <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                       <div
-                        className="bg-[#0D52F8] h-1.5 rounded-full transition-all duration-300"
+                        className="bg-mode-royal h-1.5 rounded-full transition-all duration-300"
                         style={{ width: `${proj.progress}%` }}
                       />
                     </div>
@@ -974,7 +974,7 @@ export default function ProjectsPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <CheckSquare size={16} className="text-[#0D52F8]" />
+                      <CheckSquare size={16} className="text-mode-royal" />
                       <h3 className="text-xs font-bold text-slate-900">
                         Project Sprint Deliverables ({projectTasks.length})
                       </h3>
@@ -1174,7 +1174,7 @@ export default function ProjectsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
+                  className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
                 >
                   <Check size={14} />
                   <span>Save Changes</span>
@@ -1351,7 +1351,7 @@ export default function ProjectsPage() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
+                    className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
                   >
                     <Check size={14} />
                     <span>{editingProject ? 'Save Changes' : 'Create Project'}</span>
@@ -1473,7 +1473,7 @@ export default function ProjectsPage() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
+                    className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
                   >
                     <Check size={14} />
                     <span>Save Deliverable</span>

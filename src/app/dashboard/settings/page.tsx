@@ -283,7 +283,7 @@ export default function SettingsPage() {
 
             <button
               type="submit"
-              className="px-5 py-2.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition"
+              className="px-5 py-2.5 bg-mode-royal hover:bg-blue-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition"
             >
               <Save size={14} />
               <span>Save Configuration</span>
@@ -349,7 +349,7 @@ export default function SettingsPage() {
               <button
                 type="submit"
                 disabled={watiSaving || watiLoading}
-                className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-bold flex items-center gap-1.5 shadow-xs transition"
+                className="px-4 py-2 bg-mode-royal hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-bold flex items-center gap-1.5 shadow-xs transition"
               >
                 <Save size={13} />
                 <span>{watiSaving ? 'Saving...' : 'Save Integration'}</span>
@@ -424,7 +424,7 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={changingPw}
-              className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-bold flex items-center gap-1.5 shadow-xs transition"
+              className="px-4 py-2 bg-mode-royal hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-bold flex items-center gap-1.5 shadow-xs transition"
             >
               <Save size={13} />
               <span>{changingPw ? 'Saving...' : 'Change Password'}</span>

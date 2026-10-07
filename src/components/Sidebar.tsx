@@ -153,12 +153,12 @@ export default function Sidebar() {
       {/* Brand Header */}
       <div className="p-4 border-b border-slate-800/80 flex items-center justify-between">
         <Link href="/dashboard" onClick={() => setMobileSidebarOpen(false)} className="flex items-center gap-3 group">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#0D52F8] to-[#0544d0] flex items-center justify-center text-white font-black text-lg shadow-lg shadow-blue-500/25 group-hover:scale-105 transition">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-mode-royal to-mode-cobalt flex items-center justify-center text-white font-black text-lg shadow-lg shadow-blue-500/25 group-hover:scale-105 transition">
             M
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-base tracking-tight text-white">MODE<span className="text-[#0D52F8]">OPS</span></span>
+              <span className="font-extrabold text-base tracking-tight text-white">MODE<span className="text-mode-royal">OPS</span></span>
               <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
                 v2.0
               </span>
@@ -179,7 +179,7 @@ export default function Sidebar() {
       {/* Current signed-in user (no account switching — see Settings for your own profile/password) */}
       <div className="p-3 border-b border-slate-800/60 bg-slate-900/40">
         <div className="w-full flex items-center gap-2.5 p-2 rounded-xl bg-slate-800/60 border border-slate-700/60 overflow-hidden">
-          <div className="w-8 h-8 rounded-full bg-[#0D52F8] text-white flex items-center justify-center font-bold text-xs shrink-0">
+          <div className="w-8 h-8 rounded-full bg-mode-royal text-white flex items-center justify-center font-bold text-xs shrink-0">
             {currentUser.full_name ? currentUser.full_name[0] : 'U'}
           </div>
           <div className="min-w-0">
@@ -211,7 +211,7 @@ export default function Sidebar() {
                     onClick={() => setMobileSidebarOpen(false)}
                     className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
                       isActive
-                        ? 'bg-[#0D52F8] text-white shadow-sm shadow-blue-500/30'
+                        ? 'bg-mode-royal text-white shadow-sm shadow-blue-500/30'
                         : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >

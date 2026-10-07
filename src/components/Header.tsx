@@ -66,12 +66,12 @@ export default function Header() {
           </button>
 
           <Link href="/dashboard" className="flex items-center gap-1.5 group shrink-0">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#0D52F8] to-[#0544d0] flex items-center justify-center text-white font-black text-xs shadow-md shadow-blue-500/30 shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-mode-royal to-mode-cobalt flex items-center justify-center text-white font-black text-xs shadow-md shadow-blue-500/30 shrink-0">
               M
             </div>
             <div className="flex items-center gap-1">
               <span className="font-extrabold text-sm tracking-tight text-white">
-                MODE<span className="text-[#0D52F8]">OPS</span>
+                MODE<span className="text-mode-royal">OPS</span>
               </span>
               <span className="text-[9px] font-bold font-mono px-1 py-0.2 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
                 v2.0
@@ -99,7 +99,7 @@ export default function Header() {
             <button
               type="button"
               onClick={() => setQuickCreateOpen(!quickCreateOpen)}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-[#0D52F8] hover:bg-blue-600 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-mode-royal hover:bg-blue-600 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
               aria-label="Quick action"
             >
               <Plus size={14} />
@@ -257,7 +257,7 @@ export default function Header() {
             <button
               type="button"
               onClick={() => setQuickCreateOpen(!quickCreateOpen)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-mode-royal hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
             >
               <Plus size={14} />
               <span>Quick Action</span>

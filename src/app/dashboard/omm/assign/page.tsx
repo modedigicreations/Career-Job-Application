@@ -240,7 +240,7 @@ export default function StaffAllocationPage() {
           <button
             type="button"
             onClick={openAddModal}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0"
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0"
           >
             <Plus size={15} />
             <span>Add Staff Member</span>
@@ -257,7 +257,7 @@ export default function StaffAllocationPage() {
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full bg-[#0D52F8] text-white flex items-center justify-center font-bold text-base shadow-sm shrink-0">
+                  <div className="w-11 h-11 rounded-full bg-mode-royal text-white flex items-center justify-center font-bold text-base shadow-sm shrink-0">
                     {u.full_name ? u.full_name[0] : 'U'}
                   </div>
                   <div>
@@ -317,7 +317,7 @@ export default function StaffAllocationPage() {
               <button
                 type="button"
                 onClick={() => openEditModal(u)}
-                className="text-xs font-semibold text-[#0D52F8] hover:underline"
+                className="text-xs font-semibold text-mode-royal hover:underline"
               >
                 Edit Credentials
               </button>
@@ -486,7 +486,7 @@ export default function StaffAllocationPage() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
+                    className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
                   >
                     <Check size={14} />
                     <span>{editingUser ? 'Update Credentials' : 'Add Staff Member'}</span>

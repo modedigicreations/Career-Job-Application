@@ -197,7 +197,7 @@ export default function ServicesPage() {
           <button
             type="button"
             onClick={openAddModal}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0"
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0"
           >
             <Plus size={15} />
             <span>Add Service Offering</span>
@@ -252,7 +252,7 @@ export default function ServicesPage() {
               <button
                 type="button"
                 onClick={() => setQuotedService(s)}
-                className="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#0D52F8] text-xs font-bold transition"
+                className="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-mode-royal text-xs font-bold transition"
               >
                 Quote Scope
               </button>
@@ -424,7 +424,7 @@ export default function ServicesPage() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
+                    className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
                   >
                     <Check size={14} />
                     <span>{editingService ? 'Save Changes' : 'Create Offering'}</span>
@@ -443,7 +443,7 @@ export default function ServicesPage() {
           <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 z-10 text-xs animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
               <div className="flex items-center gap-2">
-                <Sparkles size={16} className="text-[#0D52F8]" />
+                <Sparkles size={16} className="text-mode-royal" />
                 <h3 className="text-base font-bold text-slate-900">Standard Scope Quote</h3>
               </div>
               <button
@@ -485,7 +485,7 @@ export default function ServicesPage() {
                 </div>
                 <a
                   href="/dashboard/crm/invoices"
-                  className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-xs transition"
+                  className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-xs transition"
                 >
                   Generate Invoice
                 </a>

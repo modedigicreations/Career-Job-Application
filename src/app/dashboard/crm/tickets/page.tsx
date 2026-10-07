@@ -70,7 +70,7 @@ export default function TicketsPage() {
         <button
           type="button"
           onClick={() => setNewModalOpen(true)}
-          className="px-4 py-2 rounded-xl bg-[#0D52F8] hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer self-start sm:self-auto"
+          className="px-4 py-2 rounded-xl bg-mode-royal hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer self-start sm:self-auto"
         >
           <Plus size={15} />
           <span>New Ticket</span>
@@ -210,7 +210,7 @@ export default function TicketsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold"
+                  className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold"
                 >
                   Create Ticket
                 </button>

@@ -158,7 +158,7 @@ export default function GoalsPage() {
         <button
           type="button"
           onClick={() => { setEmployeeId(currentUser.id); setNewGoalModalOpen(true); }}
-          className="px-4 py-2 rounded-xl bg-[#0D52F8] hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer self-start sm:self-auto"
+          className="px-4 py-2 rounded-xl bg-mode-royal hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer self-start sm:self-auto"
         >
           <Plus size={15} />
           <span>Set 1-Minute Goal</span>
@@ -215,7 +215,7 @@ export default function GoalsPage() {
                     <button
                       type="button"
                       onClick={() => openEditGoal(goal)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-[#0D52F8] hover:bg-blue-50 transition"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-mode-royal hover:bg-blue-50 transition"
                       title="Edit Goal"
                     >
                       <Edit3 size={13} />
@@ -251,7 +251,7 @@ export default function GoalsPage() {
                 max="100"
                 value={goal.progress}
                 onChange={e => updateGoalProgress(goal.id, parseInt(e.target.value))}
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0D52F8]"
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-mode-royal"
               />
             </div>
 
@@ -371,7 +371,7 @@ export default function GoalsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold transition"
+                  className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold transition"
                 >
                   Create Goal
                 </button>
@@ -432,7 +432,7 @@ export default function GoalsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold transition"
+                  className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold transition"
                 >
                   Save Changes
                 </button>

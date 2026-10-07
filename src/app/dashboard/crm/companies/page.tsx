@@ -122,7 +122,7 @@ export default function CompaniesPage() {
         <button
           type="button"
           onClick={openAddModal}
-          className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0"
+          className="inline-flex items-center gap-2 px-3.5 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition shrink-0"
         >
           <Plus size={15} />
           <span>Add Organization</span>
@@ -153,7 +153,7 @@ export default function CompaniesPage() {
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-sm shrink-0">
-                  <Building2 size={20} className="text-[#0D52F8]" />
+                  <Building2 size={20} className="text-mode-royal" />
                 </div>
                 <div>
                   <h3 className="font-bold text-sm text-slate-900 leading-snug">{comp.name}</h3>
@@ -321,7 +321,7 @@ export default function CompaniesPage() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
+                    className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs transition"
                   >
                     <Check size={14} />
                     <span>{editingCompany ? 'Save Changes' : 'Create Organization'}</span>

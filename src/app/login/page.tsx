@@ -155,7 +155,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 bg-[#0D52F8] hover:bg-blue-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 cursor-pointer mt-2"
+              className="w-full py-3 bg-mode-royal hover:bg-blue-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 cursor-pointer mt-2"
             >
               {isSubmitting ? (
                 <>

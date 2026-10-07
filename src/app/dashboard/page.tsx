@@ -86,7 +86,7 @@ export default function ExecutiveCockpitPage() {
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
-      <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-[#0B111E] via-[#0D214F] to-[#0D52F8] text-white shadow-xl relative overflow-hidden">
+      <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-[#0B111E] via-[#0D214F] to-mode-royal text-white shadow-xl relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -363,7 +363,7 @@ export default function ExecutiveCockpitPage() {
         <div className="p-4 rounded-xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500">Active Sales Pipeline</span>
-            <div className="p-2 rounded-lg bg-blue-50 text-[#0D52F8]">
+            <div className="p-2 rounded-lg bg-blue-50 text-mode-royal">
               <TrendingUp size={16} />
             </div>
           </div>
@@ -461,7 +461,7 @@ export default function ExecutiveCockpitPage() {
                     <span>+ Issue Memo</span>
                   </Link>
                 )}
-                <Link href="/dashboard/memos" className="text-xs font-semibold text-[#0D52F8] hover:underline flex items-center gap-0.5">
+                <Link href="/dashboard/memos" className="text-xs font-semibold text-mode-royal hover:underline flex items-center gap-0.5">
                   <span>View All ({userMemos.length})</span>
                   <ChevronRight size={14} />
                 </Link>
@@ -560,7 +560,7 @@ export default function ExecutiveCockpitPage() {
                   <p className="text-[11px] text-slate-500">Approve, reject, or inspect staff purchase requests</p>
                 </div>
               </div>
-              <Link href="/dashboard/expenses" className="text-xs font-semibold text-[#0D52F8] hover:underline flex items-center gap-0.5">
+              <Link href="/dashboard/expenses" className="text-xs font-semibold text-mode-royal hover:underline flex items-center gap-0.5">
                 <span>View All ({requisitions.length})</span>
                 <ChevronRight size={14} />
               </Link>
@@ -628,7 +628,7 @@ export default function ExecutiveCockpitPage() {
           <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-blue-50 text-[#0D52F8]">
+                <div className="p-1.5 rounded-lg bg-blue-50 text-mode-royal">
                   <Kanban size={18} />
                 </div>
                 <div>
@@ -636,7 +636,7 @@ export default function ExecutiveCockpitPage() {
                   <p className="text-[11px] text-slate-500">Highest value business opportunities</p>
                 </div>
               </div>
-              <Link href="/dashboard/crm/pipeline" className="text-xs font-semibold text-[#0D52F8] hover:underline flex items-center gap-0.5">
+              <Link href="/dashboard/crm/pipeline" className="text-xs font-semibold text-mode-royal hover:underline flex items-center gap-0.5">
                 <span>Open Kanban Board</span>
                 <ChevronRight size={14} />
               </Link>
@@ -667,7 +667,7 @@ export default function ExecutiveCockpitPage() {
                         {formatCurrency(lead.estimatedValue, lead.currency)}
                       </td>
                       <td className="py-2.5">
-                        <span className="capitalize px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-[#0D52F8] border border-blue-200">
+                        <span className="capitalize px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-mode-royal border border-blue-200">
                           {lead.status.replace('-', ' ')}
                         </span>
                       </td>
@@ -779,7 +779,7 @@ export default function ExecutiveCockpitPage() {
       {dashboardMemoModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-6 animate-scale-up">
-            <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-[#0B1A3F] to-[#0D52F8] text-white flex items-center justify-between">
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-[#0B1A3F] to-mode-royal text-white flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-white/10 text-white">
                   <Megaphone size={18} />

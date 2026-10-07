@@ -601,7 +601,7 @@ export default function PayrollPage() {
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+            className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
             <Plus size={14} />
             <span>Generate Pay Slip</span>
@@ -787,7 +787,7 @@ export default function PayrollPage() {
                         <button
                           type="button"
                           onClick={() => setSelectedRecordForPayslip(rec)}
-                          className="px-2.5 py-1 bg-slate-900 hover:bg-[#0D52F8] text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+                          className="px-2.5 py-1 bg-slate-900 hover:bg-mode-royal text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
                           title="View and print official employee payslip"
                         >
                           <Printer size={12} />
@@ -1128,7 +1128,7 @@ export default function PayrollPage() {
                 );
               }}
               title={shiftStaffFilter === 'all' ? 'Select a staff member first' : 'Download weekly shift report PDF'}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0D52F8] hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white rounded-xl text-xs font-semibold cursor-pointer transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-mode-royal hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white rounded-xl text-xs font-semibold cursor-pointer transition"
             >
               <Download size={13} />
               Weekly Report
@@ -1351,7 +1351,7 @@ export default function PayrollPage() {
           <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 z-10 text-xs my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-[#0D52F8] text-white flex items-center justify-center font-bold">
+                <div className="w-8 h-8 rounded-lg bg-mode-royal text-white flex items-center justify-center font-bold">
                   <Banknote size={16} />
                 </div>
                 <div>
@@ -1630,7 +1630,7 @@ export default function PayrollPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl font-semibold shadow-xs flex items-center gap-1.5 transition cursor-pointer"
+                  className="px-5 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-xl font-semibold shadow-xs flex items-center gap-1.5 transition cursor-pointer"
                 >
                   <CheckCircle2 size={14} />
                   <span>{editingRecordId ? 'Update Payroll Entry' : 'Save & Issue Payslip'}</span>
@@ -1749,7 +1749,7 @@ export default function PayrollPage() {
             {/* Official Header */}
             <div className="flex items-center justify-between border-b pb-3 border-slate-200">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#0D52F8] text-white flex items-center justify-center font-black text-sm">
+                <div className="w-8 h-8 rounded-lg bg-mode-royal text-white flex items-center justify-center font-black text-sm">
                   M
                 </div>
                 <div>
@@ -1926,7 +1926,7 @@ export default function PayrollPage() {
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="px-4 py-1.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                className="px-4 py-1.5 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
                 <Printer size={13} />
                 <span>Print Official Payslip</span>
@@ -1968,7 +1968,7 @@ export default function PayrollPage() {
               <button
                 type="button"
                 onClick={openAddStaffModal}
-                className="px-3 py-1.5 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                className="px-3 py-1.5 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
                 <Plus size={13} />
                 <span>+ Add Staff Member</span>
@@ -2201,7 +2201,7 @@ export default function PayrollPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
                 >
                   <Check size={14} />
                   <span>{editingStaffMember ? 'Save Staff Changes' : 'Register Staff Member'}</span>

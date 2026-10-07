@@ -132,7 +132,7 @@ export default function PipelinePage() {
           <button
             type="button"
             onClick={() => setNewLeadModalOpen(true)}
-            className="px-3.5 py-2 rounded-lg bg-[#0D52F8] hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+            className="px-3.5 py-2 rounded-lg bg-mode-royal hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer"
           >
             <Plus size={15} />
             <span>Add Deal</span>
@@ -206,7 +206,7 @@ export default function PipelinePage() {
                               )}
                               <a
                                 href={formatMailtoUrl(lead.email, `MODE DIGITAL CREATIONS - Deal Update`, `Hello ${lead.name},\n\nFollowing up on our discussion.`)}
-                                className="p-1 rounded bg-blue-50 text-[#0D52F8] hover:bg-blue-100 transition"
+                                className="p-1 rounded bg-blue-50 text-mode-royal hover:bg-blue-100 transition"
                                 title="Email client"
                               >
                                 <Mail size={10} />
@@ -369,7 +369,7 @@ export default function PipelinePage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold transition"
+                  className="px-4 py-2 bg-mode-royal hover:bg-blue-700 text-white rounded-lg font-semibold transition"
                 >
                   Create Opportunity
                 </button>
