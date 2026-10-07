@@ -38,6 +38,8 @@ export default function Sidebar() {
   const pathname = usePathname();
   const {
     currentUser,
+    viewAsUser,
+    effectiveUser,
     leads,
     requisitions,
     goals,
@@ -56,14 +58,17 @@ export default function Sidebar() {
   const pendingRequisitions = requisitions.filter(r => r.status === 'Pending').length;
   const activeLeads = leads.filter(l => l.status !== 'won' && l.status !== 'lost').length;
 
-  const isManager = isManagementUser(currentUser.role);
+  // Nav visibility and personalization reflect effectiveUser (the viewed staff member,
+  // when in read-only View As mode) — that's the whole point of the feature. Account
+  // identity (logout, clock in/out) stays tied to the real currentUser below.
+  const isManager = isManagementUser(effectiveUser.role);
   const unreadMemos = memos.filter(m => {
     const isTarget = m.targetAudience === 'all' ||
-      (m.targetAudience === 'department' && m.targetDepartment?.toLowerCase() === currentUser.department?.toLowerCase()) ||
-      (m.targetAudience === 'specific_staff' && m.targetStaffIds?.includes(currentUser.id)) ||
-      m.senderId === currentUser.id ||
+      (m.targetAudience === 'department' && m.targetDepartment?.toLowerCase() === effectiveUser.department?.toLowerCase()) ||
+      (m.targetAudience === 'specific_staff' && m.targetStaffIds?.includes(effectiveUser.id)) ||
+      m.senderId === effectiveUser.id ||
       isManager;
-    return isTarget && !m.readBy?.[currentUser.id];
+    return isTarget && !m.readBy?.[effectiveUser.id];
   }).length;
 
   interface NavItem {
@@ -176,18 +181,21 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* Current signed-in user (no account switching — see Settings for your own profile/password) */}
+      {/* Current signed-in user (no account switching — see Settings for your own profile/password).
+          While View As is active, this shows the VIEWED person (nav/personalization below is theirs
+          too) — the amber banner above the page content is what makes it unambiguous this isn't a
+          real session as them. */}
       <div className="p-3 border-b border-slate-800/60 bg-slate-900/40">
         <div className="w-full flex items-center gap-2.5 p-2 rounded-xl bg-slate-800/60 border border-slate-700/60 overflow-hidden">
           <div className="w-8 h-8 rounded-full bg-mode-royal text-white flex items-center justify-center font-bold text-xs shrink-0">
-            {currentUser.full_name ? currentUser.full_name[0] : 'U'}
+            {effectiveUser.full_name ? effectiveUser.full_name[0] : 'U'}
           </div>
           <div className="min-w-0">
             <div className="text-xs font-semibold text-white truncate">
-              {currentUser.full_name}
+              {effectiveUser.full_name}{viewAsUser && <span className="text-amber-400 font-normal"> (viewing)</span>}
             </div>
             <div className="text-[10px] font-mono text-blue-400 uppercase tracking-wider">
-              {currentUser.role.replace('_', ' ')}
+              {effectiveUser.role.replace('_', ' ')}
             </div>
           </div>
         </div>
@@ -201,7 +209,7 @@ export default function Sidebar() {
               {sec.title}
             </div>
             <div className="space-y-0.5">
-              {sec.items.filter(item => !item.superAdminOnly || isSuperAdminUser(currentUser.role)).map(item => {
+              {sec.items.filter(item => !item.superAdminOnly || isSuperAdminUser(effectiveUser.role)).map(item => {
                 const isActive = pathname === item.href;
                 const Icon = item.icon;
                 return (

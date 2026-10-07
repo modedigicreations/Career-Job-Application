@@ -20,8 +20,9 @@ import {
   CheckCircle2,
   Lock
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
-import { isManagementUser } from '@/lib/utils';
+import { isManagementUser, canAssignTo } from '@/lib/utils';
 import type { UserProfile, UserRole } from '@/lib/types';
 
 function formatLastLogin(iso?: string): string {
@@ -32,7 +33,19 @@ function formatLastLogin(iso?: string): string {
 }
 
 export default function StaffAllocationPage() {
-  const { users, updateUserProfile, addUserProfile, deleteUserProfile, currentUser } = useAppStore();
+  const { users, updateUserProfile, addUserProfile, deleteUserProfile, currentUser, setViewAsUser } = useAppStore();
+  const router = useRouter();
+  const [viewAsError, setViewAsError] = useState('');
+
+  const handleViewDashboard = (target: UserProfile) => {
+    setViewAsError('');
+    const result = setViewAsUser(target.id);
+    if (!result.success) {
+      setViewAsError(result.message || 'Could not open that dashboard.');
+      return;
+    }
+    router.push('/dashboard');
+  };
   const canManageStaff = isManagementUser(currentUser.role);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
@@ -206,6 +219,19 @@ export default function StaffAllocationPage() {
         </div>
       )}
 
+      {viewAsError && (
+        <div className="flex items-center justify-between p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-200">
+          <span>{viewAsError}</span>
+          <button
+            type="button"
+            onClick={() => setViewAsError('')}
+            className="text-rose-600 hover:text-rose-800 p-0.5"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -314,13 +340,25 @@ export default function StaffAllocationPage() {
               <span className="text-emerald-600 font-semibold flex items-center gap-1">
                 <ShieldCheck size={13} /> Active Personnel
               </span>
-              <button
-                type="button"
-                onClick={() => openEditModal(u)}
-                className="text-xs font-semibold text-mode-royal hover:underline"
-              >
-                Edit Credentials
-              </button>
+              <div className="flex items-center gap-3">
+                {u.id !== currentUser.id && canAssignTo(currentUser, u) && (
+                  <button
+                    type="button"
+                    onClick={() => handleViewDashboard(u)}
+                    className="flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-mode-royal hover:underline"
+                    title="View this person's dashboard, read-only"
+                  >
+                    <Eye size={12} /> View Dashboard
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => openEditModal(u)}
+                  className="text-xs font-semibold text-mode-royal hover:underline"
+                >
+                  Edit Credentials
+                </button>
+              </div>
             </div>
           </div>
         ))}

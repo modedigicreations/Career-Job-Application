@@ -40,6 +40,7 @@ export default function ExecutiveCockpitPage() {
     goals,
     activities,
     currentUser,
+    effectiveUser,
     users,
     updateRequisitionDecision,
     shifts,
@@ -54,19 +55,20 @@ export default function ExecutiveCockpitPage() {
   const [showStaffRoster, setShowStaffRoster] = React.useState(true);
   const [rosterFilter, setRosterFilter] = React.useState<'active' | 'all'>('active');
 
-  // Memos relevant to the active staff user
-  const isManager = isManagementUser(currentUser.role);
+  // Memos relevant to the active staff user — reads effectiveUser so View As shows the
+  // viewed person's own memo feed/unread state, not the real viewer's.
+  const isManager = isManagementUser(effectiveUser.role);
   const userMemos = memos.filter(m => {
-    if (m.senderId === currentUser.id) return true;
+    if (m.senderId === effectiveUser.id) return true;
     if (m.targetAudience === 'all') return true;
-    if (m.targetAudience === 'department' && m.targetDepartment?.toLowerCase() === currentUser.department?.toLowerCase()) return true;
-    if (m.targetAudience === 'specific_staff' && m.targetStaffIds?.includes(currentUser.id)) return true;
+    if (m.targetAudience === 'department' && m.targetDepartment?.toLowerCase() === effectiveUser.department?.toLowerCase()) return true;
+    if (m.targetAudience === 'specific_staff' && m.targetStaffIds?.includes(effectiveUser.id)) return true;
     if (isManager) return true;
     return false;
   });
 
-  const unreadMemos = userMemos.filter(m => !m.readBy?.[currentUser.id]);
-  const unreadUrgentMemo = userMemos.find(m => m.priority === 'urgent' && !m.readBy?.[currentUser.id]);
+  const unreadMemos = userMemos.filter(m => !m.readBy?.[effectiveUser.id]);
+  const unreadUrgentMemo = userMemos.find(m => m.priority === 'urgent' && !m.readBy?.[effectiveUser.id]);
 
   // Metrics computation
   const activeDeals = leads.filter(l => l.status !== 'won' && l.status !== 'lost');
@@ -96,7 +98,7 @@ export default function ExecutiveCockpitPage() {
               <span className="text-xs text-blue-200">Unified System Live</span>
             </div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight break-words">
-              Welcome back, {currentUser.full_name}
+              Welcome back, {effectiveUser.full_name}
             </h1>
             <p className="text-xs sm:text-sm text-blue-100/80 mt-1 max-w-xl">
               Cross-operational overview: CRM Sales Pipeline, Staff Expense Requisitions, and One-Minute Leadership Goals.
