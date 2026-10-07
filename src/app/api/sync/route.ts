@@ -23,6 +23,22 @@ function sanitizeIntegrations(integrations: { watiApiUrl?: string; watiApiKey?: 
   };
 }
 
+// Every GET response strips `password` from users (sanitizeUsers), so the browser's
+// in-memory copy of the `users` array NEVER carries real password values. Any full-array
+// write of `users` (syncEntityToServer pushes one on every staff/profile edit) must not
+// let that absence blank out what's already stored — merge by id and keep the existing
+// password whenever the incoming record doesn't supply a new one.
+function mergeUsersPreservingPassword(incoming: any[], existing: any[]) {
+  const existingById = new Map(existing.map((u: any) => [u.id, u]));
+  return incoming.map((u: any) => {
+    const prior = existingById.get(u.id);
+    if (!u.password && prior?.password) {
+      return { ...u, password: prior.password };
+    }
+    return u;
+  });
+}
+
 // Defense in depth: if a client ever sends a plaintext password in a `users` write
 // (e.g. the staff roster's add/edit form), hash it before it touches disk — never
 // trust the write path alone to have done this.
@@ -77,7 +93,13 @@ export async function POST(request: Request) {
         }
         const existingIdx = targetList.findIndex((x: any) => x.id === nextItem.id);
         if (existingIdx !== -1) {
-          targetList[existingIdx] = { ...targetList[existingIdx], ...nextItem };
+          const merged = { ...targetList[existingIdx], ...nextItem };
+          // An explicit empty/falsy password on a `users` delta (vs. the key being absent
+          // entirely) would otherwise survive the spread above and blank out the account.
+          if (entity === 'users' && !nextItem.password && targetList[existingIdx].password) {
+            merged.password = targetList[existingIdx].password;
+          }
+          targetList[existingIdx] = merged;
         } else {
           targetList.unshift(nextItem);
         }
@@ -123,12 +145,12 @@ export async function POST(request: Request) {
     if (body.entity && body.entity !== 'integrations' && body.data !== undefined) {
       updatedEntity = body.entity;
       (current as any)[body.entity] = body.entity === 'users' && Array.isArray(body.data)
-        ? await hashAnyPlaintextPasswords(body.data)
+        ? await hashAnyPlaintextPasswords(mergeUsersPreservingPassword(body.data, current.users))
         : body.data;
       (current as any)[`${body.entity}LastUpdated`] = body.timestamp || nowIso;
     } else if (body.partialState && typeof body.partialState === 'object') {
       if (body.partialState.users && Array.isArray(body.partialState.users)) {
-        body.partialState.users = await hashAnyPlaintextPasswords(body.partialState.users);
+        body.partialState.users = await hashAnyPlaintextPasswords(mergeUsersPreservingPassword(body.partialState.users, current.users));
       }
       delete body.partialState.integrations;
       Object.assign(current, body.partialState);
