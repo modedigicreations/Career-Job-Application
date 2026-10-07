@@ -1694,7 +1694,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       receiptNumber: generateReceiptNumber(),
       title,
       description,
-      amount,
+      amount: Math.max(0, amount),
       currency: 'NGN',
       category,
       urgency,
@@ -1740,6 +1740,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setRequisitions(prev => prev.map(r => {
       if (r.id !== id) return r;
       changedItem = { ...r, ...updates, currency: 'NGN' as Currency };
+      if (changedItem.amount !== undefined) changedItem.amount = Math.max(0, changedItem.amount);
       return changedItem;
     }));
     if (changedItem) syncDeltaToServer('requisitions', 'upsert', changedItem);

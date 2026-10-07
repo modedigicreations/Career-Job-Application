@@ -30,7 +30,6 @@ export default function Header() {
     currentUser,
     toggleMobileSidebar,
     activeShift,
-    clockInStaff,
     setResumeShiftModalOpen,
     setShiftReviewModalOpen,
     logout

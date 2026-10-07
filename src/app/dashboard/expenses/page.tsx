@@ -418,6 +418,7 @@ export default function ExpensesPage() {
                   <label className="block text-slate-700 font-semibold mb-1">Amount Required *</label>
                   <input
                     type="number"
+                    min="0"
                     required
                     value={amount}
                     onChange={e => setAmount(e.target.value)}
@@ -765,6 +766,7 @@ export default function ExpensesPage() {
                   <span className="absolute left-3 top-2 font-bold text-slate-400">₦</span>
                   <input
                     type="number"
+                    min="0"
                     required
                     value={editAmount}
                     onChange={e => setEditAmount(e.target.value)}

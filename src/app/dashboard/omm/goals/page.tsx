@@ -488,11 +488,25 @@ export default function GoalsPage() {
                 />
               </div>
 
+              {canEditGoal(selectedGoalForStrategy) && (
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Manager Feedback (required to request a revision):</label>
+                  <textarea
+                    rows={2}
+                    value={feedbackInput}
+                    onChange={e => setFeedbackInput(e.target.value)}
+                    placeholder="What needs to change before this strategy is approved?"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                  />
+                </div>
+              )}
+
               <div className="flex items-center justify-between gap-2">
                 <button
                   type="button"
                   onClick={() => {
                     if (strategyInput) submitGoalStrategy(selectedGoalForStrategy.id, strategyInput);
+                    setStrategyInput('');
                     setSelectedGoalForStrategy(null);
                   }}
                   className="px-3 py-2 bg-slate-900 text-white rounded-lg font-semibold hover:bg-slate-800 transition"
@@ -500,18 +514,35 @@ export default function GoalsPage() {
                   Submit Strategy
                 </button>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      approveGoalStrategy(selectedGoalForStrategy.id, 'Approved by Manager. Excellent focus!');
-                      setSelectedGoalForStrategy(null);
-                    }}
-                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition"
-                  >
-                    Approve Strategy
-                  </button>
-                </div>
+                {canEditGoal(selectedGoalForStrategy) && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!feedbackInput.trim()) return;
+                        requestGoalStrategyRevision(selectedGoalForStrategy.id, feedbackInput);
+                        setFeedbackInput('');
+                        setSelectedGoalForStrategy(null);
+                      }}
+                      disabled={!feedbackInput.trim()}
+                      className="px-3 py-2 bg-amber-50 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed text-amber-700 border border-amber-200 rounded-lg font-semibold transition"
+                      title="Type feedback above, then request a revision"
+                    >
+                      Request Revision
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        approveGoalStrategy(selectedGoalForStrategy.id, feedbackInput.trim() || 'Approved by Manager. Excellent focus!');
+                        setFeedbackInput('');
+                        setSelectedGoalForStrategy(null);
+                      }}
+                      className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition"
+                    >
+                      Approve Strategy
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

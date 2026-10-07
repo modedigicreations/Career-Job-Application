@@ -232,7 +232,11 @@ export default function PipelinePage() {
 
                           <button
                             type="button"
-                            onClick={() => deleteLead(lead.id)}
+                            onClick={() => {
+                              if (confirm(`Delete the deal with ${lead.company}? This cannot be undone.`)) {
+                                deleteLead(lead.id);
+                              }
+                            }}
                             className="text-[10px] text-slate-400 hover:text-rose-600 transition"
                             title="Delete Deal"
                           >
