@@ -14,6 +14,15 @@ function sanitizeUsers(users: any[]) {
   return users.map(({ password, ...safe }) => safe);
 }
 
+// Never let the WATI API key reach a browser — every authenticated user hits this
+// endpoint, not just management, so the raw secret can't ride along in the snapshot.
+function sanitizeIntegrations(integrations: { watiApiUrl?: string; watiApiKey?: string } | undefined) {
+  return {
+    watiApiUrl: integrations?.watiApiUrl || '',
+    watiConfigured: !!integrations?.watiApiKey
+  };
+}
+
 // Defense in depth: if a client ever sends a plaintext password in a `users` write
 // (e.g. the staff roster's add/edit form), hash it before it touches disk — never
 // trust the write path alone to have done this.
@@ -37,7 +46,7 @@ export async function GET() {
   const state = readDb();
   return NextResponse.json({
     success: true,
-    data: { ...state, users: sanitizeUsers(state.users) },
+    data: { ...state, users: sanitizeUsers(state.users), integrations: sanitizeIntegrations(state.integrations) },
     timestamp: state.lastUpdated
   });
 }
@@ -54,7 +63,7 @@ export async function POST(request: Request) {
     const nowIso = new Date().toISOString();
 
     // 1. Delta / Patch Sync Optimization
-    if (body.delta && body.delta.entity) {
+    if (body.delta && body.delta.entity && body.delta.entity !== 'integrations') {
       const { entity, action, item, id } = body.delta;
       const targetList = Array.isArray((current as any)[entity]) ? [...(current as any)[entity]] : [];
 
@@ -107,8 +116,11 @@ export async function POST(request: Request) {
     }
 
     // 2. Full Snapshot Entity Update
+    // `integrations` (holds the WATI API key) is deliberately excluded from this generic,
+    // any-authenticated-user-writable path — it can only be changed via the role-gated
+    // /api/settings/integrations route.
     let updatedEntity: string = 'all';
-    if (body.entity && body.data !== undefined) {
+    if (body.entity && body.entity !== 'integrations' && body.data !== undefined) {
       updatedEntity = body.entity;
       (current as any)[body.entity] = body.entity === 'users' && Array.isArray(body.data)
         ? await hashAnyPlaintextPasswords(body.data)
@@ -118,6 +130,7 @@ export async function POST(request: Request) {
       if (body.partialState.users && Array.isArray(body.partialState.users)) {
         body.partialState.users = await hashAnyPlaintextPasswords(body.partialState.users);
       }
+      delete body.partialState.integrations;
       Object.assign(current, body.partialState);
     } else if (body.services && Array.isArray(body.services)) {
       updatedEntity = 'services';

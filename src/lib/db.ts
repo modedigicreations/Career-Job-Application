@@ -56,6 +56,10 @@ export interface ServerState {
   feedbacksLastUpdated?: string;
   payrollRecords: any[];
   payrollRecordsLastUpdated?: string;
+  integrations: {
+    watiApiUrl?: string;
+    watiApiKey?: string;
+  };
   lastUpdated: string;
 }
 
@@ -90,6 +94,7 @@ export function getInitialDbState(): ServerState {
     feedbacksLastUpdated: new Date().toISOString(),
     payrollRecords: initialPayrollRecords.map(p => ({ ...p, currency: 'NGN' })),
     payrollRecordsLastUpdated: new Date().toISOString(),
+    integrations: {},
     lastUpdated: new Date().toISOString()
   };
 }
@@ -148,6 +153,7 @@ export function readDb(): ServerState {
       payrollRecords: Array.isArray(parsed.payrollRecords)
         ? parsed.payrollRecords.map((p: any) => ({ ...p, currency: 'NGN' }))
         : initialPayrollRecords.map(p => ({ ...p, currency: 'NGN' })),
+      integrations: (parsed.integrations && typeof parsed.integrations === 'object') ? parsed.integrations : {},
     };
   } catch (err) {
     console.error('[db] Error reading DB:', err);

@@ -14,7 +14,11 @@ import {
   Kanban,
   Edit3,
   MapPin,
-  Briefcase
+  Briefcase,
+  Send,
+  X,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import type { Lead, LeadStatus, Currency } from '@/lib/types';
@@ -32,6 +36,13 @@ export default function LeadsPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [newModalOpen, setNewModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+  const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
+  const [broadcastExtraNumbers, setBroadcastExtraNumbers] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastSending, setBroadcastSending] = useState(false);
+  const [broadcastError, setBroadcastError] = useState('');
+  const [broadcastResults, setBroadcastResults] = useState<{ phone: string; success: boolean; error?: string }[] | null>(null);
 
   // Lead Form State — shared by both "New Lead" and "Edit Lead"
   const [name, setName] = useState('');
@@ -140,6 +151,60 @@ export default function LeadsPage() {
     document.body.removeChild(link);
   };
 
+  const toggleLeadSelection = (id: string) => {
+    setSelectedLeadIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const openBroadcastModal = () => {
+    setBroadcastError('');
+    setBroadcastResults(null);
+    setBroadcastExtraNumbers('');
+    setBroadcastMessage('');
+    setBroadcastModalOpen(true);
+  };
+
+  const handleSendBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBroadcastError('');
+    setBroadcastResults(null);
+
+    const selectedPhones = leads.filter(l => selectedLeadIds.has(l.id)).map(l => l.phone);
+    const extraPhones = broadcastExtraNumbers.split(/[\n,]/).map(p => p.trim()).filter(Boolean);
+    const phoneNumbers = Array.from(new Set([...selectedPhones, ...extraPhones]));
+
+    if (phoneNumbers.length === 0) {
+      setBroadcastError('Select at least one lead or add a phone number.');
+      return;
+    }
+    if (!broadcastMessage.trim()) {
+      setBroadcastError('Message text is required.');
+      return;
+    }
+
+    setBroadcastSending(true);
+    try {
+      const res = await fetch('/api/whatsapp/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumbers, message: broadcastMessage })
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setBroadcastError(data.message || 'Broadcast failed.');
+        return;
+      }
+      setBroadcastResults(data.results);
+    } catch {
+      setBroadcastError('Failed to reach the server.');
+    } finally {
+      setBroadcastSending(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -159,6 +224,14 @@ export default function LeadsPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={openBroadcastModal}
+            className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-emerald-700 font-semibold text-xs flex items-center gap-1.5 shadow-2xs hover:bg-emerald-50 transition cursor-pointer"
+          >
+            <Send size={14} />
+            <span>WhatsApp Broadcast{selectedLeadIds.size > 0 ? ` (${selectedLeadIds.size})` : ''}</span>
+          </button>
           <button
             type="button"
             onClick={handleExportCSV}
@@ -216,6 +289,21 @@ export default function LeadsPage() {
           <table className="w-full text-left text-xs min-w-[700px]">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold text-[10px] uppercase">
               <tr>
+                <th className="py-3 px-3 w-8">
+                  <input
+                    type="checkbox"
+                    checked={filteredLeads.length > 0 && filteredLeads.every(l => selectedLeadIds.has(l.id))}
+                    onChange={e => {
+                      setSelectedLeadIds(prev => {
+                        const next = new Set(prev);
+                        if (e.target.checked) filteredLeads.forEach(l => next.add(l.id));
+                        else filteredLeads.forEach(l => next.delete(l.id));
+                        return next;
+                      });
+                    }}
+                    className="rounded border-slate-300 cursor-pointer"
+                  />
+                </th>
                 <th className="py-3 px-4">Contact & Company</th>
                 <th className="py-3 px-4">Direct Contact</th>
                 <th className="py-3 px-4">Service</th>
@@ -228,6 +316,14 @@ export default function LeadsPage() {
             <tbody className="divide-y divide-slate-100">
               {filteredLeads.map(lead => (
                 <tr key={lead.id} className="hover:bg-slate-50/60 transition">
+                  <td className="py-3.5 px-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedLeadIds.has(lead.id)}
+                      onChange={() => toggleLeadSelection(lead.id)}
+                      className="rounded border-slate-300 cursor-pointer"
+                    />
+                  </td>
                   <td className="py-3.5 px-4">
                     <div className="font-bold text-slate-900 leading-snug">{lead.name}</div>
                     <div className="text-[11px] text-slate-400 font-medium">
@@ -470,6 +566,97 @@ export default function LeadsPage() {
                   className="px-4 py-2 bg-[#0D52F8] hover:bg-blue-700 text-white rounded-lg font-semibold"
                 >
                   {editingLead ? 'Save Changes' : 'Save Lead'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp Broadcast Modal */}
+      {broadcastModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setBroadcastModalOpen(false)} />
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 z-10 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
+                <WhatsAppIcon className="w-4 h-4 fill-emerald-600" /> WhatsApp Broadcast
+              </h2>
+              <button type="button" onClick={() => setBroadcastModalOpen(false)} className="text-slate-400 hover:text-slate-700">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">Sends via WATI to the selected leads and/or any numbers you add below. Requires WATI to be configured under Settings.</p>
+
+            <form onSubmit={handleSendBroadcast} className="space-y-3.5 text-xs">
+              {broadcastError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700">{broadcastError}</div>
+              )}
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Selected Leads ({selectedLeadIds.size})
+                </label>
+                <div className="px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-600 min-h-[2.25rem]">
+                  {selectedLeadIds.size === 0
+                    ? <span className="text-slate-400">None selected — tick leads in the table, or just add numbers below.</span>
+                    : leads.filter(l => selectedLeadIds.has(l.id)).map(l => l.name).join(', ')}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Additional Phone Numbers</label>
+                <textarea
+                  rows={2}
+                  value={broadcastExtraNumbers}
+                  onChange={e => setBroadcastExtraNumbers(e.target.value)}
+                  placeholder="One per line or comma-separated, e.g. 08012345678, 08098765432"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Message *</label>
+                <textarea
+                  rows={4}
+                  required
+                  value={broadcastMessage}
+                  onChange={e => setBroadcastMessage(e.target.value)}
+                  placeholder="Type the WhatsApp message to send..."
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                />
+              </div>
+
+              {broadcastResults && (
+                <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-48 overflow-y-auto">
+                  {broadcastResults.map((r, i) => (
+                    <div key={i} className="flex items-center justify-between px-3 py-1.5">
+                      <span className="font-mono text-slate-700">{r.phone}</span>
+                      {r.success ? (
+                        <span className="flex items-center gap-1 text-emerald-600 font-semibold"><CheckCircle2 size={12} /> Sent</span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-rose-600 font-semibold" title={r.error}><XCircle size={12} /> Failed</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setBroadcastModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg font-semibold hover:bg-slate-50 transition"
+                >
+                  Close
+                </button>
+                <button
+                  type="submit"
+                  disabled={broadcastSending}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg font-semibold transition flex items-center gap-1.5"
+                >
+                  <Send size={13} />
+                  {broadcastSending ? 'Sending...' : 'Send Broadcast'}
                 </button>
               </div>
             </form>
