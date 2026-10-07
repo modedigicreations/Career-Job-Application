@@ -99,7 +99,7 @@ interface AppContextType {
   renewHosting: (id: string, additionalMonths?: number) => void;
   whmcsConfig: import('./types').WhmcsConfig;
   updateWhmcsConfig: (updates: Partial<import('./types').WhmcsConfig>) => void;
-  syncWhmcsHosting: () => Promise<{ success: boolean; count?: number; message?: string; detectedIp?: string }>;
+  syncWhmcsHosting: (overrideCreds?: { apiUrl?: string; identifier?: string; secret?: string }) => Promise<{ success: boolean; count?: number; message?: string; detectedIp?: string }>;
 
   invoices: Invoice[];
   addInvoice: (invoice: Omit<Invoice, 'id' | 'createdAt'>) => void;
@@ -1509,15 +1509,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const syncWhmcsHosting = async (): Promise<{ success: boolean; count?: number; message?: string; detectedIp?: string }> => {
+  // Accepts an optional credential override so a caller that just updated whmcsConfig via
+  // updateWhmcsConfig() (a state setter — not applied until next render) can sync with the
+  // values it actually just typed/tested, instead of this closure's stale whmcsConfig.
+  const syncWhmcsHosting = async (overrideCreds?: { apiUrl?: string; identifier?: string; secret?: string }): Promise<{ success: boolean; count?: number; message?: string; detectedIp?: string }> => {
     try {
       const res = await fetch('/api/whmcs/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          apiUrl: whmcsConfig.apiUrl,
-          identifier: whmcsConfig.identifier,
-          secret: whmcsConfig.secret
+          apiUrl: overrideCreds?.apiUrl ?? whmcsConfig.apiUrl,
+          identifier: overrideCreds?.identifier ?? whmcsConfig.identifier,
+          secret: overrideCreds?.secret ?? whmcsConfig.secret
         })
       });
       const data = await res.json();
