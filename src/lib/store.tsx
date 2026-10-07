@@ -14,7 +14,7 @@ import {
   initialFeedbacks, initialTickets, initialActivities, initialNotifications,
   initialPayrollRecords, initialShifts, initialMemos, initialShiftTasks
 } from './seed-data';
-import { generateReceiptNumber } from './utils';
+import { generateReceiptNumber, canAssignTo } from './utils';
 import { initStorage, setStorageItem } from './storage';
 
 interface AppContextType {
@@ -36,6 +36,14 @@ interface AppContextType {
   updateUserProfile: (id: string, updates: Partial<UserProfile>) => void;
   addUserProfile: (profile: Omit<UserProfile, 'id'>) => void;
   deleteUserProfile: (id: string) => void;
+
+  // Read-only "View As" — lets a super-admin (anyone) or manager (own direct reports
+  // only) preview a staff member's dashboard exactly as it renders for that role,
+  // without actually authenticating as them. currentUser never changes; effectiveUser
+  // is what role-aware nav/personalization should read.
+  viewAsUser: UserProfile | null;
+  effectiveUser: UserProfile;
+  setViewAsUser: (userId: string | null) => { success: boolean; message?: string };
 
   // CRM
   leads: Lead[];
@@ -188,6 +196,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // account just by editing their own browser storage.
   const [currentUser, setCurrentUser] = useState<UserProfile>(initialProfiles[0]);
   const [authLoading, setAuthLoading] = useState(true);
+
+  const [viewAsUserId, setViewAsUserId] = useState<string | null>(null);
+  const viewAsUser = viewAsUserId ? users.find(u => u.id === viewAsUserId) || null : null;
+  const effectiveUser = viewAsUser || currentUser;
+
+  const setViewAsUser = (userId: string | null): { success: boolean; message?: string } => {
+    if (userId === null) {
+      setViewAsUserId(null);
+      return { success: true };
+    }
+    const target = users.find(u => u.id === userId);
+    if (!target) {
+      return { success: false, message: 'Staff member not found.' };
+    }
+    if (target.id === currentUser.id) {
+      return { success: false, message: "That's your own account." };
+    }
+    if (!canAssignTo(currentUser, target)) {
+      return { success: false, message: 'You can only view the dashboards of your own direct reports.' };
+    }
+    setViewAsUserId(userId);
+    return { success: true };
+  };
 
   const [leads, setLeads] = useState<Lead[]>(() => {
     if (typeof window !== 'undefined') {
@@ -2248,6 +2279,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         clockInStaff,
         applyShiftHoursToPayroll,
         currentUser,
+        viewAsUser,
+        effectiveUser,
+        setViewAsUser,
         users,
         updateUserProfile,
         addUserProfile,
