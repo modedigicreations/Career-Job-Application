@@ -937,11 +937,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Switch Role
   const updateUserProfile = (id: string, updates: Partial<UserProfile>) => {
     let resolvedName = updates.full_name;
+    let changedUser: UserProfile | undefined;
     const currentUsers = usersRef.current && usersRef.current.length > 0 ? usersRef.current : users;
     const updatedUsers = currentUsers.map(u => {
       if (u.id === id) {
         const next = { ...u, ...updates };
         resolvedName = next.full_name;
+        changedUser = next;
         return next;
       }
       return u;
@@ -954,7 +956,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updatedUsers }));
     }
     setUsers(updatedUsers);
-    syncEntityToServer('users', updatedUsers);
+    // Delta upsert — this is the most frequently called users mutation (every Staff Allocation
+    // edit and every Settings self-save runs through here), so a full-array push here was the
+    // main way OTHER staff members' passwords/fields kept getting silently clobbered.
+    if (changedUser) syncDeltaToServer('users', 'upsert', changedUser);
 
     if (currentUser.id === id) {
       const nextCurrent = { ...currentUser, ...updates };
@@ -965,10 +970,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Cascade name, job title, department, hourly rate to all shift records
+    const changedShifts: StaffShift[] = [];
     const currentShifts = shiftsRef.current && shiftsRef.current.length > 0 ? shiftsRef.current : shifts;
     const updatedShifts = currentShifts.map(s => {
       if (s.staffId === id || (updates.email && s.staffEmail?.toLowerCase() === updates.email.toLowerCase())) {
-        return {
+        const next = {
           ...s,
           staffName: updates.full_name || s.staffName,
           staffEmail: updates.email || s.staffEmail,
@@ -976,6 +982,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           jobTitle: updates.job_title || s.jobTitle,
           hourlyRate: updates.hourly_rate !== undefined ? updates.hourly_rate : s.hourlyRate
         };
+        changedShifts.push(next);
+        return next;
       }
       return s;
     });
@@ -985,16 +993,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: updatedShifts }));
     }
     setShifts(updatedShifts);
-    syncEntityToServer('shifts', updatedShifts);
+    changedShifts.forEach(s => syncDeltaToServer('shifts', 'upsert', s));
 
     // Cascade name to shift checklist tasks
+    const changedTasks: ShiftTask[] = [];
     const currentTasks = shiftTasksRef.current && shiftTasksRef.current.length > 0 ? shiftTasksRef.current : shiftTasks;
     const updatedTasks = currentTasks.map(st => {
       if (st.staffId === id) {
-        return {
-          ...st,
-          staffName: updates.full_name || st.staffName
-        };
+        const next = { ...st, staffName: updates.full_name || st.staffName };
+        changedTasks.push(next);
+        return next;
       }
       return st;
     });
@@ -1002,7 +1010,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('mode_ops_shift_tasks', JSON.stringify(updatedTasks));
     }
     setShiftTasks(updatedTasks);
-    syncEntityToServer('shiftTasks', updatedTasks);
+    changedTasks.forEach(t => syncDeltaToServer('shiftTasks', 'upsert', t));
 
     logActivity('user_profile_update', `Executive updated profile for ${resolvedName || id}`, 'User', id);
   };
@@ -1022,7 +1030,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updatedUsers }));
     }
     setUsers(updatedUsers);
-    syncEntityToServer('users', updatedUsers);
+    syncDeltaToServer('users', 'upsert', newUser);
     logActivity('user_create', `Added staff member: ${newUser.full_name} (${newUser.job_title || newUser.role})`, 'User', newUser.id);
   };
 
@@ -1036,7 +1044,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updatedUsers }));
     }
     setUsers(updatedUsers);
-    syncEntityToServer('users', updatedUsers);
+    syncDeltaToServer('users', 'delete', id);
 
     if (currentUser.id === id && updatedUsers.length > 0) {
       setCurrentUser(updatedUsers[0]);
@@ -1046,6 +1054,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Remove active shifts for deleted profile
+    const removedShiftIds = shifts.filter(s => s.staffId === id && s.status !== 'completed').map(s => s.id);
     const currentShifts = shiftsRef.current && shiftsRef.current.length > 0 ? shiftsRef.current : shifts;
     const updatedShifts = currentShifts.filter(s => s.staffId !== id || s.status === 'completed');
     if (typeof window !== 'undefined') {
@@ -1053,7 +1062,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: updatedShifts }));
     }
     setShifts(updatedShifts);
-    syncEntityToServer('shifts', updatedShifts);
+    removedShiftIds.forEach(shiftId => syncDeltaToServer('shifts', 'delete', shiftId));
     logActivity('user_delete', `Removed staff member profile (${id})`, 'User', id);
   };
 
@@ -1071,7 +1080,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setActivities(prev => [newAct, ...prev]);
   };
 
-  // CRM Actions
+  // CRM Actions — every single-item mutation below uses delta sync (merges one item against
+  // whatever's actually on the server right now) rather than pushing this browser's whole local
+  // array, which would silently erase any other concurrent user's change to a DIFFERENT record
+  // of the same entity if their write landed in between this browser's last pull and this write.
   const addLead = (leadData: Omit<Lead, 'id' | 'createdAt'>) => {
     const newLead: Lead = {
       ...leadData,
@@ -1079,20 +1091,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `l-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setLeads(prev => {
-      const updated = [newLead, ...prev];
-      syncEntityToServer('leads', updated);
-      return updated;
-    });
+    setLeads(prev => [newLead, ...prev]);
+    syncDeltaToServer('leads', 'upsert', newLead);
     logActivity('crm_lead', `Added lead: ${newLead.name} (${newLead.company})`, 'Lead', newLead.id);
   };
 
   const updateLeadStatus = (id: string, status: LeadStatus) => {
-    setLeads(prev => {
-      const updated = prev.map(l => l.id === id ? { ...l, status, updatedAt: new Date().toISOString().split('T')[0] } : l);
-      syncEntityToServer('leads', updated);
-      return updated;
-    });
+    let changedItem: Lead | undefined;
+    setLeads(prev => prev.map(l => {
+      if (l.id !== id) return l;
+      changedItem = { ...l, status, updatedAt: new Date().toISOString().split('T')[0] };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('leads', 'upsert', changedItem);
     const target = leads.find(l => l.id === id);
     if (target) {
       logActivity('crm_pipeline', `Moved ${target.company} to ${status.replace('-', ' ')}`, 'Lead', id);
@@ -1100,20 +1111,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateLead = (id: string, updates: Partial<Lead>) => {
-    setLeads(prev => {
-      const updated = prev.map(l => l.id === id ? { ...l, ...updates, updatedAt: new Date().toISOString().split('T')[0] } : l);
-      syncEntityToServer('leads', updated);
-      return updated;
-    });
+    let changedItem: Lead | undefined;
+    setLeads(prev => prev.map(l => {
+      if (l.id !== id) return l;
+      changedItem = { ...l, ...updates, updatedAt: new Date().toISOString().split('T')[0] };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('leads', 'upsert', changedItem);
     logActivity('crm_lead', `Updated lead details for ${updates.name || id}`, 'Lead', id);
   };
 
   const deleteLead = (id: string) => {
-    setLeads(prev => {
-      const updated = prev.filter(l => l.id !== id);
-      syncEntityToServer('leads', updated);
-      return updated;
-    });
+    setLeads(prev => prev.filter(l => l.id !== id));
+    syncDeltaToServer('leads', 'delete', id);
   };
 
   const addContact = (contactData: Omit<Contact, 'id' | 'createdAt'>) => {
@@ -1127,21 +1137,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_contacts', JSON.stringify(updated));
       }
-      syncEntityToServer('contacts', updated);
       return updated;
     });
+    syncDeltaToServer('contacts', 'upsert', newContact);
     logActivity('crm_contact', `Added client contact: ${newContact.name}`, 'Contact', newContact.id);
   };
 
   const updateContact = (id: string, updates: Partial<Contact>) => {
+    let changedItem: Contact | undefined;
     setContacts(prev => {
-      const updated = prev.map(c => c.id === id ? { ...c, ...updates } : c);
+      const updated = prev.map(c => {
+        if (c.id !== id) return c;
+        changedItem = { ...c, ...updates };
+        return changedItem;
+      });
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_contacts', JSON.stringify(updated));
       }
-      syncEntityToServer('contacts', updated);
       return updated;
     });
+    if (changedItem) syncDeltaToServer('contacts', 'upsert', changedItem);
     logActivity('crm_contact', `Updated client contact: ${updates.name || id}`, 'Contact', id);
   };
 
@@ -1151,9 +1166,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_contacts', JSON.stringify(updated));
       }
-      syncEntityToServer('contacts', updated);
       return updated;
     });
+    syncDeltaToServer('contacts', 'delete', id);
     logActivity('crm_contact', `Removed contact from client directory`, 'Contact', id);
   };
 
@@ -1163,29 +1178,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `co-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setCompanies(prev => {
-      const updated = [newCompany, ...prev];
-      syncEntityToServer('companies', updated);
-      return updated;
-    });
+    setCompanies(prev => [newCompany, ...prev]);
+    syncDeltaToServer('companies', 'upsert', newCompany);
     logActivity('crm_company', `Added corporate client org: ${newCompany.name}`, 'Company', newCompany.id);
   };
 
   const updateCompany = (id: string, updates: Partial<Company>) => {
-    setCompanies(prev => {
-      const updated = prev.map(c => c.id === id ? { ...c, ...updates } : c);
-      syncEntityToServer('companies', updated);
-      return updated;
-    });
+    let changedItem: Company | undefined;
+    setCompanies(prev => prev.map(c => {
+      if (c.id !== id) return c;
+      changedItem = { ...c, ...updates };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('companies', 'upsert', changedItem);
     logActivity('crm_company', `Updated corporate client org: ${updates.name || id}`, 'Company', id);
   };
 
   const deleteCompany = (id: string) => {
-    setCompanies(prev => {
-      const updated = prev.filter(c => c.id !== id);
-      syncEntityToServer('companies', updated);
-      return updated;
-    });
+    setCompanies(prev => prev.filter(c => c.id !== id));
+    syncDeltaToServer('companies', 'delete', id);
     logActivity('crm_company', `Deleted corporate client org (${id})`, 'Company', id);
   };
 
@@ -1196,43 +1207,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `p-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setProjects(prev => {
-      const updated = [newProject, ...prev];
-      syncEntityToServer('projects', updated);
-      return updated;
-    });
+    setProjects(prev => [newProject, ...prev]);
+    syncDeltaToServer('projects', 'upsert', newProject);
     logActivity('crm_project', `Created client project: ${newProject.name}`, 'Project', newProject.id);
   };
 
   const updateProject = (id: string, updates: Partial<Project>) => {
-    setProjects(prev => {
-      const updated = prev.map(p => p.id === id ? { ...p, ...updates } : p);
-      syncEntityToServer('projects', updated);
-      return updated;
-    });
+    let changedItem: Project | undefined;
+    setProjects(prev => prev.map(p => {
+      if (p.id !== id) return p;
+      changedItem = { ...p, ...updates };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('projects', 'upsert', changedItem);
     logActivity('crm_project', `Updated client project: ${updates.name || id}`, 'Project', id);
   };
 
   const deleteProject = (id: string) => {
-    setProjects(prev => {
-      const updated = prev.filter(p => p.id !== id);
-      syncEntityToServer('projects', updated);
-      return updated;
-    });
-    setTasks(prev => {
-      const updated = prev.filter(t => t.projectId !== id);
-      syncEntityToServer('tasks', updated);
-      return updated;
-    });
+    setProjects(prev => prev.filter(p => p.id !== id));
+    syncDeltaToServer('projects', 'delete', id);
+    // Cascade-delete this project's tasks — individually, so a concurrent edit to some OTHER
+    // project's tasks (by a different user) can't be clobbered by a full-array push here.
+    const orphanedTaskIds = tasks.filter(t => t.projectId === id).map(t => t.id);
+    setTasks(prev => prev.filter(t => t.projectId !== id));
+    orphanedTaskIds.forEach(taskId => syncDeltaToServer('tasks', 'delete', taskId));
     logActivity('crm_project', `Deleted client project (${id})`, 'Project', id);
   };
 
   const toggleTask = (id: string) => {
-    setTasks(prev => {
-      const updated = prev.map(t => t.id === id ? { ...t, status: (t.status === 'completed' ? 'pending' : 'completed') as Task['status'] } : t);
-      syncEntityToServer('tasks', updated);
-      return updated;
-    });
+    let changedItem: Task | undefined;
+    setTasks(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      changedItem = { ...t, status: (t.status === 'completed' ? 'pending' : 'completed') as Task['status'] };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('tasks', 'upsert', changedItem);
   };
 
   const addTask = (taskData: Omit<Task, 'id' | 'createdAt'>) => {
@@ -1241,27 +1250,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `t-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setTasks(prev => {
-      const updated = [newTask, ...prev];
-      syncEntityToServer('tasks', updated);
-      return updated;
-    });
+    setTasks(prev => [newTask, ...prev]);
+    syncDeltaToServer('tasks', 'upsert', newTask);
   };
 
   const updateTask = (id: string, updates: Partial<Task>) => {
-    setTasks(prev => {
-      const updated = prev.map(t => t.id === id ? { ...t, ...updates } : t);
-      syncEntityToServer('tasks', updated);
-      return updated;
-    });
+    let changedItem: Task | undefined;
+    setTasks(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      changedItem = { ...t, ...updates };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('tasks', 'upsert', changedItem);
   };
 
   const deleteTask = (id: string) => {
-    setTasks(prev => {
-      const updated = prev.filter(t => t.id !== id);
-      syncEntityToServer('tasks', updated);
-      return updated;
-    });
+    setTasks(prev => prev.filter(t => t.id !== id));
+    syncDeltaToServer('tasks', 'delete', id);
   };
 
   // Daily Shift Task Checklist
@@ -1280,7 +1285,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_shift_tasks_changed', { detail: updated }));
     }
     setShiftTasks(updated);
-    syncEntityToServer('shiftTasks', updated);
     syncDeltaToServer('shiftTasks', 'upsert', newTask);
     logActivity('shift_task_created', `Added shift task: ${newTask.title}`, 'ShiftTask', newTask.id);
     return newTask;
@@ -1306,7 +1310,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_shift_tasks_changed', { detail: updated }));
     }
     setShiftTasks(updated);
-    syncEntityToServer('shiftTasks', updated);
     const target = updated.find(t => t.id === id);
     if (target) syncDeltaToServer('shiftTasks', 'upsert', target);
   };
@@ -1320,7 +1323,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_shift_tasks_changed', { detail: updated }));
     }
     setShiftTasks(updated);
-    syncEntityToServer('shiftTasks', updated);
     const target = updated.find(t => t.id === id);
     if (target) syncDeltaToServer('shiftTasks', 'upsert', target);
   };
@@ -1334,7 +1336,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_shift_tasks_changed', { detail: updated }));
     }
     setShiftTasks(updated);
-    syncEntityToServer('shiftTasks', updated);
     syncDeltaToServer('shiftTasks', 'delete', id);
   };
 
@@ -1359,7 +1360,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_shift_tasks_changed', { detail: updated }));
     }
     setShiftTasks(updated);
-    syncEntityToServer('shiftTasks', updated);
+    const target = updated.find(t => t.id === id);
+    if (target) syncDeltaToServer('shiftTasks', 'upsert', target);
     logActivity('shift_task_carried_forward', `Shift task moved forward to ${targetDate}`, 'ShiftTask', id);
   };
 
@@ -1380,26 +1382,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     let accomplishedCount = 0;
     let carriedForwardCount = 0;
+    const changedTasks: ShiftTask[] = [];
 
     const currentTasks = shiftTasksRef.current && shiftTasksRef.current.length > 0 ? shiftTasksRef.current : shiftTasks;
     const updated = currentTasks.map(t => {
       if (t.staffId === staffId && (t.date === today || t.status === 'pending')) {
         if (completedTaskIds.includes(t.id)) {
           accomplishedCount++;
-          return {
-            ...t,
-            status: 'completed' as const,
-            completedAt: now,
-          };
+          const next = { ...t, status: 'completed' as const, completedAt: now };
+          changedTasks.push(next);
+          return next;
         } else {
           // Task is pending, move forward to the next day!
           carriedForwardCount++;
-          return {
-            ...t,
-            date: tomorrow,
-            carriedForwardFrom: t.date || today,
-            status: 'pending' as const,
-          };
+          const next = { ...t, date: tomorrow, carriedForwardFrom: t.date || today, status: 'pending' as const };
+          changedTasks.push(next);
+          return next;
         }
       }
       return t;
@@ -1411,7 +1409,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_shift_tasks_changed', { detail: updated }));
     }
     setShiftTasks(updated);
-    syncEntityToServer('shiftTasks', updated);
+    // One delta upsert per changed task (this is inherently a batch of individual changes,
+    // not a single record) rather than a full-array push.
+    changedTasks.forEach(t => syncDeltaToServer('shiftTasks', 'upsert', t));
 
     // Close the staff shift
     const currentShifts = shiftsRef.current && shiftsRef.current.length > 0 ? shiftsRef.current : shifts;
@@ -1443,7 +1443,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_services_changed', { detail: updated }));
     }
     setServices(updated);
-    syncEntityToServer('services', updated);
+    syncDeltaToServer('services', 'upsert', newService);
     logActivity('crm_service', `Added service catalog solution: ${newService.name}`, 'Service', newService.id);
   };
 
@@ -1457,7 +1457,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_services_changed', { detail: updated }));
     }
     setServices(updated);
-    syncEntityToServer('services', updated);
+    const target = updated.find(s => s.id === id);
+    if (target) syncDeltaToServer('services', 'upsert', target);
     logActivity('crm_service', `Updated service solution: ${updates.name || id}`, 'Service', id);
   };
 
@@ -1471,28 +1472,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_services_changed', { detail: updated }));
     }
     setServices(updated);
-    syncEntityToServer('services', updated);
+    syncDeltaToServer('services', 'delete', id);
     logActivity('crm_service', `Deleted service solution (${id})`, 'Service', id);
   };
 
   const renewHosting = (id: string, additionalMonths = 12) => {
-    setHostingAccounts(prev => {
-      const updated = prev.map(h => {
-        if (h.id === id) {
-          const curr = new Date(h.expiryDate);
-          curr.setMonth(curr.getMonth() + additionalMonths);
-          return {
-            ...h,
-            expiryDate: curr.toISOString().split('T')[0],
-            status: 'active' as const,
-            sslStatus: 'active' as const,
-          };
-        }
-        return h;
-      });
-      syncEntityToServer('hostingAccounts', updated);
-      return updated;
-    });
+    let changedItem: HostingAccount | undefined;
+    setHostingAccounts(prev => prev.map(h => {
+      if (h.id !== id) return h;
+      const curr = new Date(h.expiryDate);
+      curr.setMonth(curr.getMonth() + additionalMonths);
+      changedItem = { ...h, expiryDate: curr.toISOString().split('T')[0], status: 'active' as const, sslStatus: 'active' as const };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('hostingAccounts', 'upsert', changedItem);
     const target = hostingAccounts.find(h => h.id === id);
     if (target) {
       logActivity('hosting_renew', `Extended domain & hosting renewal for ${target.domainName} by ${additionalMonths} months`, 'Hosting', id);
@@ -1549,11 +1542,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `inv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setInvoices(prev => {
-      const updated = [newInvoice, ...prev];
-      syncEntityToServer('invoices', updated);
-      return updated;
-    });
+    setInvoices(prev => [newInvoice, ...prev]);
+    syncDeltaToServer('invoices', 'upsert', newInvoice);
     logActivity('crm_invoice', `Created invoice #${newInvoice.invoiceNumber} for ${newInvoice.clientName}`, 'Invoice', newInvoice.id);
   };
 
@@ -1572,61 +1562,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_payments', JSON.stringify(nextPayments));
       }
-      syncEntityToServer('payments', nextPayments);
       return nextPayments;
     });
+    syncDeltaToServer('payments', 'upsert', newPayment);
 
-    setInvoices(prev => {
-      const updated = prev.map(inv => {
-        if (inv.id === invoiceId) {
-          const updatedPaid = inv.amountPaid + amount;
-          const newStatus = updatedPaid >= inv.total ? 'paid' : 'partially-paid';
-          return { ...inv, amountPaid: updatedPaid, status: newStatus as Invoice['status'] };
-        }
-        return inv;
-      });
-      syncEntityToServer('invoices', updated);
-      return updated;
-    });
+    let changedInvoice: Invoice | undefined;
+    setInvoices(prev => prev.map(inv => {
+      if (inv.id !== invoiceId) return inv;
+      const updatedPaid = inv.amountPaid + amount;
+      const newStatus = updatedPaid >= inv.total ? 'paid' : 'partially-paid';
+      changedInvoice = { ...inv, amountPaid: updatedPaid, status: newStatus as Invoice['status'] };
+      return changedInvoice;
+    }));
+    if (changedInvoice) syncDeltaToServer('invoices', 'upsert', changedInvoice);
 
     logActivity('crm_payment', `Recorded payment of ₦${amount.toLocaleString()} for Invoice`, 'Payment', newPayment.id);
   };
 
   const updateInvoice = (id: string, updates: Partial<Invoice>) => {
-    setInvoices(prev => {
-      const updated = prev.map(inv => {
-        if (inv.id === id) {
-          const next = { ...inv, ...updates };
-          if (updates.amountPaid !== undefined || updates.total !== undefined) {
-            const paid = next.amountPaid ?? 0;
-            const tot = next.total ?? 0;
-            if (paid >= tot && tot > 0) next.status = 'paid';
-            else if (paid > 0) next.status = 'partially-paid';
-          }
-          return next;
-        }
-        return inv;
-      });
-      syncEntityToServer('invoices', updated);
-      return updated;
-    });
+    let changedItem: Invoice | undefined;
+    setInvoices(prev => prev.map(inv => {
+      if (inv.id !== id) return inv;
+      const next = { ...inv, ...updates };
+      if (updates.amountPaid !== undefined || updates.total !== undefined) {
+        const paid = next.amountPaid ?? 0;
+        const tot = next.total ?? 0;
+        if (paid >= tot && tot > 0) next.status = 'paid';
+        else if (paid > 0) next.status = 'partially-paid';
+      }
+      changedItem = next;
+      return next;
+    }));
+    if (changedItem) syncDeltaToServer('invoices', 'upsert', changedItem);
     logActivity('crm_invoice', `Updated invoice details for #${updates.invoiceNumber || id}`, 'Invoice', id);
   };
 
   const deleteInvoice = (id: string) => {
-    setInvoices(prev => {
-      const updated = prev.filter(inv => inv.id !== id);
-      syncEntityToServer('invoices', updated);
-      return updated;
-    });
+    setInvoices(prev => prev.filter(inv => inv.id !== id));
+    syncDeltaToServer('invoices', 'delete', id);
+
+    const orphanedPaymentIds = payments.filter(p => p.invoiceId === id).map(p => p.id);
     setPayments(prev => {
       const next = prev.filter(p => p.invoiceId !== id);
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_payments', JSON.stringify(next));
       }
-      syncEntityToServer('payments', next);
       return next;
     });
+    orphanedPaymentIds.forEach(paymentId => syncDeltaToServer('payments', 'delete', paymentId));
     logActivity('crm_invoice', `Deleted invoice #${id}`, 'Invoice', id);
   };
 
@@ -1637,50 +1620,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `payr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setPayrollRecords(prev => {
-      const updated = [newRecord, ...prev];
-      syncEntityToServer('payrollRecords', updated);
-      return updated;
-    });
+    setPayrollRecords(prev => [newRecord, ...prev]);
+    syncDeltaToServer('payrollRecords', 'upsert', newRecord);
     logActivity('payroll', `Generated payroll record for ${newRecord.staffName} (${newRecord.period})`, 'Payroll', newRecord.id);
   };
 
   const updatePayrollRecord = (id: string, updates: Partial<PayrollRecord>) => {
-    setPayrollRecords(prev => {
-      const updated = prev.map(rec => rec.id === id ? { ...rec, ...updates } : rec);
-      syncEntityToServer('payrollRecords', updated);
-      return updated;
-    });
+    let changedItem: PayrollRecord | undefined;
+    setPayrollRecords(prev => prev.map(rec => {
+      if (rec.id !== id) return rec;
+      changedItem = { ...rec, ...updates };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('payrollRecords', 'upsert', changedItem);
     logActivity('payroll', `Updated payroll record for #${id}`, 'Payroll', id);
   };
 
   const deletePayrollRecord = (id: string) => {
-    setPayrollRecords(prev => {
-      const updated = prev.filter(rec => rec.id !== id);
-      syncEntityToServer('payrollRecords', updated);
-      return updated;
-    });
+    setPayrollRecords(prev => prev.filter(rec => rec.id !== id));
+    syncDeltaToServer('payrollRecords', 'delete', id);
     logActivity('payroll', `Removed payroll record #${id}`, 'Payroll', id);
   };
 
   const processPayrollBatch = (period: string) => {
     const now = new Date().toISOString();
-    setPayrollRecords(prev => {
-      const updated = prev.map(rec => {
-        if (rec.period === period && rec.status !== 'paid') {
-          return {
-            ...rec,
-            status: 'paid' as const,
-            approvedBy: currentUser.full_name,
-            approvedAt: now,
-            paidAt: now
-          };
-        }
-        return rec;
-      });
-      syncEntityToServer('payrollRecords', updated);
-      return updated;
-    });
+    const changedRecords: PayrollRecord[] = [];
+    setPayrollRecords(prev => prev.map(rec => {
+      if (rec.period === period && rec.status !== 'paid') {
+        const next = { ...rec, status: 'paid' as const, approvedBy: currentUser.full_name, approvedAt: now, paidAt: now };
+        changedRecords.push(next);
+        return next;
+      }
+      return rec;
+    }));
+    // Batch of individual upserts, not a full-array push — same reasoning as completeShiftReview.
+    changedRecords.forEach(rec => syncDeltaToServer('payrollRecords', 'upsert', rec));
     logActivity('payroll_batch', `Batch disbursed payroll for period: ${period}`, 'Payroll', period);
   };
 
@@ -1695,19 +1669,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `tk-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setTickets(prev => {
-      const updated = [newTicket, ...prev];
-      syncEntityToServer('tickets', updated);
-      return updated;
-    });
+    setTickets(prev => [newTicket, ...prev]);
+    syncDeltaToServer('tickets', 'upsert', newTicket);
   };
 
   const updateTicketStatus = (id: string, status: Ticket['status']) => {
-    setTickets(prev => {
-      const updated = prev.map(tk => tk.id === id ? { ...tk, status } : tk);
-      syncEntityToServer('tickets', updated);
-      return updated;
-    });
+    let changedItem: Ticket | undefined;
+    setTickets(prev => prev.map(tk => {
+      if (tk.id !== id) return tk;
+      changedItem = { ...tk, status };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('tickets', 'upsert', changedItem);
   };
 
   // Office Expense Actions
@@ -1801,72 +1774,70 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       strategy_status: 'pending_submission',
       created_at: new Date().toISOString(),
     };
-    setGoals(prev => {
-      const updated = [newGoal, ...prev];
-      syncEntityToServer('goals', updated);
-      return updated;
-    });
+    setGoals(prev => [newGoal, ...prev]);
+    syncDeltaToServer('goals', 'upsert', newGoal);
     logActivity('omm_goal', `Assigned One-Minute Goal: ${goalData.objective}`, 'Goal', newGoal.id);
   };
 
   const updateGoalProgress = (id: string, progress: number) => {
     const bounded = Math.max(0, Math.min(100, progress));
     const status: GoalStatus = bounded === 100 ? 'completed' : bounded > 0 ? 'in_progress' : 'not_started';
-    setGoals(prev => {
-      const updated = prev.map(g => g.id === id ? { ...g, progress: bounded, status } : g);
-      syncEntityToServer('goals', updated);
-      return updated;
-    });
+    let changedItem: Goal | undefined;
+    setGoals(prev => prev.map(g => {
+      if (g.id !== id) return g;
+      changedItem = { ...g, progress: bounded, status };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('goals', 'upsert', changedItem);
   };
 
   const updateGoal = (id: string, updates: Partial<Pick<Goal, 'objective' | 'expected_result' | 'deadline'>>) => {
-    setGoals(prev => {
-      const updated = prev.map(g => g.id === id ? { ...g, ...updates } : g);
-      syncEntityToServer('goals', updated);
-      return updated;
-    });
+    let changedItem: Goal | undefined;
+    setGoals(prev => prev.map(g => {
+      if (g.id !== id) return g;
+      changedItem = { ...g, ...updates };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('goals', 'upsert', changedItem);
     logActivity('omm_goal', `Updated 1-Minute Goal details`, 'Goal', id);
   };
 
   const deleteGoal = (id: string) => {
-    setGoals(prev => {
-      const updated = prev.filter(g => g.id !== id);
-      syncEntityToServer('goals', updated);
-      return updated;
-    });
+    setGoals(prev => prev.filter(g => g.id !== id));
+    syncDeltaToServer('goals', 'delete', id);
     logActivity('omm_goal', `Deleted 1-Minute Goal`, 'Goal', id);
   };
 
   const submitGoalStrategy = (id: string, strategyText: string) => {
-    setGoals(prev => {
-      const updated = prev.map(g => g.id === id
-        ? { ...g, strategy_text: strategyText, strategy_status: 'submitted' as const, strategy_submitted_at: new Date().toISOString() }
-        : g);
-      syncEntityToServer('goals', updated);
-      return updated;
-    });
+    let changedItem: Goal | undefined;
+    setGoals(prev => prev.map(g => {
+      if (g.id !== id) return g;
+      changedItem = { ...g, strategy_text: strategyText, strategy_status: 'submitted' as const, strategy_submitted_at: new Date().toISOString() };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('goals', 'upsert', changedItem);
     logActivity('omm_strategy', `Submitted 1-Minute Strategy Plan`, 'Goal', id);
   };
 
   const approveGoalStrategy = (id: string, feedbackNote?: string) => {
-    setGoals(prev => {
-      const updated = prev.map(g => g.id === id
-        ? { ...g, strategy_status: 'approved' as const, strategy_feedback: feedbackNote, strategy_approved_at: new Date().toISOString() }
-        : g);
-      syncEntityToServer('goals', updated);
-      return updated;
-    });
+    let changedItem: Goal | undefined;
+    setGoals(prev => prev.map(g => {
+      if (g.id !== id) return g;
+      changedItem = { ...g, strategy_status: 'approved' as const, strategy_feedback: feedbackNote, strategy_approved_at: new Date().toISOString() };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('goals', 'upsert', changedItem);
     logActivity('omm_strategy', `Approved 1-Minute Strategy Plan`, 'Goal', id);
   };
 
   const requestGoalStrategyRevision = (id: string, feedbackNote: string) => {
-    setGoals(prev => {
-      const updated = prev.map(g => g.id === id
-        ? { ...g, strategy_status: 'revision_requested' as const, strategy_feedback: feedbackNote }
-        : g);
-      syncEntityToServer('goals', updated);
-      return updated;
-    });
+    let changedItem: Goal | undefined;
+    setGoals(prev => prev.map(g => {
+      if (g.id !== id) return g;
+      changedItem = { ...g, strategy_status: 'revision_requested' as const, strategy_feedback: feedbackNote };
+      return changedItem;
+    }));
+    if (changedItem) syncDeltaToServer('goals', 'upsert', changedItem);
   };
 
   const addFeedback = (fbData: Omit<Feedback, 'id' | 'created_at'>) => {
@@ -1875,11 +1846,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `fb-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       created_at: new Date().toISOString(),
     };
-    setFeedbacks(prev => {
-      const updated = [newFb, ...prev];
-      syncEntityToServer('feedbacks', updated);
-      return updated;
-    });
+    setFeedbacks(prev => [newFb, ...prev]);
+    syncDeltaToServer('feedbacks', 'upsert', newFb);
     logActivity('omm_feedback', `Sent One-Minute ${fbData.type === 'praise' ? 'Praise 🎉' : 'Redirect 🎯'} to ${fbData.employee_name}`, 'Feedback', newFb.id);
   };
 
@@ -1933,7 +1901,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_memos_changed', { detail: updatedMemos }));
     }
     setMemos(updatedMemos);
-    syncEntityToServer('memos', updatedMemos);
     syncDeltaToServer('memos', 'upsert', newMemo);
 
     // Send notifications to all recipients
@@ -1991,7 +1958,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_memos_changed', { detail: updatedMemos }));
     }
     setMemos(updatedMemos);
-    syncEntityToServer('memos', updatedMemos);
     const target = updatedMemos.find(m => m.id === memoId);
     if (target) syncDeltaToServer('memos', 'upsert', target);
   };
@@ -2016,7 +1982,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_memos_changed', { detail: updatedMemos }));
     }
     setMemos(updatedMemos);
-    syncEntityToServer('memos', updatedMemos);
     if (targetMemo) {
       const updatedTarget = updatedMemos.find(m => m.id === memoId);
       if (updatedTarget) syncDeltaToServer('memos', 'upsert', updatedTarget);
@@ -2034,7 +1999,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_memos_changed', { detail: updatedMemos }));
     }
     setMemos(updatedMemos);
-    syncEntityToServer('memos', updatedMemos);
     syncDeltaToServer('memos', 'delete', memoId);
 
     if (target) {
@@ -2100,7 +2064,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: nextShifts }));
       }
       setShifts(nextShifts);
-      syncEntityToServer('shifts', nextShifts);
+      syncDeltaToServer('shifts', 'upsert', newShift);
     }
 
     logActivity('staff_login', `${matchedUser.full_name} (${matchedUser.job_title || matchedUser.role}) logged in — Shift started.`, 'StaffShift', matchedUser.id);
@@ -2110,19 +2074,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     const now = new Date().toISOString();
+    let changedShift: StaffShift | undefined;
     const currentShifts = shiftsRef.current && shiftsRef.current.length > 0 ? shiftsRef.current : shifts;
     const updated = currentShifts.map(s => {
       if (s.staffId === currentUser.id && s.status === 'active') {
         const startMs = Date.parse(s.clockInTime);
         const endMs = Date.parse(now);
         const diffHours = Math.max(0.1, Math.round(((endMs - startMs) / (1000 * 60 * 60)) * 100) / 100);
-        return {
+        changedShift = {
           ...s,
           clockOutTime: now,
           durationHours: diffHours,
           status: 'completed' as const,
           notes: `${s.notes || ''} • Clocked out at ${new Date().toLocaleTimeString()} (${diffHours}h shift)`.trim()
         };
+        return changedShift;
       }
       return s;
     });
@@ -2132,7 +2098,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: updated }));
     }
     setShifts(updated);
-    syncEntityToServer('shifts', updated);
+    if (changedShift) syncDeltaToServer('shifts', 'upsert', changedShift);
 
     logActivity('staff_logout', `${currentUser.full_name} logged out — Shift closed.`, 'StaffShift', currentUser.id);
 
@@ -2177,6 +2143,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const clockOutStaff = (shiftId: string, customHours?: number, notes?: string) => {
     const now = new Date().toISOString();
+    let changedShift: StaffShift | undefined;
     const currentShifts = shiftsRef.current && shiftsRef.current.length > 0 ? shiftsRef.current : shifts;
     const updated = currentShifts.map(s => {
       if (s.id === shiftId) {
@@ -2184,13 +2151,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const endMs = Date.parse(now);
         const computedHours = Math.max(0.1, Math.round(((endMs - startMs) / (1000 * 60 * 60)) * 100) / 100);
         const durationHours = customHours !== undefined ? customHours : computedHours;
-        return {
+        changedShift = {
           ...s,
           clockOutTime: now,
           durationHours,
           status: 'completed' as const,
           notes: notes || `${s.notes || ''} • Admin clock-out (${durationHours}h)`.trim()
         };
+        return changedShift;
       }
       return s;
     });
@@ -2200,7 +2168,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: updated }));
     }
     setShifts(updated);
-    syncEntityToServer('shifts', updated);
+    if (changedShift) syncDeltaToServer('shifts', 'upsert', changedShift);
 
     logActivity('admin_clock_out', `Super Admin closed shift record (${shiftId})`, 'StaffShift', shiftId);
   };
@@ -2239,7 +2207,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: nextShifts }));
     }
     setShifts(nextShifts);
-    syncEntityToServer('shifts', nextShifts);
+    syncDeltaToServer('shifts', 'upsert', newShift);
 
     logActivity('admin_clock_in', `Clock-in recorded for ${staff.full_name}`, 'StaffShift', staffId);
   };
@@ -2250,17 +2218,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const staffRate = staffShifts[0]?.hourlyRate || 2500;
     const shiftPayTotal = Math.round(totalHours * staffRate);
 
+    let changedItem: PayrollRecord | undefined;
     setPayrollRecords(prev => prev.map(p => {
-      if (p.staffId === staffId && p.period === period) {
-        return {
-          ...p,
-          shiftHours: totalHours,
-          shiftHourlyRate: staffRate,
-          notes: `${p.notes || ''} [Reconciled: ${totalHours} verified shift hours @ ₦${staffRate.toLocaleString()}/hr]`.trim()
-        };
-      }
-      return p;
+      if (p.staffId !== staffId || p.period !== period) return p;
+      changedItem = {
+        ...p,
+        shiftHours: totalHours,
+        shiftHourlyRate: staffRate,
+        notes: `${p.notes || ''} [Reconciled: ${totalHours} verified shift hours @ ₦${staffRate.toLocaleString()}/hr]`.trim()
+      };
+      return changedItem;
     }));
+    // This previously never synced at all — "Reconcile" only updated local state and silently
+    // never persisted, so the record would appear un-reconciled again after any refresh.
+    if (changedItem) syncDeltaToServer('payrollRecords', 'upsert', changedItem);
 
     logActivity('shift_payroll_sync', `Reconciled ${totalHours} shift hours for ${staffId} in payroll (${period})`, 'Payroll', staffId);
 
