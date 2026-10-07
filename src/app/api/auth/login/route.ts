@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     const validPassword = await verifyPassword(password, matchedUser.password);
     if (!validPassword) {
       return NextResponse.json(
-        { success: false, message: 'Incorrect password. Use "Change Password" to reset it, or contact an administrator.' },
+        { success: false, message: 'Incorrect password. If you\'re signed in elsewhere you can change it from Settings, or ask a manager/admin to reset it from Staff Allocation.' },
         { status: 401 }
       );
     }
