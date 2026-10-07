@@ -17,13 +17,16 @@ import {
   KeyRound,
   Eye,
   EyeOff,
-  CheckCircle2
+  CheckCircle2,
+  Lock
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
+import { isManagementUser } from '@/lib/utils';
 import type { UserProfile, UserRole } from '@/lib/types';
 
 export default function StaffAllocationPage() {
   const { users, updateUserProfile, addUserProfile, deleteUserProfile, currentUser } = useAppStore();
+  const canManageStaff = isManagementUser(currentUser.role);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
 
@@ -60,7 +63,7 @@ export default function StaffAllocationPage() {
     setDepartment(u.department || 'Operations');
     setRole(u.role);
     setPhone(u.phone || '');
-    setPassword(u.password || '');
+    setPassword(''); // never pre-fill — the stored value is a hash, and re-submitting it would hash-the-hash
     setShowPassword(false);
     setIsModalOpen(true);
   };
@@ -150,6 +153,27 @@ export default function StaffAllocationPage() {
       closeModal();
     }
   };
+
+  if (!canManageStaff) {
+    return (
+      <div className="max-w-3xl mx-auto py-12 px-4">
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-8 text-center animate-in fade-in duration-200">
+          <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100 shadow-xs">
+            <Lock size={28} />
+          </div>
+          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-rose-600 bg-rose-50 px-3 py-1 rounded-full border border-rose-200">
+            Restricted
+          </span>
+          <h1 className="text-2xl font-black text-slate-900 mt-3 mb-2 tracking-tight">
+            Staff Allocation &amp; Management Hierarchy
+          </h1>
+          <p className="text-slate-600 text-sm max-w-lg mx-auto leading-relaxed">
+            Editing staff roles, credentials, and the reporting hierarchy is restricted to managers, administrators, and the Managing Director.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

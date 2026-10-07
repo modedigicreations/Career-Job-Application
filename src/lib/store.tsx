@@ -20,18 +20,18 @@ import { initStorage, setStorageItem } from './storage';
 interface AppContextType {
   // Authentication & Shift Attendance
   isAuthenticated: boolean;
-  login: (email: string, password: string) => { success: boolean; message?: string };
+  authLoading: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
-  changeUserPassword: (email: string, newPassword: string) => { success: boolean; message: string };
+  changeUserPassword: (newPassword: string, targetUserId?: string, currentPassword?: string) => Promise<{ success: boolean; message: string }>;
   shifts: StaffShift[];
   activeShift: StaffShift | null;
   clockOutStaff: (shiftId: string, customHours?: number, notes?: string) => void;
   clockInStaff: (staffId: string) => void;
   applyShiftHoursToPayroll: (staffId: string, period?: string) => { hours: number; amount: number };
 
-  // Current active user / impersonation
+  // Current active user
   currentUser: UserProfile;
-  setCurrentUserRole: (role: UserRole) => void;
   users: UserProfile[];
   updateUserProfile: (id: string, updates: Partial<UserProfile>) => void;
   addUserProfile: (profile: Omit<UserProfile, 'id'>) => void;
@@ -179,20 +179,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return initialProfiles;
   });
 
-  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
-    if (typeof window !== 'undefined') {
-      const savedUser = localStorage.getItem('mode_ops_current_user');
-      if (savedUser) {
-        try {
-          const u = JSON.parse(savedUser);
-          if (u && u.id && u.email) {
-            return u;
-          }
-        } catch {}
-      }
-    }
-    return initialProfiles[0];
-  });
+  // currentUser/isAuthenticated start empty/false and are only set once GET /api/auth/me
+  // confirms a real server-verified session (see the bootstrap effect below) — they are
+  // never trusted from localStorage alone, which previously let anyone impersonate any
+  // account just by editing their own browser storage.
+  const [currentUser, setCurrentUser] = useState<UserProfile>(initialProfiles[0]);
+  const [authLoading, setAuthLoading] = useState(true);
 
   const [leads, setLeads] = useState<Lead[]>(() => {
     if (typeof window !== 'undefined') {
@@ -459,13 +451,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return initialShiftTasks;
   });
 
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      const auth = localStorage.getItem('mode_ops_auth');
-      return !!auth;
-    }
-    return true; // Default during SSR
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   const activeShift = shifts.find(s => (s.staffId === currentUser.id || (Boolean(s.staffEmail) && Boolean(currentUser.email) && s.staffEmail.toLowerCase() === currentUser.email.toLowerCase())) && s.status === 'active') || null;
 
@@ -534,6 +520,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Warm IndexedDB cache on boot
   useEffect(() => {
     initStorage();
+  }, []);
+
+  // Establish the real, server-verified session. The httpOnly cookie (if any) was already
+  // set by a prior login — this just confirms it's still valid and fetches the current
+  // profile fresh from the server, rather than ever trusting a cached client-side copy.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const result = await res.json();
+          if (!cancelled && result?.success && result.user) {
+            setCurrentUser(result.user);
+            setIsAuthenticated(true);
+          }
+        }
+      } catch {
+        // treated as not authenticated
+      } finally {
+        if (!cancelled) setAuthLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   // Optimized asynchronous IndexedDB + localStorage persistence (non-blocking)
@@ -647,6 +657,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
               localStorage.setItem('mode_ops_shift_tasks', serverStr);
               return serverDb.shiftTasks;
+            });
+          }
+
+          // Sync requisitions safely — guards against a concurrent local edit being
+          // clobbered by a slightly-stale server read that lands in between.
+          if (Array.isArray(serverDb.requisitions)) {
+            setRequisitions(prev => {
+              const prevStr = JSON.stringify(prev);
+              const serverStr = JSON.stringify(serverDb.requisitions);
+              if (prevStr === serverStr) return prev;
+
+              const localTs = lastLocalEditRef.current['requisitions'] || 0;
+              const serverTs = serverDb.requisitionsLastUpdated ? new Date(serverDb.requisitionsLastUpdated).getTime() : 0;
+              if (localTs > serverTs) return prev;
+
+              return serverDb.requisitions;
             });
           }
 
@@ -861,88 +887,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Switch Role
-  const setCurrentUserRole = (role: UserRole) => {
-    let targetUser: UserProfile | undefined = users.find(u => {
-      if (role === 'administration' || role === 'accounts') {
-        return u.role === 'administration' || u.role === 'accounts' || u.id === 'u5';
-      }
-      return u.role === role;
-    });
-
-    if (!targetUser) {
-      if (role === 'administration' || role === 'accounts') {
-        targetUser = {
-          id: 'u5',
-          email: 'admin@modedigitalcreations.ng',
-          full_name: 'Ibrahim Musa',
-          role: 'administration',
-          department: 'Administration',
-          job_title: 'Administration & Finance Lead',
-          avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-          hourly_rate: 6500,
-          currency: 'NGN',
-          hasPayrollAccess: true,
-        };
-      } else {
-        targetUser = {
-          id: `u-${role}`,
-          email: role === 'managing_director' ? 'info@modedigitalcreations.ng' : `${role}@modedigitalcreations.ng`,
-          full_name: role.replace('_', ' ').toUpperCase(),
-          role,
-          department: 'Operations',
-          job_title: `${role.toUpperCase()} Lead`,
-        };
-      }
-    }
-
-    if (targetUser.role === 'accounts' || targetUser.id === 'u5') {
-      targetUser = {
-        ...targetUser,
-        role: 'administration',
-        department: 'Administration',
-        job_title: 'Administration & Finance Lead',
-      };
-    }
-
-    const found: UserProfile = targetUser;
-
-    setCurrentUser(found);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('mode_ops_current_user', JSON.stringify(found));
-    }
-
-    // Auto-ensure active shift for this staff member so they are NOT left "Shift Inactive" when viewing as that staff
-    const today = new Date().toISOString().split('T')[0];
-    const now = new Date().toISOString();
-    const currentShifts = shiftsRef.current && shiftsRef.current.length > 0 ? shiftsRef.current : shifts;
-    const hasActive = currentShifts.some(s => (s.staffId === found.id || (Boolean(s.staffEmail) && Boolean(found.email) && s.staffEmail.toLowerCase() === found.email.toLowerCase())) && s.status === 'active');
-    if (!hasActive) {
-      const newShift: StaffShift = {
-        id: `shift-${Date.now()}`,
-        staffId: found.id,
-        staffName: found.full_name,
-        staffEmail: found.email,
-        department: found.department || 'Operations',
-        jobTitle: found.job_title || 'Staff',
-        clockInTime: now,
-        clockOutTime: null,
-        durationHours: 0,
-        status: 'active',
-        hourlyRate: found.hourly_rate || (found.role === 'managing_director' ? 5000 : found.role === 'administration' ? 6500 : 3500),
-        notes: `Shift activated on role view switch at ${new Date().toLocaleTimeString()}`,
-        date: today,
-      };
-      const updated = [newShift, ...currentShifts];
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_shifts', JSON.stringify(updated));
-        localStorage.setItem('mode_ops_shifts_timestamp', String(Date.now()));
-        window.dispatchEvent(new CustomEvent('mode_ops_shifts_changed', { detail: updated }));
-      }
-      setShifts(updated);
-      syncEntityToServer('shifts', updated);
-    }
-  };
-
   const updateUserProfile = (id: string, updates: Partial<UserProfile>) => {
     let resolvedName = updates.full_name;
     const currentUsers = usersRef.current && usersRef.current.length > 0 ? usersRef.current : users;
@@ -1626,7 +1570,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       staffId: currentUser.id,
       createdAt: new Date().toISOString(),
     };
-    setRequisitions(prev => [newReq, ...prev]);
+    setRequisitions(prev => {
+      const updated = [newReq, ...prev];
+      syncEntityToServer('requisitions', updated);
+      return updated;
+    });
     logActivity('expense_create', `Staff ${currentUser.full_name} submitted requisition: ${title} (${currency} ${amount.toLocaleString()})`, 'Requisition', newReq.id);
 
     // Notify Manager/MD
@@ -1644,54 +1592,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateRequisitionDecision = (id: string, status: 'Approved' | 'Rejected', decisionNotes: string) => {
-    setRequisitions(prev => prev.map(r => {
-      if (r.id === id) {
-        return {
-          ...r,
-          status,
-          decisionNotes,
-          decidedAt: new Date().toISOString(),
-          decidedBy: currentUser.full_name,
-        };
-      }
-      return r;
-    }));
+    setRequisitions(prev => {
+      const updated = prev.map(r => r.id === id
+        ? { ...r, status, decisionNotes, decidedAt: new Date().toISOString(), decidedBy: currentUser.full_name }
+        : r);
+      syncEntityToServer('requisitions', updated);
+      return updated;
+    });
     logActivity('expense_decision', `${currentUser.full_name} marked requisition as ${status}`, 'Requisition', id);
   };
 
   const updateRequisition = (id: string, updates: Partial<Requisition>) => {
-    setRequisitions(prev => prev.map(r => {
-      if (r.id === id) {
-        return {
-          ...r,
-          ...updates,
-          currency: 'NGN' as Currency,
-        };
-      }
-      return r;
-    }));
+    setRequisitions(prev => {
+      const updated = prev.map(r => r.id === id ? { ...r, ...updates, currency: 'NGN' as Currency } : r);
+      syncEntityToServer('requisitions', updated);
+      return updated;
+    });
     logActivity('expense_update', `Updated requisition #${id}`, 'Requisition', id);
   };
 
   const deleteRequisition = (id: string) => {
     const existing = requisitions.find(r => r.id === id);
-    setRequisitions(prev => prev.filter(r => r.id !== id));
+    setRequisitions(prev => {
+      const updated = prev.filter(r => r.id !== id);
+      syncEntityToServer('requisitions', updated);
+      return updated;
+    });
     logActivity('expense_delete', `Deleted requisition ${existing?.receiptNumber || id} (${existing?.title || ''})`, 'Requisition', id);
   };
 
   const disburseRequisition = (id: string, transactionId: string) => {
-    setRequisitions(prev => prev.map(r => {
-      if (r.id === id) {
-        return {
-          ...r,
-          status: 'Completed',
-          completedAt: new Date().toISOString(),
-          disbursedBy: currentUser.full_name,
-          transactionId,
-        };
-      }
-      return r;
-    }));
+    setRequisitions(prev => {
+      const updated = prev.map(r => r.id === id
+        ? { ...r, status: 'Completed' as const, completedAt: new Date().toISOString(), disbursedBy: currentUser.full_name, transactionId }
+        : r);
+      syncEntityToServer('requisitions', updated);
+      return updated;
+    });
     logActivity('expense_disburse', `Accounts disbursed requisition funds (${transactionId})`, 'Requisition', id);
   };
 
@@ -1928,106 +1865,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Authentication & Shift Actions
-  const login = (email: string, password: string): { success: boolean; message?: string } => {
-    const cleanEmail = email.trim().toLowerCase();
-
-    // Company email domain check - STRICTLY @modedigitalcreations.ng and @modewebhost.com.ng only
-    const isCompanyDomain = 
-      cleanEmail.endsWith('@modedigitalcreations.ng') ||
-      cleanEmail.endsWith('@modewebhost.com.ng');
-
-    if (!isCompanyDomain) {
-      return {
-        success: false,
-        message: 'Access Restricted: Only official @modedigitalcreations.ng and @modewebhost.com.ng company email addresses are allowed.'
-      };
-    }
-
-    let matchedUser = 
-      users.find(u => u.email.toLowerCase() === cleanEmail) ||
-      (cleanEmail === 'info@modedigitalcreations.ng' ? users.find(u => u.id === 'u1') : undefined) ||
-      users.find(u => {
-        const uPrefix = u.email.split('@')[0].toLowerCase();
-        const inputPrefix = cleanEmail.split('@')[0].toLowerCase();
-        return uPrefix === inputPrefix;
+  const login = async (email: string, password: string): Promise<{ success: boolean; message?: string }> => {
+    let res: Response;
+    try {
+      res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
       });
-
-    if (!matchedUser) {
-      // Check if entering default password to allow instant activation
-      const isDefaultPass = password === 'password123' || password === 'Mode2026!';
-      if (isDefaultPass) {
-        const prefix = cleanEmail.split('@')[0];
-        let derivedName = '';
-        if (cleanEmail === 'ben@modewebhost.com.ng' || prefix.toLowerCase() === 'ben') {
-          derivedName = 'Ben Asiedu';
-        } else {
-          derivedName = prefix
-            .split(/[._-]/)
-            .filter(Boolean)
-            .map(s => s.charAt(0).toUpperCase() + s.slice(1))
-            .join(' ') || 'Staff Member';
-        }
-
-        const isWebHost = cleanEmail.endsWith('@modewebhost.com.ng');
-        const isAdmin = cleanEmail.startsWith('admin@') || cleanEmail.startsWith('info@');
-
-        const newProfile: UserProfile = {
-          id: `u-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          email: cleanEmail,
-          password: password,
-          full_name: derivedName,
-          role: isAdmin ? 'managing_director' : 'employee',
-          department: isWebHost ? 'Web Hosting & Support' : 'Operations',
-          job_title: isAdmin 
-            ? 'Super Admin & Lead Hostmaster' 
-            : (isWebHost ? 'Hosting & Technical Support Specialist' : 'Operations Specialist'),
-          phone: '+234 802 888 7777',
-          is_active: true,
-          hasPayrollAccess: isAdmin
-        };
-
-        matchedUser = newProfile;
-        const currentUsers = usersRef.current && usersRef.current.length > 0 ? usersRef.current : users;
-        const updatedUsers = [...currentUsers, newProfile];
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('mode_ops_users', JSON.stringify(updatedUsers));
-          localStorage.setItem('mode_ops_users_customized', 'true');
-          localStorage.setItem('mode_ops_users_timestamp', String(Date.now()));
-          window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updatedUsers }));
-        }
-        setUsers(updatedUsers);
-        syncEntityToServer('users', updatedUsers);
-
-        logActivity('staff_registered', `Staff profile for ${derivedName} (${cleanEmail}) activated.`, 'User', newProfile.id);
-      } else {
-        return {
-          success: false,
-          message: 'No registered staff profile found with this company email yet. Please click the "Change Password" tab above to set your password and activate your access.'
-        };
-      }
+    } catch {
+      return { success: false, message: 'Could not reach the server. Please check your connection and try again.' };
     }
 
-    if (matchedUser.is_active === false) {
-      return {
-        success: false,
-        message: 'This staff account has been deactivated. Please reach out to your administrator.'
-      };
+    const result = await res.json().catch(() => ({ success: false, message: 'Unexpected server response.' }));
+    if (!res.ok || !result.success) {
+      return { success: false, message: result.message || 'Login failed.' };
     }
 
-    const validPassword = matchedUser.password || 'password123';
-    if (password !== validPassword && password !== 'Mode2026!' && password !== 'password123') {
-      return {
-        success: false,
-        message: 'Incorrect password. You can reset or update your password using the "Change Password" tab on this page.'
-      };
-    }
-
+    const matchedUser: UserProfile = result.user;
     setCurrentUser(matchedUser);
     setIsAuthenticated(true);
+    // The server already set the httpOnly session cookie; this is just a non-sensitive
+    // local hint other tabs/components can read without a round trip (never auth-authoritative).
     if (typeof window !== 'undefined') {
       localStorage.setItem('mode_ops_current_user', JSON.stringify(matchedUser));
       localStorage.setItem('mode_ops_auth', JSON.stringify({ userId: matchedUser.id, loggedInAt: new Date().toISOString() }));
     }
+    setUsers(prev => prev.map(u => (u.id === matchedUser.id ? matchedUser : u)));
 
     // Daily Shift Tracking: Start of Shift
     const today = new Date().toISOString().split('T')[0];
@@ -2097,116 +1961,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticated(false);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('mode_ops_auth');
+      localStorage.removeItem('mode_ops_current_user');
     }
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
   };
 
-  const changeUserPassword = (email: string, newPassword: string): { success: boolean; message: string } => {
-    const cleanEmail = email.trim().toLowerCase();
-
-    // Company email domain check - STRICTLY @modedigitalcreations.ng and @modewebhost.com.ng only
-    const isCompanyDomain = 
-      cleanEmail.endsWith('@modedigitalcreations.ng') ||
-      cleanEmail.endsWith('@modewebhost.com.ng');
-
-    if (!isCompanyDomain) {
-      return {
-        success: false,
-        message: 'Access Restricted: Only official @modedigitalcreations.ng and @modewebhost.com.ng company email addresses are allowed.'
-      };
-    }
-
+  // Self-service (no targetUserId: changes the caller's own password) or a manager-tier
+  // admin resetting someone else's (targetUserId set) — requires an authenticated session
+  // either way. Replaces the old client-only version that accepted any email with zero auth.
+  const changeUserPassword = async (newPassword: string, targetUserId?: string, currentPassword?: string): Promise<{ success: boolean; message: string }> => {
     if (!newPassword || newPassword.length < 6) {
-      return {
-        success: false,
-        message: 'New password must be at least 6 characters long.'
-      };
+      return { success: false, message: 'New password must be at least 6 characters long.' };
     }
 
-    const target = 
-      users.find(u => u.email.toLowerCase() === cleanEmail) ||
-      (cleanEmail === 'info@modedigitalcreations.ng' ? users.find(u => u.id === 'u1') : undefined) ||
-      users.find(u => {
-        const uPrefix = u.email.split('@')[0].toLowerCase();
-        const inputPrefix = cleanEmail.split('@')[0].toLowerCase();
-        return uPrefix === inputPrefix;
+    let res: Response;
+    try {
+      res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword, targetUserId, currentPassword }),
       });
-
-    if (!target) {
-      // Auto-provision and register new company staff profile
-      const prefix = cleanEmail.split('@')[0];
-      let derivedName = '';
-      if (cleanEmail === 'ben@modewebhost.com.ng' || prefix.toLowerCase() === 'ben') {
-        derivedName = 'Ben Asiedu';
-      } else {
-        derivedName = prefix
-          .split(/[._-]/)
-          .filter(Boolean)
-          .map(s => s.charAt(0).toUpperCase() + s.slice(1))
-          .join(' ') || 'Staff Member';
-      }
-
-      const isWebHost = cleanEmail.endsWith('@modewebhost.com.ng');
-      const isAdmin = cleanEmail.startsWith('admin@') || cleanEmail.startsWith('info@');
-
-      const newProfile: UserProfile = {
-        id: `u-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        email: cleanEmail,
-        password: newPassword,
-        full_name: derivedName,
-        role: isAdmin ? 'managing_director' : 'employee',
-        department: isWebHost ? 'Web Hosting & Support' : 'Operations',
-        job_title: isAdmin 
-          ? 'Super Admin & Lead Hostmaster' 
-          : (isWebHost ? 'Hosting & Technical Support Specialist' : 'Operations Specialist'),
-        phone: '+234 802 888 7777',
-        is_active: true,
-        hasPayrollAccess: isAdmin
-      };
-
-      const currentUsers = usersRef.current && usersRef.current.length > 0 ? usersRef.current : users;
-      const updatedUsers = [...currentUsers, newProfile];
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_users', JSON.stringify(updatedUsers));
-        localStorage.setItem('mode_ops_users_customized', 'true');
-        localStorage.setItem('mode_ops_users_timestamp', String(Date.now()));
-        window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updatedUsers }));
-      }
-      setUsers(updatedUsers);
-      syncEntityToServer('users', updatedUsers);
-
-      logActivity('staff_registered', `Staff profile for ${derivedName} (${cleanEmail}) activated and password set.`, 'User', newProfile.id);
-
-      return {
-        success: true,
-        message: 'Password set and company staff profile activated successfully! You can now log in.'
-      };
+    } catch {
+      return { success: false, message: 'Could not reach the server. Please try again.' };
     }
 
-    const currentUsers = usersRef.current && usersRef.current.length > 0 ? usersRef.current : users;
-    const updatedUsers = currentUsers.map(u => u.id === target.id ? { ...u, password: newPassword } : u);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('mode_ops_users', JSON.stringify(updatedUsers));
-      localStorage.setItem('mode_ops_users_customized', 'true');
-      localStorage.setItem('mode_ops_users_timestamp', String(Date.now()));
-      window.dispatchEvent(new CustomEvent('mode_ops_users_changed', { detail: updatedUsers }));
-    }
-    setUsers(updatedUsers);
-    syncEntityToServer('users', updatedUsers);
-
-    if (currentUser && currentUser.id === target.id) {
-      const updatedCurrentUser = { ...currentUser, password: newPassword };
-      setCurrentUser(updatedCurrentUser);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_current_user', JSON.stringify(updatedCurrentUser));
-      }
+    const result = await res.json().catch(() => ({ success: false, message: 'Unexpected server response.' }));
+    if (!res.ok || !result.success) {
+      return { success: false, message: result.message || 'Failed to change password.' };
     }
 
-    logActivity('password_change', `Staff member ${target.full_name} changed their password.`, 'User', target.id);
+    const effectiveTargetId = targetUserId || currentUser.id;
+    const targetProfile = users.find(u => u.id === effectiveTargetId);
+    logActivity('password_change', `${targetProfile ? targetProfile.full_name : 'A staff member'}'s password was changed${targetUserId && targetUserId !== currentUser.id ? ` by ${currentUser.full_name}` : ''}.`, 'User', effectiveTargetId);
 
-    return {
-      success: true,
-      message: 'Password changed successfully! You can now log in with your new password.'
-    };
+    return { success: true, message: 'Password changed successfully.' };
   };
 
   const clockOutStaff = (shiftId: string, customHours?: number, notes?: string) => {
@@ -2305,6 +2093,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider
       value={{
         isAuthenticated,
+        authLoading,
         login,
         logout,
         changeUserPassword,
@@ -2314,7 +2103,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         clockInStaff,
         applyShiftHoursToPayroll,
         currentUser,
-        setCurrentUserRole,
         users,
         updateUserProfile,
         addUserProfile,

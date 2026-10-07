@@ -1,9 +1,21 @@
+import { cookies } from 'next/headers';
 import { syncBroadcaster } from '@/lib/sync-events';
+import { verifySessionToken, SESSION_COOKIE } from '@/lib/auth-server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const session = token ? verifySessionToken(token) : null;
+  if (!session) {
+    return new Response(JSON.stringify({ success: false, error: 'Not authenticated' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const encoder = new TextEncoder();
   let cleanup: (() => void) | null = null;
 

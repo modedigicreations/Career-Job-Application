@@ -28,6 +28,7 @@ export interface UserProfile {
   hourly_rate?: number;
   currency?: Currency;
   created_at?: string;
+  last_login?: string;
 }
 
 export interface StaffShift {

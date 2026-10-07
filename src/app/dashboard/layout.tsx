@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -13,21 +13,20 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { isAuthenticated } = useAppStore();
-  const [mounted, setMounted] = useState(false);
+  const { isAuthenticated, authLoading } = useAppStore();
 
+  // middleware.ts already redirects server-side for a missing/invalid session cookie —
+  // this is the client-side complement for the case where the cookie is valid at request
+  // time but the store's own /api/auth/me check (which is what actually hydrates
+  // currentUser/isAuthenticated) comes back negative, e.g. the account was deactivated
+  // mid-session.
   useEffect(() => {
-    setMounted(true);
-    if (typeof window !== 'undefined') {
-      const auth = localStorage.getItem('mode_ops_auth');
-      const currentUserSaved = localStorage.getItem('mode_ops_current_user');
-      if (!auth && !currentUserSaved && !isAuthenticated) {
-        router.replace('/login');
-      }
+    if (!authLoading && !isAuthenticated) {
+      router.replace('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, router]);
 
-  if (!mounted) {
+  if (authLoading || !isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />

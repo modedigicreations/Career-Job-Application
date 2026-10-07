@@ -14,7 +14,6 @@ import {
   Trash2,
   X,
   Lock,
-  UserCheck,
   Key,
   Users,
   Building2,
@@ -31,7 +30,6 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 export default function PayrollPage() {
   const {
     currentUser,
-    setCurrentUserRole,
     users,
     updateUserProfile,
     addUserProfile,
@@ -241,34 +239,6 @@ export default function PayrollPage() {
             <div className="flex items-center justify-between text-slate-600">
               <span>Payroll Access Permission:</span>
               <span className="font-bold text-rose-600">Unauthorized (Flag: false)</span>
-            </div>
-          </div>
-
-          {/* Quick Impersonation Switcher for testing/demo */}
-          <div className="mt-6 pt-6 border-t border-slate-100 max-w-md mx-auto text-left">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-              Test with Authorized Role (Demo Mode)
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setCurrentUserRole('managing_director')}
-                className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
-              >
-                <ShieldCheck size={14} className="text-blue-400" />
-                <span>Switch to MD</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  // Switch to administration role which has payroll access
-                  setCurrentUserRole('administration');
-                }}
-                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
-              >
-                <UserCheck size={14} />
-                <span>Switch to Administration Lead</span>
-              </button>
             </div>
           </div>
         </div>
