@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
-import { isManagementUser, canAssignTo } from '@/lib/utils';
+import { isManagementUser, canAssignTo, isSuperAdminUser } from '@/lib/utils';
 import type { UserProfile, UserRole } from '@/lib/types';
 
 function formatLastLogin(iso?: string): string {
@@ -346,9 +346,9 @@ export default function StaffAllocationPage() {
                     type="button"
                     onClick={() => handleViewDashboard(u)}
                     className="flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-mode-royal hover:underline"
-                    title="View this person's dashboard, read-only"
+                    title={isSuperAdminUser(currentUser.role) ? "Oversee this staff member's activities with full interactive administrative access" : "View this person's dashboard, read-only"}
                   >
-                    <Eye size={12} /> View Dashboard
+                    <Eye size={12} /> {isSuperAdminUser(currentUser.role) ? 'Oversee Dashboard' : 'View Dashboard'}
                   </button>
                 )}
                 <button

@@ -125,6 +125,8 @@ export interface Lead {
   probability: number;
   expectedCloseDate: string;
   assignedTo: string;
+  referralName?: string;
+  lastUpdatedByName?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -150,7 +152,11 @@ export interface Company {
   email: string;
   phone: string;
   address: string;
+  size?: string;
+  contactPerson?: string;
   contactIds?: string[];
+  referralName?: string;
+  accountManager?: string;
   createdAt: string;
 }
 

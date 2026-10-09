@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Banknote,
   ShieldCheck,
@@ -68,6 +68,14 @@ export default function PayrollPage() {
   const [syncToast, setSyncToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
   const [manualClockInModalOpen, setManualClockInModalOpen] = useState(false);
   const [manualStaffId, setManualStaffId] = useState('');
+
+  const nowMs = useMemo(() => Date.now(), []);
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const yesterdayStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  }, []);
 
   // Staff Roster & Profile Editing State
   const [staffRosterModalOpen, setStaffRosterModalOpen] = useState(false);
@@ -985,7 +993,7 @@ export default function PayrollPage() {
             {shifts.filter(s => s.status === 'active').map(s => {
               const details = getShiftStaffDetails(s);
               const start = new Date(s.clockInTime);
-              const elapsedMs = Date.now() - start.getTime();
+              const elapsedMs = Math.max(0, nowMs - start.getTime());
               const elapsedHours = Math.max(0.1, Math.round((elapsedMs / (1000 * 60 * 60)) * 10) / 10);
 
               return (
@@ -1162,11 +1170,8 @@ export default function PayrollPage() {
                 .filter(s => {
                   const details = getShiftStaffDetails(s);
                   if (shiftStaffFilter !== 'all' && s.staffId !== shiftStaffFilter) return false;
-                  if (shiftDateFilter === 'today' && s.date !== new Date().toISOString().split('T')[0]) return false;
-                  if (shiftDateFilter === 'yesterday') {
-                    const yest = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-                    if (s.date !== yest) return false;
-                  }
+                  if (shiftDateFilter === 'today' && s.date !== todayStr) return false;
+                  if (shiftDateFilter === 'yesterday' && s.date !== yesterdayStr) return false;
                   if (shiftSearchTerm) {
                     const q = shiftSearchTerm.toLowerCase();
                     if (!details.staffName.toLowerCase().includes(q) && !details.staffEmail.toLowerCase().includes(q) && !details.department.toLowerCase().includes(q)) {

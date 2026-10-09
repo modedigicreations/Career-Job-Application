@@ -103,7 +103,7 @@ export default function InvoicesPage() {
     setItems(
       inv.items && inv.items.length > 0
         ? inv.items.map(it => ({ ...it }))
-        : [{ id: `item-${Date.now()}-1`, description: 'Deliverable', quantity: 1, unitPrice: inv.subtotal || 0, total: inv.subtotal || 0 }]
+        : [{ id: `item-${inv.id || 'initial'}-1`, description: 'Deliverable', quantity: 1, unitPrice: inv.subtotal || 0, total: inv.subtotal || 0 }]
     );
     setIsCreateModalOpen(true);
   };

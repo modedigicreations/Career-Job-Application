@@ -512,6 +512,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const memosRef = useRef<StaffMemo[]>(memos);
   useEffect(() => { memosRef.current = memos; }, [memos]);
 
+  const leadsRef = useRef<Lead[]>(leads);
+  useEffect(() => { leadsRef.current = leads; }, [leads]);
+
+  const invoicesRef = useRef<Invoice[]>(invoices);
+  useEffect(() => { invoicesRef.current = invoices; }, [invoices]);
+
+  const payrollRecordsRef = useRef<PayrollRecord[]>(payrollRecords);
+  useEffect(() => { payrollRecordsRef.current = payrollRecords; }, [payrollRecords]);
+
+  const companiesRef = useRef<Company[]>(companies);
+  useEffect(() => { companiesRef.current = companies; }, [companies]);
+
+  const contactsRef = useRef<Contact[]>(contacts);
+  useEffect(() => { contactsRef.current = contacts; }, [contacts]);
+
+  const projectsRef = useRef<Project[]>(projects);
+  useEffect(() => { projectsRef.current = projects; }, [projects]);
+
+  const tasksRef = useRef<Task[]>(tasks);
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+
+  const hostingAccountsRef = useRef<HostingAccount[]>(hostingAccounts);
+  useEffect(() => { hostingAccountsRef.current = hostingAccounts; }, [hostingAccounts]);
+
+  const requisitionsRef = useRef<Requisition[]>(requisitions);
+  useEffect(() => { requisitionsRef.current = requisitions; }, [requisitions]);
+
+  const goalsRef = useRef<Goal[]>(goals);
+  useEffect(() => { goalsRef.current = goals; }, [goals]);
+
+  const feedbacksRef = useRef<Feedback[]>(feedbacks);
+  useEffect(() => { feedbacksRef.current = feedbacks; }, [feedbacks]);
+
+  const ticketsRef = useRef<Ticket[]>(tickets);
+  useEffect(() => { ticketsRef.current = tickets; }, [tickets]);
+
+  const paymentsRef = useRef<Payment[]>(payments);
+  useEffect(() => { paymentsRef.current = payments; }, [payments]);
+
   const lastLocalEditRef = useRef<{ [key: string]: number }>({});
 
   const syncEntityToServer = async (entity: string, data: any) => {
@@ -701,30 +740,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // like "never overwrite a customized catalog" or "never clobber an active shift").
           // Guards against a concurrent local edit being clobbered by a slightly-stale
           // server read landing in between.
-          function mergeSimple<T>(entity: string, serverArray: T[] | undefined, serverTsIso: string | undefined, setter: React.Dispatch<React.SetStateAction<T[]>>) {
+          function mergeSimple<T extends { id: string }>(
+            entity: string,
+            serverArray: T[] | undefined,
+            serverTsIso: string | undefined,
+            setter: React.Dispatch<React.SetStateAction<T[]>>,
+            currentRef?: React.MutableRefObject<T[]>,
+            storageKey?: string
+          ) {
             if (!Array.isArray(serverArray)) return;
+            const localTs = lastLocalEditRef.current[entity] || 0;
+            const serverTs = serverTsIso ? new Date(serverTsIso).getTime() : 0;
+            // Protect recent local edits from stale server reads overwriting them (within 5 seconds or if local is newer)
+            if (Date.now() - localTs < 5000 || localTs > serverTs) return;
             setter(prev => {
               if (JSON.stringify(prev) === JSON.stringify(serverArray)) return prev;
-              const localTs = lastLocalEditRef.current[entity] || 0;
-              const serverTs = serverTsIso ? new Date(serverTsIso).getTime() : 0;
-              if (localTs > serverTs) return prev;
+              if (currentRef) currentRef.current = serverArray;
+              if (storageKey) setStorageItem(storageKey, serverArray);
               return serverArray;
             });
           }
 
-          mergeSimple('requisitions', serverDb.requisitions, serverDb.requisitionsLastUpdated, setRequisitions);
-          mergeSimple('leads', serverDb.leads, serverDb.leadsLastUpdated, setLeads);
-          mergeSimple('contacts', serverDb.contacts, undefined, setContacts);
-          mergeSimple('companies', serverDb.companies, undefined, setCompanies);
-          mergeSimple('projects', serverDb.projects, serverDb.projectsLastUpdated, setProjects);
-          mergeSimple('tasks', serverDb.tasks, undefined, setTasks);
-          mergeSimple('hostingAccounts', serverDb.hostingAccounts, undefined, setHostingAccounts);
-          mergeSimple('invoices', serverDb.invoices, serverDb.invoicesLastUpdated, setInvoices);
-          mergeSimple('payments', serverDb.payments, serverDb.paymentsLastUpdated, setPayments);
-          mergeSimple('tickets', serverDb.tickets, serverDb.ticketsLastUpdated, setTickets);
-          mergeSimple('goals', serverDb.goals, serverDb.goalsLastUpdated, setGoals);
-          mergeSimple('feedbacks', serverDb.feedbacks, serverDb.feedbacksLastUpdated, setFeedbacks);
-          mergeSimple('payrollRecords', serverDb.payrollRecords, serverDb.payrollRecordsLastUpdated, setPayrollRecords);
+          mergeSimple('requisitions', serverDb.requisitions, serverDb.requisitionsLastUpdated, setRequisitions, requisitionsRef, 'mode_ops_requisitions');
+          mergeSimple('leads', serverDb.leads, serverDb.leadsLastUpdated, setLeads, leadsRef, 'mode_ops_leads');
+          mergeSimple('contacts', serverDb.contacts, undefined, setContacts, contactsRef, 'mode_ops_contacts');
+          mergeSimple('companies', serverDb.companies, undefined, setCompanies, companiesRef, 'mode_ops_companies');
+          mergeSimple('projects', serverDb.projects, serverDb.projectsLastUpdated, setProjects, projectsRef, 'mode_ops_projects');
+          mergeSimple('tasks', serverDb.tasks, undefined, setTasks, tasksRef, 'mode_ops_tasks');
+          mergeSimple('hostingAccounts', serverDb.hostingAccounts, undefined, setHostingAccounts, hostingAccountsRef, 'mode_ops_hosting');
+          mergeSimple('invoices', serverDb.invoices, serverDb.invoicesLastUpdated, setInvoices, invoicesRef, 'mode_ops_invoices');
+          mergeSimple('payments', serverDb.payments, serverDb.paymentsLastUpdated, setPayments, paymentsRef, 'mode_ops_payments');
+          mergeSimple('tickets', serverDb.tickets, serverDb.ticketsLastUpdated, setTickets, ticketsRef, 'mode_ops_tickets');
+          mergeSimple('goals', serverDb.goals, serverDb.goalsLastUpdated, setGoals, goalsRef, 'mode_ops_goals');
+          mergeSimple('feedbacks', serverDb.feedbacks, serverDb.feedbacksLastUpdated, setFeedbacks, feedbacksRef, 'mode_ops_feedbacks');
+          mergeSimple('payrollRecords', serverDb.payrollRecords, serverDb.payrollRecordsLastUpdated, setPayrollRecords, payrollRecordsRef, 'mode_ops_payroll');
 
           // Sync staff memos safely with timestamp protection
           if (Array.isArray(serverDb.memos) && serverDb.memos.length > 0) {
@@ -874,41 +923,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
             if (payload.type === 'delta') {
               const { entity, action, item, id } = payload;
-              if (entity === 'shiftTasks') {
-                setShiftTasks(prev => {
-                  if (action === 'delete') {
-                    return prev.filter(t => t.id !== (id || item?.id));
+              const targetId = id || item?.id;
+
+              const applyDelta = <T extends { id: string }>(
+                listRef: React.MutableRefObject<T[]>,
+                setter: React.Dispatch<React.SetStateAction<T[]>>,
+                storageKey: string
+              ) => {
+                let next: T[];
+                if (action === 'delete') {
+                  next = listRef.current.filter(x => x.id !== targetId);
+                } else if (action === 'upsert' && item) {
+                  const idx = listRef.current.findIndex(x => x.id === item.id);
+                  if (idx !== -1) {
+                    next = [...listRef.current];
+                    next[idx] = { ...next[idx], ...item };
+                  } else {
+                    next = [item, ...listRef.current];
                   }
-                  if (action === 'upsert' && item) {
-                    const idx = prev.findIndex(t => t.id === item.id);
-                    if (idx !== -1) {
-                      const next = [...prev];
-                      next[idx] = { ...next[idx], ...item };
-                      return next;
-                    }
-                    return [item, ...prev];
-                  }
-                  return prev;
-                });
-              } else if (entity === 'memos') {
-                setMemos(prev => {
-                  if (action === 'delete') {
-                    return prev.filter(m => m.id !== (id || item?.id));
-                  }
-                  if (action === 'upsert' && item) {
-                    const idx = prev.findIndex(m => m.id === item.id);
-                    if (idx !== -1) {
-                      const next = [...prev];
-                      next[idx] = { ...next[idx], ...item };
-                      return next;
-                    }
-                    return [item, ...prev];
-                  }
-                  return prev;
-                });
-              } else {
-                pullServerState();
-              }
+                } else {
+                  return;
+                }
+                listRef.current = next;
+                setter(next);
+                setStorageItem(storageKey, next);
+              };
+
+              if (entity === 'leads') applyDelta(leadsRef, setLeads, 'mode_ops_leads');
+              else if (entity === 'invoices') applyDelta(invoicesRef, setInvoices, 'mode_ops_invoices');
+              else if (entity === 'payrollRecords') applyDelta(payrollRecordsRef, setPayrollRecords, 'mode_ops_payroll');
+              else if (entity === 'companies') applyDelta(companiesRef, setCompanies, 'mode_ops_companies');
+              else if (entity === 'contacts') applyDelta(contactsRef, setContacts, 'mode_ops_contacts');
+              else if (entity === 'projects') applyDelta(projectsRef, setProjects, 'mode_ops_projects');
+              else if (entity === 'tasks') applyDelta(tasksRef, setTasks, 'mode_ops_tasks');
+              else if (entity === 'shiftTasks') applyDelta(shiftTasksRef, setShiftTasks, 'mode_ops_shift_tasks');
+              else if (entity === 'memos') applyDelta(memosRef, setMemos, 'mode_ops_memos');
+              else if (entity === 'tickets') applyDelta(ticketsRef, setTickets, 'mode_ops_tickets');
+              else if (entity === 'requisitions') applyDelta(requisitionsRef, setRequisitions, 'mode_ops_requisitions');
+              else if (entity === 'goals') applyDelta(goalsRef, setGoals, 'mode_ops_goals');
+              else if (entity === 'feedbacks') applyDelta(feedbacksRef, setFeedbacks, 'mode_ops_feedbacks');
+              else if (entity === 'payments') applyDelta(paymentsRef, setPayments, 'mode_ops_payments');
+              else if (entity === 'hostingAccounts') applyDelta(hostingAccountsRef, setHostingAccounts, 'mode_ops_hosting');
+              else pullServerState();
             } else if (payload.type === 'snapshot') {
               pullServerState();
             }
@@ -1092,39 +1148,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       currency: 'NGN',
       id: `l-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
+      updatedAt: new Date().toISOString().split('T')[0],
     };
-    setLeads(prev => [newLead, ...prev]);
+    const nextList = [newLead, ...leadsRef.current.filter(l => l.id !== newLead.id)];
+    leadsRef.current = nextList;
+    setLeads(nextList);
+    setStorageItem('mode_ops_leads', nextList);
+    lastLocalEditRef.current['leads'] = Date.now();
     syncDeltaToServer('leads', 'upsert', newLead);
     logActivity('crm_lead', `Added lead: ${newLead.name} (${newLead.company})`, 'Lead', newLead.id);
   };
 
   const updateLeadStatus = (id: string, status: LeadStatus) => {
-    let changedItem: Lead | undefined;
-    setLeads(prev => prev.map(l => {
-      if (l.id !== id) return l;
-      changedItem = { ...l, status, updatedAt: new Date().toISOString().split('T')[0] };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('leads', 'upsert', changedItem);
-    const target = leads.find(l => l.id === id);
-    if (target) {
-      logActivity('crm_pipeline', `Moved ${target.company} to ${status.replace('-', ' ')}`, 'Lead', id);
-    }
+    const existing = leadsRef.current.find(l => l.id === id);
+    if (!existing) return;
+    const updated: Lead = { ...existing, status, updatedAt: new Date().toISOString().split('T')[0] };
+    const nextList = leadsRef.current.map(l => l.id === id ? updated : l);
+    leadsRef.current = nextList;
+    setLeads(nextList);
+    setStorageItem('mode_ops_leads', nextList);
+    lastLocalEditRef.current['leads'] = Date.now();
+    syncDeltaToServer('leads', 'upsert', updated);
+    logActivity('crm_pipeline', `Moved ${existing.company} to ${status.replace('-', ' ')}`, 'Lead', id);
   };
 
   const updateLead = (id: string, updates: Partial<Lead>) => {
-    let changedItem: Lead | undefined;
-    setLeads(prev => prev.map(l => {
-      if (l.id !== id) return l;
-      changedItem = { ...l, ...updates, updatedAt: new Date().toISOString().split('T')[0] };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('leads', 'upsert', changedItem);
-    logActivity('crm_lead', `Updated lead details for ${updates.name || id}`, 'Lead', id);
+    const existing = leadsRef.current.find(l => l.id === id);
+    if (!existing) return;
+    const updated: Lead = { ...existing, ...updates, updatedAt: new Date().toISOString().split('T')[0] };
+    const nextList = leadsRef.current.map(l => l.id === id ? updated : l);
+    leadsRef.current = nextList;
+    setLeads(nextList);
+    setStorageItem('mode_ops_leads', nextList);
+    lastLocalEditRef.current['leads'] = Date.now();
+    syncDeltaToServer('leads', 'upsert', updated);
+    logActivity('crm_lead', `Updated lead details for ${updates.name || existing.name || id}`, 'Lead', id);
   };
 
   const deleteLead = (id: string) => {
-    setLeads(prev => prev.filter(l => l.id !== id));
+    const nextList = leadsRef.current.filter(l => l.id !== id);
+    leadsRef.current = nextList;
+    setLeads(nextList);
+    setStorageItem('mode_ops_leads', nextList);
+    lastLocalEditRef.current['leads'] = Date.now();
     syncDeltaToServer('leads', 'delete', id);
   };
 
@@ -1134,42 +1200,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `c-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setContacts(prev => {
-      const updated = [newContact, ...prev];
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_contacts', JSON.stringify(updated));
-      }
-      return updated;
-    });
+    const nextList = [newContact, ...contactsRef.current.filter(c => c.id !== newContact.id)];
+    contactsRef.current = nextList;
+    setContacts(nextList);
+    setStorageItem('mode_ops_contacts', nextList);
+    lastLocalEditRef.current['contacts'] = Date.now();
     syncDeltaToServer('contacts', 'upsert', newContact);
     logActivity('crm_contact', `Added client contact: ${newContact.name}`, 'Contact', newContact.id);
   };
 
   const updateContact = (id: string, updates: Partial<Contact>) => {
-    let changedItem: Contact | undefined;
-    setContacts(prev => {
-      const updated = prev.map(c => {
-        if (c.id !== id) return c;
-        changedItem = { ...c, ...updates };
-        return changedItem;
-      });
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_contacts', JSON.stringify(updated));
-      }
-      return updated;
-    });
-    if (changedItem) syncDeltaToServer('contacts', 'upsert', changedItem);
-    logActivity('crm_contact', `Updated client contact: ${updates.name || id}`, 'Contact', id);
+    const existing = contactsRef.current.find(c => c.id === id);
+    if (!existing) return;
+    const updated: Contact = { ...existing, ...updates };
+    const nextList = contactsRef.current.map(c => c.id === id ? updated : c);
+    contactsRef.current = nextList;
+    setContacts(nextList);
+    setStorageItem('mode_ops_contacts', nextList);
+    lastLocalEditRef.current['contacts'] = Date.now();
+    syncDeltaToServer('contacts', 'upsert', updated);
+    logActivity('crm_contact', `Updated client contact: ${updates.name || existing.name || id}`, 'Contact', id);
   };
 
   const deleteContact = (id: string) => {
-    setContacts(prev => {
-      const updated = prev.filter(c => c.id !== id);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_contacts', JSON.stringify(updated));
-      }
-      return updated;
-    });
+    const nextList = contactsRef.current.filter(c => c.id !== id);
+    contactsRef.current = nextList;
+    setContacts(nextList);
+    setStorageItem('mode_ops_contacts', nextList);
+    lastLocalEditRef.current['contacts'] = Date.now();
     syncDeltaToServer('contacts', 'delete', id);
     logActivity('crm_contact', `Removed contact from client directory`, 'Contact', id);
   };
@@ -1180,24 +1238,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `co-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setCompanies(prev => [newCompany, ...prev]);
+    const nextList = [newCompany, ...companiesRef.current.filter(c => c.id !== newCompany.id)];
+    companiesRef.current = nextList;
+    setCompanies(nextList);
+    setStorageItem('mode_ops_companies', nextList);
+    lastLocalEditRef.current['companies'] = Date.now();
     syncDeltaToServer('companies', 'upsert', newCompany);
     logActivity('crm_company', `Added corporate client org: ${newCompany.name}`, 'Company', newCompany.id);
   };
 
   const updateCompany = (id: string, updates: Partial<Company>) => {
-    let changedItem: Company | undefined;
-    setCompanies(prev => prev.map(c => {
-      if (c.id !== id) return c;
-      changedItem = { ...c, ...updates };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('companies', 'upsert', changedItem);
-    logActivity('crm_company', `Updated corporate client org: ${updates.name || id}`, 'Company', id);
+    const existing = companiesRef.current.find(c => c.id === id);
+    if (!existing) return;
+    const updated: Company = { ...existing, ...updates };
+    const nextList = companiesRef.current.map(c => c.id === id ? updated : c);
+    companiesRef.current = nextList;
+    setCompanies(nextList);
+    setStorageItem('mode_ops_companies', nextList);
+    lastLocalEditRef.current['companies'] = Date.now();
+    syncDeltaToServer('companies', 'upsert', updated);
+    logActivity('crm_company', `Updated corporate client org: ${updates.name || existing.name || id}`, 'Company', id);
   };
 
   const deleteCompany = (id: string) => {
-    setCompanies(prev => prev.filter(c => c.id !== id));
+    const nextList = companiesRef.current.filter(c => c.id !== id);
+    companiesRef.current = nextList;
+    setCompanies(nextList);
+    setStorageItem('mode_ops_companies', nextList);
+    lastLocalEditRef.current['companies'] = Date.now();
     syncDeltaToServer('companies', 'delete', id);
     logActivity('crm_company', `Deleted corporate client org (${id})`, 'Company', id);
   };
@@ -1209,41 +1277,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `p-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setProjects(prev => [newProject, ...prev]);
+    const nextList = [newProject, ...projectsRef.current.filter(p => p.id !== newProject.id)];
+    projectsRef.current = nextList;
+    setProjects(nextList);
+    setStorageItem('mode_ops_projects', nextList);
+    lastLocalEditRef.current['projects'] = Date.now();
     syncDeltaToServer('projects', 'upsert', newProject);
     logActivity('crm_project', `Created client project: ${newProject.name}`, 'Project', newProject.id);
   };
 
   const updateProject = (id: string, updates: Partial<Project>) => {
-    let changedItem: Project | undefined;
-    setProjects(prev => prev.map(p => {
-      if (p.id !== id) return p;
-      changedItem = { ...p, ...updates };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('projects', 'upsert', changedItem);
-    logActivity('crm_project', `Updated client project: ${updates.name || id}`, 'Project', id);
+    const existing = projectsRef.current.find(p => p.id === id);
+    if (!existing) return;
+    const updated: Project = { ...existing, ...updates };
+    const nextList = projectsRef.current.map(p => p.id === id ? updated : p);
+    projectsRef.current = nextList;
+    setProjects(nextList);
+    setStorageItem('mode_ops_projects', nextList);
+    lastLocalEditRef.current['projects'] = Date.now();
+    syncDeltaToServer('projects', 'upsert', updated);
+    logActivity('crm_project', `Updated client project: ${updates.name || existing.name || id}`, 'Project', id);
   };
 
   const deleteProject = (id: string) => {
-    setProjects(prev => prev.filter(p => p.id !== id));
+    const nextList = projectsRef.current.filter(p => p.id !== id);
+    projectsRef.current = nextList;
+    setProjects(nextList);
+    setStorageItem('mode_ops_projects', nextList);
+    lastLocalEditRef.current['projects'] = Date.now();
     syncDeltaToServer('projects', 'delete', id);
-    // Cascade-delete this project's tasks — individually, so a concurrent edit to some OTHER
-    // project's tasks (by a different user) can't be clobbered by a full-array push here.
-    const orphanedTaskIds = tasks.filter(t => t.projectId === id).map(t => t.id);
-    setTasks(prev => prev.filter(t => t.projectId !== id));
+    const orphanedTaskIds = tasksRef.current.filter(t => t.projectId === id).map(t => t.id);
+    const nextTasks = tasksRef.current.filter(t => t.projectId !== id);
+    tasksRef.current = nextTasks;
+    setTasks(nextTasks);
+    setStorageItem('mode_ops_tasks', nextTasks);
     orphanedTaskIds.forEach(taskId => syncDeltaToServer('tasks', 'delete', taskId));
     logActivity('crm_project', `Deleted client project (${id})`, 'Project', id);
   };
 
   const toggleTask = (id: string) => {
-    let changedItem: Task | undefined;
-    setTasks(prev => prev.map(t => {
-      if (t.id !== id) return t;
-      changedItem = { ...t, status: (t.status === 'completed' ? 'pending' : 'completed') as Task['status'] };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('tasks', 'upsert', changedItem);
+    const existing = tasksRef.current.find(t => t.id === id);
+    if (!existing) return;
+    const updated: Task = { ...existing, status: existing.status === 'completed' ? 'pending' : 'completed' };
+    const nextList = tasksRef.current.map(t => t.id === id ? updated : t);
+    tasksRef.current = nextList;
+    setTasks(nextList);
+    setStorageItem('mode_ops_tasks', nextList);
+    lastLocalEditRef.current['tasks'] = Date.now();
+    syncDeltaToServer('tasks', 'upsert', updated);
   };
 
   const addTask = (taskData: Omit<Task, 'id' | 'createdAt'>) => {
@@ -1252,22 +1333,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `t-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setTasks(prev => [newTask, ...prev]);
+    const nextList = [newTask, ...tasksRef.current.filter(t => t.id !== newTask.id)];
+    tasksRef.current = nextList;
+    setTasks(nextList);
+    setStorageItem('mode_ops_tasks', nextList);
+    lastLocalEditRef.current['tasks'] = Date.now();
     syncDeltaToServer('tasks', 'upsert', newTask);
   };
 
   const updateTask = (id: string, updates: Partial<Task>) => {
-    let changedItem: Task | undefined;
-    setTasks(prev => prev.map(t => {
-      if (t.id !== id) return t;
-      changedItem = { ...t, ...updates };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('tasks', 'upsert', changedItem);
+    const existing = tasksRef.current.find(t => t.id === id);
+    if (!existing) return;
+    const updated: Task = { ...existing, ...updates };
+    const nextList = tasksRef.current.map(t => t.id === id ? updated : t);
+    tasksRef.current = nextList;
+    setTasks(nextList);
+    setStorageItem('mode_ops_tasks', nextList);
+    lastLocalEditRef.current['tasks'] = Date.now();
+    syncDeltaToServer('tasks', 'upsert', updated);
   };
 
   const deleteTask = (id: string) => {
-    setTasks(prev => prev.filter(t => t.id !== id));
+    const nextList = tasksRef.current.filter(t => t.id !== id);
+    tasksRef.current = nextList;
+    setTasks(nextList);
+    setStorageItem('mode_ops_tasks', nextList);
+    lastLocalEditRef.current['tasks'] = Date.now();
     syncDeltaToServer('tasks', 'delete', id);
   };
 
@@ -1479,19 +1570,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const renewHosting = (id: string, additionalMonths = 12) => {
-    let changedItem: HostingAccount | undefined;
-    setHostingAccounts(prev => prev.map(h => {
-      if (h.id !== id) return h;
-      const curr = new Date(h.expiryDate);
-      curr.setMonth(curr.getMonth() + additionalMonths);
-      changedItem = { ...h, expiryDate: curr.toISOString().split('T')[0], status: 'active' as const, sslStatus: 'active' as const };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('hostingAccounts', 'upsert', changedItem);
-    const target = hostingAccounts.find(h => h.id === id);
-    if (target) {
-      logActivity('hosting_renew', `Extended domain & hosting renewal for ${target.domainName} by ${additionalMonths} months`, 'Hosting', id);
-    }
+    const existing = hostingAccountsRef.current.find(h => h.id === id);
+    if (!existing) return;
+    const curr = new Date(existing.expiryDate);
+    curr.setMonth(curr.getMonth() + additionalMonths);
+    const updated: HostingAccount = { ...existing, expiryDate: curr.toISOString().split('T')[0], status: 'active' as const, sslStatus: 'active' as const };
+    const nextList = hostingAccountsRef.current.map(h => h.id === id ? updated : h);
+    hostingAccountsRef.current = nextList;
+    setHostingAccounts(nextList);
+    setStorageItem('mode_ops_hosting', nextList);
+    lastLocalEditRef.current['hostingAccounts'] = Date.now();
+    syncDeltaToServer('hostingAccounts', 'upsert', updated);
+    logActivity('hosting_renew', `Extended domain & hosting renewal for ${existing.domainName} by ${additionalMonths} months`, 'Hosting', id);
   };
 
   const updateWhmcsConfig = (updates: Partial<WhmcsConfig>) => {
@@ -1544,7 +1634,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `inv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setInvoices(prev => [newInvoice, ...prev]);
+    const nextList = [newInvoice, ...invoicesRef.current.filter(i => i.id !== newInvoice.id)];
+    invoicesRef.current = nextList;
+    setInvoices(nextList);
+    setStorageItem('mode_ops_invoices', nextList);
+    lastLocalEditRef.current['invoices'] = Date.now();
     syncDeltaToServer('invoices', 'upsert', newInvoice);
     logActivity('crm_invoice', `Created invoice #${newInvoice.invoiceNumber} for ${newInvoice.clientName}`, 'Invoice', newInvoice.id);
   };
@@ -1559,58 +1653,61 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       reference: reference || `REF-${Date.now()}`,
       date: new Date().toISOString().split('T')[0],
     };
-    setPayments(prev => {
-      const nextPayments = [newPayment, ...prev];
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_payments', JSON.stringify(nextPayments));
-      }
-      return nextPayments;
-    });
+    const nextPayments = [newPayment, ...paymentsRef.current.filter(p => p.id !== newPayment.id)];
+    paymentsRef.current = nextPayments;
+    setPayments(nextPayments);
+    setStorageItem('mode_ops_payments', nextPayments);
+    lastLocalEditRef.current['payments'] = Date.now();
     syncDeltaToServer('payments', 'upsert', newPayment);
 
-    let changedInvoice: Invoice | undefined;
-    setInvoices(prev => prev.map(inv => {
-      if (inv.id !== invoiceId) return inv;
-      const updatedPaid = inv.amountPaid + amount;
-      const newStatus = updatedPaid >= inv.total ? 'paid' : 'partially-paid';
-      changedInvoice = { ...inv, amountPaid: updatedPaid, status: newStatus as Invoice['status'] };
-      return changedInvoice;
-    }));
-    if (changedInvoice) syncDeltaToServer('invoices', 'upsert', changedInvoice);
+    const existingInv = invoicesRef.current.find(inv => inv.id === invoiceId);
+    if (existingInv) {
+      const updatedPaid = (existingInv.amountPaid || 0) + amount;
+      const newStatus = updatedPaid >= existingInv.total ? 'paid' : 'partially-paid';
+      const updatedInv: Invoice = { ...existingInv, amountPaid: updatedPaid, status: newStatus as Invoice['status'] };
+      const nextInvoices = invoicesRef.current.map(inv => inv.id === invoiceId ? updatedInv : inv);
+      invoicesRef.current = nextInvoices;
+      setInvoices(nextInvoices);
+      setStorageItem('mode_ops_invoices', nextInvoices);
+      lastLocalEditRef.current['invoices'] = Date.now();
+      syncDeltaToServer('invoices', 'upsert', updatedInv);
+    }
 
     logActivity('crm_payment', `Recorded payment of ₦${amount.toLocaleString()} for Invoice`, 'Payment', newPayment.id);
   };
 
   const updateInvoice = (id: string, updates: Partial<Invoice>) => {
-    let changedItem: Invoice | undefined;
-    setInvoices(prev => prev.map(inv => {
-      if (inv.id !== id) return inv;
-      const next = { ...inv, ...updates };
-      if (updates.amountPaid !== undefined || updates.total !== undefined) {
-        const paid = next.amountPaid ?? 0;
-        const tot = next.total ?? 0;
-        if (paid >= tot && tot > 0) next.status = 'paid';
-        else if (paid > 0) next.status = 'partially-paid';
-      }
-      changedItem = next;
-      return next;
-    }));
-    if (changedItem) syncDeltaToServer('invoices', 'upsert', changedItem);
-    logActivity('crm_invoice', `Updated invoice details for #${updates.invoiceNumber || id}`, 'Invoice', id);
+    const existing = invoicesRef.current.find(inv => inv.id === id);
+    if (!existing) return;
+    const next: Invoice = { ...existing, ...updates };
+    if (updates.amountPaid !== undefined || updates.total !== undefined) {
+      const paid = next.amountPaid ?? 0;
+      const tot = next.total ?? 0;
+      if (paid >= tot && tot > 0) next.status = 'paid';
+      else if (paid > 0) next.status = 'partially-paid';
+    }
+    const nextList = invoicesRef.current.map(inv => inv.id === id ? next : inv);
+    invoicesRef.current = nextList;
+    setInvoices(nextList);
+    setStorageItem('mode_ops_invoices', nextList);
+    lastLocalEditRef.current['invoices'] = Date.now();
+    syncDeltaToServer('invoices', 'upsert', next);
+    logActivity('crm_invoice', `Updated invoice details for #${next.invoiceNumber || id}`, 'Invoice', id);
   };
 
   const deleteInvoice = (id: string) => {
-    setInvoices(prev => prev.filter(inv => inv.id !== id));
+    const nextInvoices = invoicesRef.current.filter(inv => inv.id !== id);
+    invoicesRef.current = nextInvoices;
+    setInvoices(nextInvoices);
+    setStorageItem('mode_ops_invoices', nextInvoices);
+    lastLocalEditRef.current['invoices'] = Date.now();
     syncDeltaToServer('invoices', 'delete', id);
 
-    const orphanedPaymentIds = payments.filter(p => p.invoiceId === id).map(p => p.id);
-    setPayments(prev => {
-      const next = prev.filter(p => p.invoiceId !== id);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mode_ops_payments', JSON.stringify(next));
-      }
-      return next;
-    });
+    const orphanedPaymentIds = paymentsRef.current.filter(p => p.invoiceId === id).map(p => p.id);
+    const nextPayments = paymentsRef.current.filter(p => p.invoiceId !== id);
+    paymentsRef.current = nextPayments;
+    setPayments(nextPayments);
+    setStorageItem('mode_ops_payments', nextPayments);
     orphanedPaymentIds.forEach(paymentId => syncDeltaToServer('payments', 'delete', paymentId));
     logActivity('crm_invoice', `Deleted invoice #${id}`, 'Invoice', id);
   };
@@ -1622,24 +1719,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `payr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setPayrollRecords(prev => [newRecord, ...prev]);
+    const nextList = [newRecord, ...payrollRecordsRef.current.filter(r => r.id !== newRecord.id)];
+    payrollRecordsRef.current = nextList;
+    setPayrollRecords(nextList);
+    setStorageItem('mode_ops_payroll', nextList);
+    lastLocalEditRef.current['payrollRecords'] = Date.now();
     syncDeltaToServer('payrollRecords', 'upsert', newRecord);
     logActivity('payroll', `Generated payroll record for ${newRecord.staffName} (${newRecord.period})`, 'Payroll', newRecord.id);
   };
 
   const updatePayrollRecord = (id: string, updates: Partial<PayrollRecord>) => {
-    let changedItem: PayrollRecord | undefined;
-    setPayrollRecords(prev => prev.map(rec => {
-      if (rec.id !== id) return rec;
-      changedItem = { ...rec, ...updates };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('payrollRecords', 'upsert', changedItem);
+    const existing = payrollRecordsRef.current.find(rec => rec.id === id);
+    if (!existing) return;
+    const updated: PayrollRecord = { ...existing, ...updates };
+    const nextList = payrollRecordsRef.current.map(rec => rec.id === id ? updated : rec);
+    payrollRecordsRef.current = nextList;
+    setPayrollRecords(nextList);
+    setStorageItem('mode_ops_payroll', nextList);
+    lastLocalEditRef.current['payrollRecords'] = Date.now();
+    syncDeltaToServer('payrollRecords', 'upsert', updated);
     logActivity('payroll', `Updated payroll record for #${id}`, 'Payroll', id);
   };
 
   const deletePayrollRecord = (id: string) => {
-    setPayrollRecords(prev => prev.filter(rec => rec.id !== id));
+    const nextList = payrollRecordsRef.current.filter(rec => rec.id !== id);
+    payrollRecordsRef.current = nextList;
+    setPayrollRecords(nextList);
+    setStorageItem('mode_ops_payroll', nextList);
+    lastLocalEditRef.current['payrollRecords'] = Date.now();
     syncDeltaToServer('payrollRecords', 'delete', id);
     logActivity('payroll', `Removed payroll record #${id}`, 'Payroll', id);
   };
@@ -1647,15 +1754,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const processPayrollBatch = (period: string) => {
     const now = new Date().toISOString();
     const changedRecords: PayrollRecord[] = [];
-    setPayrollRecords(prev => prev.map(rec => {
+    const nextList = payrollRecordsRef.current.map(rec => {
       if (rec.period === period && rec.status !== 'paid') {
         const next = { ...rec, status: 'paid' as const, approvedBy: currentUser.full_name, approvedAt: now, paidAt: now };
         changedRecords.push(next);
         return next;
       }
       return rec;
-    }));
-    // Batch of individual upserts, not a full-array push — same reasoning as completeShiftReview.
+    });
+    payrollRecordsRef.current = nextList;
+    setPayrollRecords(nextList);
+    setStorageItem('mode_ops_payroll', nextList);
+    lastLocalEditRef.current['payrollRecords'] = Date.now();
     changedRecords.forEach(rec => syncDeltaToServer('payrollRecords', 'upsert', rec));
     logActivity('payroll_batch', `Batch disbursed payroll for period: ${period}`, 'Payroll', period);
   };
@@ -1671,28 +1781,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `tk-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setTickets(prev => [newTicket, ...prev]);
+    const nextList = [newTicket, ...ticketsRef.current.filter(t => t.id !== newTicket.id)];
+    ticketsRef.current = nextList;
+    setTickets(nextList);
+    setStorageItem('mode_ops_tickets', nextList);
+    lastLocalEditRef.current['tickets'] = Date.now();
     syncDeltaToServer('tickets', 'upsert', newTicket);
   };
 
   const updateTicketStatus = (id: string, status: Ticket['status']) => {
-    let changedItem: Ticket | undefined;
-    setTickets(prev => prev.map(tk => {
-      if (tk.id !== id) return tk;
-      changedItem = { ...tk, status, updatedAt: new Date().toISOString() };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('tickets', 'upsert', changedItem);
+    const existing = ticketsRef.current.find(tk => tk.id === id);
+    if (!existing) return;
+    const updated: Ticket = { ...existing, status, updatedAt: new Date().toISOString() };
+    const nextList = ticketsRef.current.map(tk => tk.id === id ? updated : tk);
+    ticketsRef.current = nextList;
+    setTickets(nextList);
+    setStorageItem('mode_ops_tickets', nextList);
+    lastLocalEditRef.current['tickets'] = Date.now();
+    syncDeltaToServer('tickets', 'upsert', updated);
   };
 
   const updateTicket = (id: string, updates: Partial<Ticket>) => {
-    let changedItem: Ticket | undefined;
-    setTickets(prev => prev.map(tk => {
-      if (tk.id !== id) return tk;
-      changedItem = { ...tk, ...updates, updatedAt: new Date().toISOString() };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('tickets', 'upsert', changedItem);
+    const existing = ticketsRef.current.find(tk => tk.id === id);
+    if (!existing) return;
+    const updated: Ticket = { ...existing, ...updates, updatedAt: new Date().toISOString() };
+    const nextList = ticketsRef.current.map(tk => tk.id === id ? updated : tk);
+    ticketsRef.current = nextList;
+    setTickets(nextList);
+    setStorageItem('mode_ops_tickets', nextList);
+    lastLocalEditRef.current['tickets'] = Date.now();
+    syncDeltaToServer('tickets', 'upsert', updated);
   };
 
   const syncWhmcsTickets = async (): Promise<{ success: boolean; count?: number; message?: string }> => {
@@ -1711,6 +1829,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             map.set(t.id, { ...(map.get(t.id) || {}), ...t });
           });
           const merged = Array.from(map.values());
+          ticketsRef.current = merged;
           setStorageItem('mode_ops_tickets', merged);
           return merged;
         });
@@ -1742,10 +1861,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       staffId: currentUser.id,
       createdAt: new Date().toISOString(),
     };
-    setRequisitions(prev => [newReq, ...prev]);
-    // Delta upsert (merges this one requisition into whatever's actually on the server right
-    // now) rather than pushing this browser's whole local array — a full-array push here would
-    // silently erase any OTHER staff member's requisition that this browser hadn't pulled yet.
+    const nextList = [newReq, ...requisitionsRef.current.filter(r => r.id !== newReq.id)];
+    requisitionsRef.current = nextList;
+    setRequisitions(nextList);
+    setStorageItem('mode_ops_requisitions', nextList);
+    lastLocalEditRef.current['requisitions'] = Date.now();
     syncDeltaToServer('requisitions', 'upsert', newReq);
     logActivity('expense_create', `Staff ${currentUser.full_name} submitted requisition: ${title} (${currency} ${amount.toLocaleString()})`, 'Requisition', newReq.id);
 
@@ -1764,47 +1884,55 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateRequisitionDecision = (id: string, status: 'Approved' | 'Rejected', decisionNotes: string) => {
-    // Defense in depth — the UI already hides this action from non-management users, but this
-    // app has no server-side per-request authorization, so guard the store function itself too.
     if (!isManagementUser(currentUser.role)) return;
-    let changedItem: Requisition | undefined;
-    setRequisitions(prev => prev.map(r => {
-      if (r.id !== id) return r;
-      changedItem = { ...r, status, decisionNotes, decidedAt: new Date().toISOString(), decidedBy: currentUser.full_name };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('requisitions', 'upsert', changedItem);
+    const existing = requisitionsRef.current.find(r => r.id === id);
+    if (!existing) return;
+    const updated: Requisition = { ...existing, status, decisionNotes, decidedAt: new Date().toISOString(), decidedBy: currentUser.full_name };
+    const nextList = requisitionsRef.current.map(r => r.id === id ? updated : r);
+    requisitionsRef.current = nextList;
+    setRequisitions(nextList);
+    setStorageItem('mode_ops_requisitions', nextList);
+    lastLocalEditRef.current['requisitions'] = Date.now();
+    syncDeltaToServer('requisitions', 'upsert', updated);
     logActivity('expense_decision', `${currentUser.full_name} marked requisition as ${status}`, 'Requisition', id);
   };
 
   const updateRequisition = (id: string, updates: Partial<Requisition>) => {
-    let changedItem: Requisition | undefined;
-    setRequisitions(prev => prev.map(r => {
-      if (r.id !== id) return r;
-      changedItem = { ...r, ...updates, currency: 'NGN' as Currency };
-      if (changedItem.amount !== undefined) changedItem.amount = Math.max(0, changedItem.amount);
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('requisitions', 'upsert', changedItem);
+    const existing = requisitionsRef.current.find(r => r.id === id);
+    if (!existing) return;
+    const updated: Requisition = { ...existing, ...updates, currency: 'NGN' as Currency };
+    if (updated.amount !== undefined) updated.amount = Math.max(0, updated.amount);
+    const nextList = requisitionsRef.current.map(r => r.id === id ? updated : r);
+    requisitionsRef.current = nextList;
+    setRequisitions(nextList);
+    setStorageItem('mode_ops_requisitions', nextList);
+    lastLocalEditRef.current['requisitions'] = Date.now();
+    syncDeltaToServer('requisitions', 'upsert', updated);
     logActivity('expense_update', `Updated requisition #${id}`, 'Requisition', id);
   };
 
   const deleteRequisition = (id: string) => {
-    const existing = requisitions.find(r => r.id === id);
-    setRequisitions(prev => prev.filter(r => r.id !== id));
+    const existing = requisitionsRef.current.find(r => r.id === id);
+    const nextList = requisitionsRef.current.filter(r => r.id !== id);
+    requisitionsRef.current = nextList;
+    setRequisitions(nextList);
+    setStorageItem('mode_ops_requisitions', nextList);
+    lastLocalEditRef.current['requisitions'] = Date.now();
     syncDeltaToServer('requisitions', 'delete', id);
     logActivity('expense_delete', `Deleted requisition ${existing?.receiptNumber || id} (${existing?.title || ''})`, 'Requisition', id);
   };
 
   const disburseRequisition = (id: string, transactionId: string) => {
     if (!isManagementUser(currentUser.role)) return;
-    let changedItem: Requisition | undefined;
-    setRequisitions(prev => prev.map(r => {
-      if (r.id !== id) return r;
-      changedItem = { ...r, status: 'Completed' as const, completedAt: new Date().toISOString(), disbursedBy: currentUser.full_name, transactionId };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('requisitions', 'upsert', changedItem);
+    const existing = requisitionsRef.current.find(r => r.id === id);
+    if (!existing) return;
+    const updated: Requisition = { ...existing, status: 'Completed' as const, completedAt: new Date().toISOString(), disbursedBy: currentUser.full_name, transactionId };
+    const nextList = requisitionsRef.current.map(r => r.id === id ? updated : r);
+    requisitionsRef.current = nextList;
+    setRequisitions(nextList);
+    setStorageItem('mode_ops_requisitions', nextList);
+    lastLocalEditRef.current['requisitions'] = Date.now();
+    syncDeltaToServer('requisitions', 'upsert', updated);
     logActivity('expense_disburse', `Accounts disbursed requisition funds (${transactionId})`, 'Requisition', id);
   };
 
@@ -1818,7 +1946,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       strategy_status: 'pending_submission',
       created_at: new Date().toISOString(),
     };
-    setGoals(prev => [newGoal, ...prev]);
+    const nextList = [newGoal, ...goalsRef.current.filter(g => g.id !== newGoal.id)];
+    goalsRef.current = nextList;
+    setGoals(nextList);
+    setStorageItem('mode_ops_goals', nextList);
+    lastLocalEditRef.current['goals'] = Date.now();
     syncDeltaToServer('goals', 'upsert', newGoal);
     logActivity('omm_goal', `Assigned One-Minute Goal: ${goalData.objective}`, 'Goal', newGoal.id);
   };
@@ -1826,70 +1958,78 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateGoalProgress = (id: string, progress: number) => {
     const bounded = Math.max(0, Math.min(100, progress));
     const status: GoalStatus = bounded === 100 ? 'completed' : bounded > 0 ? 'in_progress' : 'not_started';
-    let changedItem: Goal | undefined;
-    setGoals(prev => prev.map(g => {
-      if (g.id !== id) return g;
-      changedItem = { ...g, progress: bounded, status };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('goals', 'upsert', changedItem);
+    const existing = goalsRef.current.find(g => g.id === id);
+    if (!existing) return;
+    const updated: Goal = { ...existing, progress: bounded, status };
+    const nextList = goalsRef.current.map(g => g.id === id ? updated : g);
+    goalsRef.current = nextList;
+    setGoals(nextList);
+    setStorageItem('mode_ops_goals', nextList);
+    lastLocalEditRef.current['goals'] = Date.now();
+    syncDeltaToServer('goals', 'upsert', updated);
   };
 
   const updateGoal = (id: string, updates: Partial<Pick<Goal, 'objective' | 'expected_result' | 'deadline'>>) => {
-    let changedItem: Goal | undefined;
-    setGoals(prev => prev.map(g => {
-      if (g.id !== id) return g;
-      changedItem = { ...g, ...updates };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('goals', 'upsert', changedItem);
+    const existing = goalsRef.current.find(g => g.id === id);
+    if (!existing) return;
+    const updated: Goal = { ...existing, ...updates };
+    const nextList = goalsRef.current.map(g => g.id === id ? updated : g);
+    goalsRef.current = nextList;
+    setGoals(nextList);
+    setStorageItem('mode_ops_goals', nextList);
+    lastLocalEditRef.current['goals'] = Date.now();
+    syncDeltaToServer('goals', 'upsert', updated);
     logActivity('omm_goal', `Updated 1-Minute Goal details`, 'Goal', id);
   };
 
   const deleteGoal = (id: string) => {
-    setGoals(prev => prev.filter(g => g.id !== id));
+    const nextList = goalsRef.current.filter(g => g.id !== id);
+    goalsRef.current = nextList;
+    setGoals(nextList);
+    setStorageItem('mode_ops_goals', nextList);
+    lastLocalEditRef.current['goals'] = Date.now();
     syncDeltaToServer('goals', 'delete', id);
     logActivity('omm_goal', `Deleted 1-Minute Goal`, 'Goal', id);
   };
 
   const submitGoalStrategy = (id: string, strategyText: string) => {
-    let changedItem: Goal | undefined;
-    setGoals(prev => prev.map(g => {
-      if (g.id !== id) return g;
-      changedItem = { ...g, strategy_text: strategyText, strategy_status: 'submitted' as const, strategy_submitted_at: new Date().toISOString() };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('goals', 'upsert', changedItem);
+    const existing = goalsRef.current.find(g => g.id === id);
+    if (!existing) return;
+    const updated: Goal = { ...existing, strategy_text: strategyText, strategy_status: 'submitted' as const, strategy_submitted_at: new Date().toISOString() };
+    const nextList = goalsRef.current.map(g => g.id === id ? updated : g);
+    goalsRef.current = nextList;
+    setGoals(nextList);
+    setStorageItem('mode_ops_goals', nextList);
+    lastLocalEditRef.current['goals'] = Date.now();
+    syncDeltaToServer('goals', 'upsert', updated);
     logActivity('omm_strategy', `Submitted 1-Minute Strategy Plan`, 'Goal', id);
   };
 
-  // Only the goal's own manager (or a super-admin) may approve/send-back a strategy — matches
-  // the canEditGoal check the OMM Goals page UI uses to show these actions in the first place.
   const canDecideGoalStrategy = (goal: Goal) => goal.manager_id === currentUser.id || isSuperAdminUser(currentUser.role);
 
   const approveGoalStrategy = (id: string, feedbackNote?: string) => {
-    const goal = goals.find(g => g.id === id);
+    const goal = goalsRef.current.find(g => g.id === id);
     if (!goal || !canDecideGoalStrategy(goal)) return;
-    let changedItem: Goal | undefined;
-    setGoals(prev => prev.map(g => {
-      if (g.id !== id) return g;
-      changedItem = { ...g, strategy_status: 'approved' as const, strategy_feedback: feedbackNote, strategy_approved_at: new Date().toISOString() };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('goals', 'upsert', changedItem);
+    const updated: Goal = { ...goal, strategy_status: 'approved' as const, strategy_feedback: feedbackNote, strategy_approved_at: new Date().toISOString() };
+    const nextList = goalsRef.current.map(g => g.id === id ? updated : g);
+    goalsRef.current = nextList;
+    setGoals(nextList);
+    setStorageItem('mode_ops_goals', nextList);
+    lastLocalEditRef.current['goals'] = Date.now();
+    syncDeltaToServer('goals', 'upsert', updated);
     logActivity('omm_strategy', `Approved 1-Minute Strategy Plan`, 'Goal', id);
   };
 
   const requestGoalStrategyRevision = (id: string, feedbackNote: string) => {
-    const goal = goals.find(g => g.id === id);
+    const goal = goalsRef.current.find(g => g.id === id);
     if (!goal || !canDecideGoalStrategy(goal)) return;
-    let changedItem: Goal | undefined;
-    setGoals(prev => prev.map(g => {
-      if (g.id !== id) return g;
-      changedItem = { ...g, strategy_status: 'revision_requested' as const, strategy_feedback: feedbackNote };
-      return changedItem;
-    }));
-    if (changedItem) syncDeltaToServer('goals', 'upsert', changedItem);
+    const updated: Goal = { ...goal, strategy_status: 'revision_requested' as const, strategy_feedback: feedbackNote };
+    const nextList = goalsRef.current.map(g => g.id === id ? updated : g);
+    goalsRef.current = nextList;
+    setGoals(nextList);
+    setStorageItem('mode_ops_goals', nextList);
+    lastLocalEditRef.current['goals'] = Date.now();
+    syncDeltaToServer('goals', 'upsert', updated);
   };
 
   const addFeedback = (fbData: Omit<Feedback, 'id' | 'created_at'>) => {

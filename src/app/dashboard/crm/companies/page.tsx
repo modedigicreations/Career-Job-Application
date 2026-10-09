@@ -13,14 +13,15 @@ import {
   Edit3,
   X,
   Check,
-  Trash2
+  Trash2,
+  User
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { formatDate } from '@/lib/utils';
 import type { Company } from '@/lib/types';
 
 export default function CompaniesPage() {
-  const { companies, addCompany, updateCompany, deleteCompany } = useAppStore();
+  const { companies, addCompany, updateCompany, deleteCompany, currentUser } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
@@ -32,6 +33,8 @@ export default function CompaniesPage() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [referralName, setReferralName] = useState('');
+  const [accountManager, setAccountManager] = useState('');
 
   const openAddModal = () => {
     setEditingCompany(null);
@@ -41,6 +44,8 @@ export default function CompaniesPage() {
     setEmail('');
     setPhone('');
     setAddress('');
+    setReferralName(currentUser?.full_name || '');
+    setAccountManager(currentUser?.full_name || '');
     setIsModalOpen(true);
   };
 
@@ -52,6 +57,8 @@ export default function CompaniesPage() {
     setEmail(comp.email || '');
     setPhone(comp.phone || '');
     setAddress(comp.address || '');
+    setReferralName(comp.referralName || currentUser?.full_name || '');
+    setAccountManager(comp.accountManager || currentUser?.full_name || '');
     setIsModalOpen(true);
   };
 
@@ -72,15 +79,21 @@ export default function CompaniesPage() {
         email,
         phone,
         address,
+        referralName: referralName.trim() || undefined,
+        accountManager: accountManager.trim() || undefined,
       });
     } else {
       addCompany({
         name,
         industry: industry || 'Corporate Client',
+        size: '11-50',
+        contactPerson: name,
         website: website.startsWith('http') || !website ? website : `https://${website}`,
         email,
         phone,
         address,
+        referralName: referralName.trim() || currentUser?.full_name,
+        accountManager: accountManager.trim() || currentUser?.full_name,
       });
     }
 
@@ -199,6 +212,19 @@ export default function CompaniesPage() {
               <span>Client since {formatDate(comp.createdAt)}</span>
               <span className="font-bold text-blue-600">Enterprise</span>
             </div>
+
+            {comp.referralName && (
+              <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                  <User size={10} /> Ref: {comp.referralName}
+                </span>
+                {comp.accountManager && (
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    Mgr: {comp.accountManager}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -251,6 +277,32 @@ export default function CompaniesPage() {
                   placeholder="e.g. FinTech / SaaS, Logistics, Education"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1 flex items-center gap-1">
+                    <User size={11} className="text-slate-400" /> Referral / Staff Name (Bonus System)
+                  </label>
+                  <input
+                    type="text"
+                    value={referralName}
+                    onChange={e => setReferralName(e.target.value)}
+                    placeholder="Staff for bonus credit"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">Attributes bonus credit for landing or managing this account.</p>
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Account Manager</label>
+                  <input
+                    type="text"
+                    value={accountManager}
+                    onChange={e => setAccountManager(e.target.value)}
+                    placeholder="Account Manager"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

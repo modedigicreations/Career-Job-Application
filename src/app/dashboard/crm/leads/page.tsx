@@ -18,7 +18,8 @@ import {
   Send,
   X,
   CheckCircle2,
-  XCircle
+  XCircle,
+  User
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import type { Lead, LeadStatus, Currency } from '@/lib/types';
@@ -31,7 +32,7 @@ const WhatsAppIcon = ({ className = "w-3 h-3 fill-current" }: { className?: stri
 );
 
 export default function LeadsPage() {
-  const { leads, addLead, updateLead, updateLeadStatus, deleteLead } = useAppStore();
+  const { leads, addLead, updateLead, updateLeadStatus, deleteLead, currentUser } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [newModalOpen, setNewModalOpen] = useState(false);
@@ -56,6 +57,7 @@ export default function LeadsPage() {
   const [budget, setBudget] = useState('1500000');
   const [currency, setCurrency] = useState<Currency>('NGN');
   const [notes, setNotes] = useState('');
+  const [referralName, setReferralName] = useState('');
 
   const filteredLeads = leads.filter(l => {
     if (filterStatus !== 'all' && l.status !== filterStatus) return false;
@@ -70,6 +72,13 @@ export default function LeadsPage() {
     setDesignation(''); setAddress(''); setNotes('');
     setServiceInterested('website-development'); setSource('website');
     setBudget('1500000'); setCurrency('NGN');
+    setReferralName('');
+  };
+
+  const openNewModal = () => {
+    resetForm();
+    setReferralName(currentUser?.full_name || '');
+    setNewModalOpen(true);
   };
 
   const openEditModal = (lead: Lead) => {
@@ -85,6 +94,7 @@ export default function LeadsPage() {
     setBudget(String(lead.budget));
     setCurrency(lead.currency);
     setNotes(lead.notes || '');
+    setReferralName(lead.referralName || currentUser?.full_name || '');
   };
 
   const closeModal = () => {
@@ -102,6 +112,8 @@ export default function LeadsPage() {
         serviceInterested, source,
         budget: parseFloat(budget) || 0,
         currency, notes,
+        referralName: referralName.trim() || undefined,
+        lastUpdatedByName: currentUser?.full_name,
       });
     } else {
       addLead({
@@ -121,6 +133,8 @@ export default function LeadsPage() {
         probability: 25,
         expectedCloseDate: '2026-10-30',
         assignedTo: 'u2',
+        referralName: referralName.trim() || currentUser?.full_name,
+        lastUpdatedByName: currentUser?.full_name,
       });
     }
 
@@ -242,7 +256,7 @@ export default function LeadsPage() {
           </button>
           <button
             type="button"
-            onClick={() => { resetForm(); setNewModalOpen(true); }}
+            onClick={openNewModal}
             className="px-4 py-2 rounded-xl bg-mode-royal hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer"
           >
             <Plus size={15} />
@@ -329,6 +343,18 @@ export default function LeadsPage() {
                     <div className="text-[11px] text-slate-400 font-medium">
                       {lead.designation ? `${lead.designation}, ` : ''}{lead.company}
                     </div>
+                    {lead.referralName && (
+                      <div className="mt-1 flex items-center gap-1">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                          <User size={9} /> Ref: {lead.referralName}
+                        </span>
+                      </div>
+                    )}
+                    {lead.lastUpdatedByName && (
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        Updated by: {lead.lastUpdatedByName}
+                      </div>
+                    )}
                     {lead.address && (
                       <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
                         <MapPin size={10} className="shrink-0" />
@@ -530,6 +556,19 @@ export default function LeadsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
+                  <label className="block text-slate-700 font-semibold mb-1 flex items-center gap-1">
+                    <User size={11} className="text-slate-400" /> Referral / Staff Name (Bonus System)
+                  </label>
+                  <input
+                    type="text"
+                    value={referralName}
+                    onChange={e => setReferralName(e.target.value)}
+                    placeholder="Staff attributing lead for bonus"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">Attributes bonus credit to staff updating or bringing this lead.</p>
+                </div>
+                <div>
                   <label className="block text-slate-700 font-semibold mb-1">Estimated Budget (₦)</label>
                   <input
                     type="number"
@@ -538,20 +577,21 @@ export default function LeadsPage() {
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
                   />
                 </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Lead Source</label>
-                  <select
-                    value={source}
-                    onChange={e => setSource(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                  >
-                    <option value="website">Website Form</option>
-                    <option value="whatsapp">WhatsApp Direct</option>
-                    <option value="facebook-ads">Facebook Ads</option>
-                    <option value="google-ads">Google Ads</option>
-                    <option value="referral">Referral</option>
-                  </select>
-                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Lead Source</label>
+                <select
+                  value={source}
+                  onChange={e => setSource(e.target.value as any)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                >
+                  <option value="website">Website Form</option>
+                  <option value="whatsapp">WhatsApp Direct</option>
+                  <option value="facebook-ads">Facebook Ads</option>
+                  <option value="google-ads">Google Ads</option>
+                  <option value="referral">Referral</option>
+                </select>
               </div>
 
               <div>

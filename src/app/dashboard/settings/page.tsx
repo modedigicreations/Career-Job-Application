@@ -363,7 +363,7 @@ export default function SettingsPage() {
         <h2 className="text-sm font-bold text-slate-900 mb-1 flex items-center gap-1.5">
           <Lock size={14} className="text-slate-500" /> Change My Password
         </h2>
-        <p className="text-slate-500 mb-3 text-xs">Only you can change your own password here. To reset someone else's, a manager or admin can do that from Staff Allocation.</p>
+        <p className="text-slate-500 mb-3 text-xs">Only you can change your own password here. To reset someone else&apos;s, a manager or admin can do that from Staff Allocation.</p>
 
         <form onSubmit={handleChangePassword} className="space-y-3 text-xs max-w-md">
           {pwError && (

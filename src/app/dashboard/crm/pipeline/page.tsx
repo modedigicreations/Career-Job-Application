@@ -38,7 +38,7 @@ const PIPELINE_STAGES: { id: LeadStatus; label: string; color: string }[] = [
 ];
 
 export default function PipelinePage() {
-  const { leads, updateLeadStatus, addLead, deleteLead, users } = useAppStore();
+  const { leads, updateLeadStatus, addLead, deleteLead, users, currentUser } = useAppStore();
   const [filterSource, setFilterSource] = useState<string>('all');
   const [newLeadModalOpen, setNewLeadModalOpen] = useState(false);
 
@@ -55,6 +55,7 @@ export default function PipelinePage() {
   const [status, setStatus] = useState<LeadStatus>('new-lead');
   const [expectedCloseDate, setExpectedCloseDate] = useState('2026-10-30');
   const [assignedTo, setAssignedTo] = useState('u2');
+  const [referralName, setReferralName] = useState('');
 
   const filteredLeads = leads.filter(l => {
     if (filterSource !== 'all' && l.source !== filterSource) return false;
@@ -80,6 +81,8 @@ export default function PipelinePage() {
       probability: status === 'won' ? 100 : 30,
       expectedCloseDate,
       assignedTo,
+      referralName: referralName.trim() || currentUser?.full_name,
+      lastUpdatedByName: currentUser?.full_name,
     });
 
     // Reset & close
@@ -88,6 +91,7 @@ export default function PipelinePage() {
     setEmail('');
     setPhone('');
     setNotes('');
+    setReferralName('');
     setNewLeadModalOpen(false);
   };
 
@@ -216,6 +220,13 @@ export default function PipelinePage() {
                           <div className="text-[10px] text-slate-400 font-mono truncate">
                             Service: {lead.serviceInterested.replace('-', ' ')}
                           </div>
+                          {lead.referralName && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                                <User size={9} /> Ref: {lead.referralName}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Move stage selector */}
@@ -310,26 +321,28 @@ export default function PipelinePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <label className="block text-slate-700 font-semibold mb-1">Estimated Budget</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1 flex items-center gap-1">
+                    <User size={11} className="text-slate-400" /> Referral / Staff Name (Bonus System)
+                  </label>
+                  <input
+                    type="text"
+                    value={referralName}
+                    onChange={e => setReferralName(e.target.value)}
+                    placeholder="Staff for bonus credit"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">Attributes bonus credit for updating or closing deal.</p>
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Estimated Budget (₦)</label>
                   <input
                     type="number"
                     value={budget}
                     onChange={e => setBudget(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
                   />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Currency</label>
-                  <select
-                    value={currency}
-                    onChange={e => setCurrency(e.target.value as Currency)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50 text-slate-700 cursor-not-allowed"
-                    disabled
-                  >
-                    <option value="NGN">NGN (₦ - Nigerian Naira)</option>
-                  </select>
                 </div>
               </div>
 

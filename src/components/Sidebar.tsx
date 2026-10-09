@@ -191,7 +191,11 @@ export default function Sidebar() {
           </div>
           <div className="min-w-0">
             <div className="text-xs font-semibold text-white truncate">
-              {effectiveUser.full_name}{viewAsUser && <span className="text-amber-400 font-normal"> (viewing)</span>}
+              {effectiveUser.full_name}{viewAsUser && (
+                <span className={isSuperAdminUser(currentUser.role) ? "text-emerald-400 font-normal" : "text-amber-400 font-normal"}>
+                  {isSuperAdminUser(currentUser.role) ? ' (overseeing)' : ' (viewing)'}
+                </span>
+              )}
             </div>
             <div className="text-[10px] font-mono text-blue-400 uppercase tracking-wider">
               {effectiveUser.role.replace('_', ' ')}
@@ -208,7 +212,7 @@ export default function Sidebar() {
               {sec.title}
             </div>
             <div className="space-y-0.5">
-              {sec.items.filter(item => !item.superAdminOnly || isSuperAdminUser(effectiveUser.role)).map(item => {
+              {sec.items.filter(item => !item.superAdminOnly || isSuperAdminUser(currentUser.role) || isSuperAdminUser(effectiveUser.role)).map(item => {
                 const isActive = pathname === item.href;
                 const Icon = item.icon;
                 return (

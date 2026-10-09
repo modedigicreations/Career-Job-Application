@@ -121,10 +121,13 @@ export default function ProjectsPage() {
   const activeProject = projects.find(p => p.id === selectedProjectId) || projects[0];
   const projectTasks = tasks.filter(t => t.projectId === activeProject?.id);
 
-  // Filter shift tasks for current user or all
+  // Filter shift tasks for current user, specific staff member, or all team members
   const userShiftTasks = shiftTasks.filter(st => {
     if (selectedStaffFilter === 'me') {
       return st.staffId === currentUser.id;
+    }
+    if (selectedStaffFilter !== 'all') {
+      return st.staffId === selectedStaffFilter;
     }
     return true;
   });
@@ -145,7 +148,11 @@ export default function ProjectsPage() {
   });
 
   // Upcoming / Tomorrow tasks
-  const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const tomorrowStr = React.useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  }, []);
   const tomorrowTasks = userShiftTasks.filter(st => st.date === tomorrowStr);
 
   const handleAddShiftTask = (e: React.FormEvent) => {
@@ -441,7 +448,10 @@ export default function ProjectsPage() {
               className="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="me">My Tasks ({currentUser.full_name?.split(' ')[0] || 'Me'})</option>
-              <option value="all">All Team Tasks</option>
+              <option value="all">All Team Tasks ({users.length} staff)</option>
+              {users.filter(u => u.id !== currentUser.id).map(u => (
+                <option key={u.id} value={u.id}>{u.full_name} ({u.role.replace('_', ' ')})</option>
+              ))}
             </select>
           </div>
         )}
