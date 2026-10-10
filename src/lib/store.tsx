@@ -228,7 +228,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             return parsed.map((l: any) => {
               let b = l.budget;
               let ev = l.estimatedValue;
@@ -267,7 +267,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             return parsed.map((p: any) => ({ ...p, currency: 'NGN' as Currency }));
           }
         } catch {}
@@ -305,7 +305,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             return parsed.map((h: any) => ({ ...h, currency: 'NGN' as Currency }));
           }
         } catch {}
@@ -320,13 +320,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (saved) try { return JSON.parse(saved); } catch {}
     }
     return {
-      apiUrl: 'https://billing.modewebhost.com',
-      identifier: 'MODE_WHMCS_API_ID',
-      secret: '••••••••••••••••',
-      autoSync: true,
-      isConnected: true,
-      lastSyncAt: new Date().toISOString(),
-      totalLiveDomains: 6,
+      apiUrl: '',
+      identifier: '',
+      secret: '',
+      autoSync: false,
+      isConnected: false,
+      lastSyncAt: undefined,
+      totalLiveDomains: 0,
     };
   });
 
@@ -336,7 +336,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             return parsed.map((inv: any) => {
               let total = inv.total;
               let subtotal = inv.subtotal;
@@ -432,7 +432,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             return parsed.map((p: any) => ({ ...p, currency: 'NGN' as Currency }));
           }
         } catch {}
@@ -824,6 +824,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               // Server genuinely has newer data from another tab/device
               localStorage.setItem('mode_ops_users', serverStr);
               return serverDb.users;
+            });
+          }
+
+          // Sync WHMCS configuration from server
+          if (serverDb.whmcsConfig && typeof serverDb.whmcsConfig === 'object') {
+            setWhmcsConfig(prev => {
+              if (JSON.stringify(prev) === JSON.stringify(serverDb.whmcsConfig)) return prev;
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('mode_ops_whmcs_config', JSON.stringify(serverDb.whmcsConfig));
+              }
+              return serverDb.whmcsConfig;
             });
           }
         }
@@ -1590,6 +1601,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('mode_ops_whmcs_config', JSON.stringify(next));
       }
+      syncEntityToServer('whmcsConfig', next);
       return next;
     });
   };

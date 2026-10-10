@@ -46,13 +46,21 @@ export default function HostingPage() {
   const [isWhmcsModalOpen, setIsWhmcsModalOpen] = useState(false);
 
   // WHMCS Config Modal Form State
-  const [modalApiUrl, setModalApiUrl] = useState(whmcsConfig.apiUrl || 'https://billing.modewebhost.com');
+  const [modalApiUrl, setModalApiUrl] = useState(whmcsConfig.apiUrl || '');
   const [modalIdentifier, setModalIdentifier] = useState(whmcsConfig.identifier || '');
   const [modalSecret, setModalSecret] = useState(whmcsConfig.secret && whmcsConfig.secret !== '••••••••••••••••' ? whmcsConfig.secret : '');
   const [modalAuthMethod, setModalAuthMethod] = useState<'api_credentials' | 'admin_login'>('api_credentials');
   const [isTestingConn, setIsTestingConn] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; detectedIp?: string } | null>(null);
   const [copiedIp, setCopiedIp] = useState(false);
+
+  const handleOpenWhmcsModal = () => {
+    setModalApiUrl(whmcsConfig.apiUrl || '');
+    setModalIdentifier(whmcsConfig.identifier || '');
+    setModalSecret(whmcsConfig.secret && whmcsConfig.secret !== '••••••••••••••••' ? whmcsConfig.secret : '');
+    setTestResult(null);
+    setIsWhmcsModalOpen(true);
+  };
 
   const urgentRenewals = hostingAccounts.filter(h => getDaysUntil(h.expiryDate) <= 30 && getDaysUntil(h.expiryDate) >= 0);
   const criticalRenewals = hostingAccounts.filter(h => getDaysUntil(h.expiryDate) <= 7 && getDaysUntil(h.expiryDate) >= 0);
@@ -223,10 +231,15 @@ export default function HostingPage() {
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 WHMCS Live Sync: Active
               </span>
+            ) : whmcsConfig.isConnected ? (
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                WHMCS: Connected
+              </span>
             ) : (
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                WHMCS: Demo Dataset Active
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                WHMCS: Not Configured
               </span>
             )}
           </div>
@@ -256,10 +269,7 @@ export default function HostingPage() {
 
           <button
             type="button"
-            onClick={() => {
-              setIsWhmcsModalOpen(true);
-              setTestResult(null);
-            }}
+            onClick={handleOpenWhmcsModal}
             className="p-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
             title="Configure WHMCS API connection settings"
           >
@@ -481,7 +491,17 @@ export default function HostingPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {paginatedAccounts.length === 0 ? (
+              {hostingAccounts.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                    <Globe size={32} className="mx-auto mb-2 opacity-30 text-purple-600" />
+                    <p className="font-semibold text-slate-700 text-sm">No domains or hosting accounts yet</p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                      Click <button type="button" onClick={handleOpenWhmcsModal} className="text-purple-600 font-bold hover:underline inline">WHMCS API</button> above to connect your live billing system, or click <strong>New Domain</strong> to add client accounts manually.
+                    </p>
+                  </td>
+                </tr>
+              ) : paginatedAccounts.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-slate-400">
                     <Globe size={32} className="mx-auto mb-2 opacity-30" />

@@ -60,6 +60,15 @@ export interface ServerState {
     watiApiUrl?: string;
     watiApiKey?: string;
   };
+  whmcsConfig?: {
+    apiUrl: string;
+    identifier: string;
+    secret: string;
+    autoSync?: boolean;
+    isConnected?: boolean;
+    lastSyncAt?: string | null;
+    totalLiveDomains?: number;
+  };
   lastUpdated: string;
 }
 
@@ -95,6 +104,15 @@ export function getInitialDbState(): ServerState {
     payrollRecords: initialPayrollRecords.map(p => ({ ...p, currency: 'NGN' })),
     payrollRecordsLastUpdated: new Date().toISOString(),
     integrations: {},
+    whmcsConfig: {
+      apiUrl: '',
+      identifier: '',
+      secret: '',
+      autoSync: false,
+      isConnected: false,
+      lastSyncAt: null,
+      totalLiveDomains: 0
+    },
     lastUpdated: new Date().toISOString()
   };
 }
@@ -154,6 +172,15 @@ export function readDb(): ServerState {
         ? parsed.payrollRecords.map((p: any) => ({ ...p, currency: 'NGN' }))
         : initialPayrollRecords.map(p => ({ ...p, currency: 'NGN' })),
       integrations: (parsed.integrations && typeof parsed.integrations === 'object') ? parsed.integrations : {},
+      whmcsConfig: (parsed.whmcsConfig && typeof parsed.whmcsConfig === 'object') ? parsed.whmcsConfig : {
+        apiUrl: '',
+        identifier: '',
+        secret: '',
+        autoSync: false,
+        isConnected: false,
+        lastSyncAt: null,
+        totalLiveDomains: 0
+      },
     };
   } catch (err) {
     console.error('[db] Error reading DB:', err);

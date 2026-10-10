@@ -18,7 +18,7 @@ async function requireSession() {
 const SYNCABLE_ENTITIES = new Set([
   'services', 'shifts', 'users', 'shiftTasks', 'memos', 'leads', 'projects', 'invoices',
   'requisitions', 'companies', 'contacts', 'hostingAccounts', 'tasks', 'payments', 'tickets',
-  'goals', 'feedbacks', 'payrollRecords'
+  'goals', 'feedbacks', 'payrollRecords', 'whmcsConfig'
 ]);
 
 function sanitizeUsers(users: any[]) {

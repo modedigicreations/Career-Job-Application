@@ -181,10 +181,22 @@ async function callWhmcsApi(endpoint: string, action: string, auth: { identifier
     }
 
     if (!response.ok) {
+      let friendlyError = json?.message;
+      if (!friendlyError) {
+        if (text.includes('This website has been deactivated')) {
+          friendlyError = 'WHMCS server is deactivated: The hosting service reported "This website has been deactivated". Please reactivate the hosting account or update your WHMCS URL in settings.';
+        } else if (response.status === 403) {
+          friendlyError = 'HTTP 403: Forbidden - Access denied by WHMCS server. Check API IP Access Restriction or hosting security settings.';
+        } else if (response.status === 404) {
+          friendlyError = 'HTTP 404: Not Found - WHMCS API endpoint (/includes/api.php) could not be reached at this URL.';
+        } else {
+          friendlyError = `HTTP ${response.status}: ${response.statusText}`;
+        }
+      }
       return {
         ok: false,
         status: response.status,
-        error: json?.message || `HTTP ${response.status}: ${response.statusText}`,
+        error: friendlyError,
         raw: text.slice(0, 300)
       };
     }
@@ -210,7 +222,18 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json().catch(() => ({}));
-    const { apiUrl, identifier, secret, isTestOnly, authMethod } = body;
+    let { apiUrl, identifier, secret, isTestOnly, authMethod } = body;
+
+    // Fallback to persisted server whmcsConfig if not passed or placeholder
+    if (!apiUrl || !identifier || !secret || secret === '••••••••••••••••') {
+      const { readDb } = await import('@/lib/db');
+      const serverConfig = readDb().whmcsConfig;
+      if (serverConfig?.apiUrl && serverConfig?.identifier && serverConfig?.secret && serverConfig.secret !== '••••••••••••••••') {
+        apiUrl = serverConfig.apiUrl;
+        identifier = serverConfig.identifier;
+        secret = serverConfig.secret;
+      }
+    }
 
     // Validate if user has provided credentials
     const hasCredentials = apiUrl && identifier && secret && secret !== '••••••••••••••••';
@@ -430,18 +453,18 @@ export async function POST(request: Request) {
       });
     }
 
-    // If no credentials or default placeholder, return demo data
+    // If no credentials or default placeholder, do not populate dummy data
     return NextResponse.json({
-      success: true,
+      success: false,
       isLive: false,
-      source: 'WHMCS Demo Dataset',
-      accounts: defaultWhmcsLiveAccounts,
-      tickets: initialTickets,
-      count: defaultWhmcsLiveAccounts.length,
-      ticketCount: initialTickets.length,
+      source: 'WHMCS Not Configured',
+      accounts: [],
+      tickets: [],
+      count: 0,
+      ticketCount: 0,
       syncedAt: new Date().toISOString(),
-      message: 'Demo hosting renewals & client support tickets loaded. Please configure your live WHMCS API credentials in Settings.'
-    });
+      message: 'WHMCS API credentials are not configured. Click "WHMCS API" to enter your active WHMCS URL, API Identifier, and Secret Key.'
+    }, { status: 400 });
 
   } catch (error: any) {
     return NextResponse.json(
