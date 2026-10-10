@@ -130,11 +130,11 @@ export function isSuperAdminUser(role?: string): boolean {
   return role === 'super_admin' || role === 'managing_director';
 }
 
-// Department-head scoping: a manager-tier user may act on behalf of (assign tasks/goals to)
-// only the staff who report directly to them; a super-admin may act on anyone.
-export function canAssignTo(currentUser: { id: string; role: string }, target: { manager_id?: string | null }): boolean {
+// Management scoping: managers, administrators, and super-admins can assign tasks,
+// project deliverables, and 1-Minute Goals across team members in the organization.
+export function canAssignTo(currentUser: { id: string; role: string }, target: { id?: string; manager_id?: string | null }): boolean {
   if (isSuperAdminUser(currentUser.role)) return true;
-  if (!isManagementUser(currentUser.role)) return false;
+  if (isManagementUser(currentUser.role)) return true;
   return target.manager_id === currentUser.id;
 }
 

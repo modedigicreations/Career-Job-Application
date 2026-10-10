@@ -19,7 +19,12 @@ import {
   X,
   CheckCircle2,
   XCircle,
-  User
+  User,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  ArrowUpDown
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import type { Lead, LeadStatus, Currency } from '@/lib/types';
@@ -35,6 +40,10 @@ export default function LeadsPage() {
   const { leads, addLead, updateLead, updateLeadStatus, deleteLead, currentUser } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterReferral, setFilterReferral] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name' | 'company' | 'budget_desc'>('newest');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [newModalOpen, setNewModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
@@ -59,13 +68,40 @@ export default function LeadsPage() {
   const [notes, setNotes] = useState('');
   const [referralName, setReferralName] = useState('');
 
+  // Referral Options
+  const referralOptions = Array.from(new Set(leads.map(l => l.referralName).filter(Boolean))) as string[];
+
   const filteredLeads = leads.filter(l => {
     if (filterStatus !== 'all' && l.status !== filterStatus) return false;
-    if (searchTerm && !l.name.toLowerCase().includes(searchTerm.toLowerCase()) && !l.company.toLowerCase().includes(searchTerm.toLowerCase())) {
-      return false;
+    if (filterReferral !== 'all' && l.referralName !== filterReferral) return false;
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      const matchName = l.name.toLowerCase().includes(q);
+      const matchCompany = l.company.toLowerCase().includes(q);
+      const matchPhone = (l.phone || '').toLowerCase().includes(q);
+      const matchEmail = (l.email || '').toLowerCase().includes(q);
+      const matchRef = (l.referralName || '').toLowerCase().includes(q);
+      const matchNotes = (l.notes || '').toLowerCase().includes(q);
+      if (!matchName && !matchCompany && !matchPhone && !matchEmail && !matchRef && !matchNotes) return false;
     }
     return true;
   });
+
+  const sortedLeads = [...filteredLeads].sort((a, b) => {
+    if (sortBy === 'newest') return (b.createdAt || '').localeCompare(a.createdAt || '') || b.id.localeCompare(a.id);
+    if (sortBy === 'oldest') return (a.createdAt || '').localeCompare(b.createdAt || '') || a.id.localeCompare(b.id);
+    if (sortBy === 'name') return a.name.localeCompare(b.name);
+    if (sortBy === 'company') return a.company.localeCompare(b.company);
+    if (sortBy === 'budget_desc') return b.budget - a.budget;
+    return 0;
+  });
+
+  const totalLeads = sortedLeads.length;
+  const totalPages = Math.max(1, Math.ceil(totalLeads / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalLeads);
+  const paginatedLeads = sortedLeads.slice(startIndex, endIndex);
 
   const resetForm = () => {
     setName(''); setCompany(''); setEmail(''); setPhone('');
@@ -265,34 +301,92 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white p-3 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="relative w-full sm:w-72">
+      {/* Filter, Search, and Sort Bar */}
+      <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="relative w-full lg:w-80">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search lead or organization..."
+            placeholder="Search contact, company, phone, staff..."
             value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+            onChange={e => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-mode-royal/20"
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <Filter size={14} className="text-slate-400" />
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Status filter */}
+          <div className="flex items-center gap-1.5">
+            <Filter size={13} className="text-slate-400 shrink-0" />
+            <select
+              value={filterStatus}
+              onChange={e => {
+                setFilterStatus(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-700 focus:outline-none capitalize font-medium"
+            >
+              <option value="all">All Stages ({leads.length})</option>
+              <option value="new-lead">New Lead</option>
+              <option value="qualified">Qualified</option>
+              <option value="contacted">Contacted</option>
+              <option value="discovery-call">Discovery Call</option>
+              <option value="proposal-sent">Proposal Sent</option>
+              <option value="negotiation">Negotiation</option>
+              <option value="won">Won</option>
+              <option value="lost">Lost</option>
+            </select>
+          </div>
+
+          {/* Referral Staff Filter */}
+          {referralOptions.length > 0 && (
+            <select
+              value={filterReferral}
+              onChange={e => {
+                setFilterReferral(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-700 focus:outline-none font-medium"
+            >
+              <option value="all">All Referrals</option>
+              {referralOptions.map(ref => (
+                <option key={ref} value={ref}>Ref: {ref}</option>
+              ))}
+            </select>
+          )}
+
+          {/* Sort By */}
+          <div className="flex items-center gap-1.5">
+            <ArrowUpDown size={13} className="text-slate-400 shrink-0" />
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as any)}
+              className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-700 focus:outline-none font-medium"
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="name">Contact Name (A-Z)</option>
+              <option value="company">Company (A-Z)</option>
+              <option value="budget_desc">Highest Budget</option>
+            </select>
+          </div>
+
+          {/* Page size */}
           <select
-            value={filterStatus}
-            onChange={e => setFilterStatus(e.target.value)}
-            className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-none capitalize"
+            value={pageSize}
+            onChange={e => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-700 focus:outline-none font-bold cursor-pointer"
           >
-            <option value="all">All Stages</option>
-            <option value="new-lead">New Lead</option>
-            <option value="qualified">Qualified</option>
-            <option value="discovery-call">Discovery Call</option>
-            <option value="proposal-sent">Proposal Sent</option>
-            <option value="negotiation">Negotiation</option>
-            <option value="won">Won</option>
-            <option value="lost">Lost</option>
+            <option value={10}>10 / page</option>
+            <option value={25}>25 / page</option>
+            <option value={50}>50 / page</option>
+            <option value={100}>100 / page</option>
           </select>
         </div>
       </div>
@@ -301,21 +395,22 @@ export default function LeadsPage() {
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs min-w-[700px]">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold text-[10px] uppercase">
+            <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold text-[10px] uppercase tracking-wider">
               <tr>
                 <th className="py-3 px-3 w-8">
                   <input
                     type="checkbox"
-                    checked={filteredLeads.length > 0 && filteredLeads.every(l => selectedLeadIds.has(l.id))}
+                    checked={paginatedLeads.length > 0 && paginatedLeads.every(l => selectedLeadIds.has(l.id))}
                     onChange={e => {
                       setSelectedLeadIds(prev => {
                         const next = new Set(prev);
-                        if (e.target.checked) filteredLeads.forEach(l => next.add(l.id));
-                        else filteredLeads.forEach(l => next.delete(l.id));
+                        if (e.target.checked) paginatedLeads.forEach(l => next.add(l.id));
+                        else paginatedLeads.forEach(l => next.delete(l.id));
                         return next;
                       });
                     }}
                     className="rounded border-slate-300 cursor-pointer"
+                    title="Select all on this page"
                   />
                 </th>
                 <th className="py-3 px-4">Contact & Company</th>
@@ -328,149 +423,243 @@ export default function LeadsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredLeads.map(lead => (
-                <tr key={lead.id} className="hover:bg-slate-50/60 transition">
-                  <td className="py-3.5 px-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedLeadIds.has(lead.id)}
-                      onChange={() => toggleLeadSelection(lead.id)}
-                      className="rounded border-slate-300 cursor-pointer"
-                    />
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <div className="font-bold text-slate-900 leading-snug">{lead.name}</div>
-                    <div className="text-[11px] text-slate-400 font-medium">
-                      {lead.designation ? `${lead.designation}, ` : ''}{lead.company}
-                    </div>
-                    {lead.referralName && (
-                      <div className="mt-1 flex items-center gap-1">
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
-                          <User size={9} /> Ref: {lead.referralName}
-                        </span>
-                      </div>
-                    )}
-                    {lead.lastUpdatedByName && (
-                      <div className="text-[10px] text-slate-400 mt-0.5">
-                        Updated by: {lead.lastUpdatedByName}
-                      </div>
-                    )}
-                    {lead.address && (
-                      <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                        <MapPin size={10} className="shrink-0" />
-                        <span className="truncate max-w-[180px]">{lead.address}</span>
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-4 space-y-1 text-[11px]">
-                    <div className="flex items-center gap-1.5">
-                      <Mail size={12} className="text-slate-400 shrink-0" />
-                      <a
-                        href={formatMailtoUrl(lead.email, `Inquiry regarding ${lead.serviceInterested.replace('-', ' ')} - MODE DIGITAL CREATIONS`, `Hello ${lead.name},\n\nThank you for reaching out to MODE DIGITAL CREATIONS regarding ${lead.serviceInterested.replace('-', ' ')}.`)}
-                        className="text-slate-600 hover:text-mode-royal hover:underline transition truncate max-w-[170px]"
-                        title={`Email ${lead.email}`}
-                      >
-                        {lead.email}
-                      </a>
-                    </div>
-                    {lead.phone && (
-                      <div className="flex items-center gap-1.5">
-                        <Phone size={12} className="text-slate-400 shrink-0" />
-                        <a
-                          href={formatWhatsAppUrl(lead.phone, `Hello ${lead.name}, this is MODE DIGITAL CREATIONS following up on your inquiry for ${lead.serviceInterested.replace('-', ' ')}.`)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-slate-600 hover:text-emerald-600 hover:underline transition flex items-center gap-1"
-                          title="Chat on WhatsApp"
-                        >
-                          <span>{lead.phone}</span>
-                          <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            WhatsApp
-                          </span>
-                        </a>
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-700 capitalize">
-                    {lead.serviceInterested.replace('-', ' ')}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="capitalize px-2 py-0.5 rounded-md text-[10px] bg-slate-100 font-medium text-slate-700 border border-slate-200">
-                      {lead.source}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">
-                    {formatCurrency(lead.budget, lead.currency)}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <select
-                      value={lead.status}
-                      onChange={e => updateLeadStatus(lead.id, e.target.value as LeadStatus)}
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border capitalize cursor-pointer focus:outline-none ${getLeadStatusBadge(lead.status)}`}
-                      title="Change pipeline stage"
-                    >
-                      <option value="new-lead">New Lead</option>
-                      <option value="qualified">Qualified</option>
-                      <option value="contacted">Contacted</option>
-                      <option value="discovery-call">Discovery Call</option>
-                      <option value="proposal-sent">Proposal Sent</option>
-                      <option value="negotiation">Negotiation</option>
-                      <option value="won">Won</option>
-                      <option value="lost">Lost</option>
-                    </select>
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      {lead.phone && (
-                        <a
-                          href={formatWhatsAppUrl(lead.phone, `Hello ${lead.name}, this is MODE DIGITAL CREATIONS following up on your inquiry for ${lead.serviceInterested.replace('-', ' ')}.`)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-2 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-semibold flex items-center gap-1 shadow-2xs transition"
-                          title="Direct WhatsApp Chat"
-                        >
-                          <WhatsAppIcon className="w-3 h-3 fill-white" />
-                          <span className="hidden sm:inline">WhatsApp</span>
-                        </a>
-                      )}
-                      <a
-                        href={formatMailtoUrl(lead.email, `MODE DIGITAL CREATIONS - Follow-up on ${lead.serviceInterested.replace('-', ' ')}`, `Hello ${lead.name},\n\nWe are following up on your inquiry for ${lead.serviceInterested.replace('-', ' ')} at MODE DIGITAL CREATIONS.`)}
-                        className="px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-mode-royal border border-blue-200 text-[11px] font-semibold flex items-center gap-1 transition"
-                        title="Direct Email"
-                      >
-                        <Mail size={12} />
-                        <span className="hidden sm:inline">Email</span>
-                      </a>
-                      <Link
-                        href="/dashboard/crm/pipeline"
-                        className="text-slate-500 hover:text-mode-royal font-semibold text-xs px-1.5 py-1"
-                      >
-                        Pipeline
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(lead)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-mode-royal hover:bg-blue-50 transition"
-                        title="Edit Lead"
-                      >
-                        <Edit3 size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { if (confirm(`Delete lead "${lead.name}"?`)) deleteLead(lead.id); }}
-                        className="text-slate-400 hover:text-rose-600 text-xs px-1"
-                        title="Delete Lead"
-                      >
-                        Delete
-                      </button>
-                    </div>
+              {paginatedLeads.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                    <UserCheck size={32} className="mx-auto mb-2 opacity-30 text-blue-600" />
+                    <p className="font-semibold text-slate-700 text-sm">
+                      {leads.length === 0 ? 'No leads captured yet' : 'No leads match your search or filter'}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                      {leads.length === 0
+                        ? "Click 'New Lead' above to add your first client inquiry."
+                        : 'Try clearing your search keyword or selecting All Stages / All Referrals.'}
+                    </p>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                paginatedLeads.map(lead => (
+                  <tr key={lead.id} className="hover:bg-slate-50/60 transition group">
+                    <td className="py-3.5 px-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedLeadIds.has(lead.id)}
+                        onChange={() => toggleLeadSelection(lead.id)}
+                        className="rounded border-slate-300 cursor-pointer"
+                      />
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="font-bold text-slate-900 leading-snug">{lead.name}</div>
+                      <div className="text-[11px] text-slate-400 font-medium">
+                        {lead.designation ? `${lead.designation}, ` : ''}{lead.company}
+                      </div>
+                      {lead.referralName && (
+                        <div className="mt-1 flex items-center gap-1">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                            <User size={9} /> Ref: {lead.referralName}
+                          </span>
+                        </div>
+                      )}
+                      {lead.lastUpdatedByName && (
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          Updated by: {lead.lastUpdatedByName}
+                        </div>
+                      )}
+                      {lead.address && (
+                        <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                          <MapPin size={10} className="shrink-0" />
+                          <span className="truncate max-w-[180px]">{lead.address}</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4 space-y-1 text-[11px]">
+                      <div className="flex items-center gap-1.5">
+                        <Mail size={12} className="text-slate-400 shrink-0" />
+                        <a
+                          href={formatMailtoUrl(lead.email, `Inquiry regarding ${lead.serviceInterested.replace('-', ' ')} - MODE DIGITAL CREATIONS`, `Hello ${lead.name},\n\nThank you for reaching out to MODE DIGITAL CREATIONS regarding ${lead.serviceInterested.replace('-', ' ')}.`)}
+                          className="text-slate-600 hover:text-mode-royal hover:underline transition truncate max-w-[170px]"
+                          title={`Email ${lead.email}`}
+                        >
+                          {lead.email}
+                        </a>
+                      </div>
+                      {lead.phone && (
+                        <div className="flex items-center gap-1.5">
+                          <Phone size={12} className="text-slate-400 shrink-0" />
+                          <a
+                            href={formatWhatsAppUrl(lead.phone, `Hello ${lead.name}, this is MODE DIGITAL CREATIONS following up on your inquiry for ${lead.serviceInterested.replace('-', ' ')}.`)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-slate-600 hover:text-emerald-600 hover:underline transition flex items-center gap-1"
+                            title="Chat on WhatsApp"
+                          >
+                            <span>{lead.phone}</span>
+                            <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              WhatsApp
+                            </span>
+                          </a>
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-700 capitalize">
+                      {lead.serviceInterested.replace('-', ' ')}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="capitalize px-2 py-0.5 rounded-md text-[10px] bg-slate-100 font-medium text-slate-700 border border-slate-200">
+                        {lead.source}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 font-bold text-slate-900">
+                      {formatCurrency(lead.budget, lead.currency)}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <select
+                        value={lead.status}
+                        onChange={e => updateLeadStatus(lead.id, e.target.value as LeadStatus)}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border capitalize cursor-pointer focus:outline-none ${getLeadStatusBadge(lead.status)}`}
+                        title="Change pipeline stage"
+                      >
+                        <option value="new-lead">New Lead</option>
+                        <option value="qualified">Qualified</option>
+                        <option value="contacted">Contacted</option>
+                        <option value="discovery-call">Discovery Call</option>
+                        <option value="proposal-sent">Proposal Sent</option>
+                        <option value="negotiation">Negotiation</option>
+                        <option value="won">Won</option>
+                        <option value="lost">Lost</option>
+                      </select>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {lead.phone && (
+                          <a
+                            href={formatWhatsAppUrl(lead.phone, `Hello ${lead.name}, this is MODE DIGITAL CREATIONS following up on your inquiry for ${lead.serviceInterested.replace('-', ' ')}.`)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-semibold flex items-center gap-1 shadow-2xs transition"
+                            title="Direct WhatsApp Chat"
+                          >
+                            <WhatsAppIcon className="w-3 h-3 fill-white" />
+                            <span className="hidden sm:inline">WhatsApp</span>
+                          </a>
+                        )}
+                        <a
+                          href={formatMailtoUrl(lead.email, `MODE DIGITAL CREATIONS - Follow-up on ${lead.serviceInterested.replace('-', ' ')}`, `Hello ${lead.name},\n\nWe are following up on your inquiry for ${lead.serviceInterested.replace('-', ' ')} at MODE DIGITAL CREATIONS.`)}
+                          className="px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-mode-royal border border-blue-200 text-[11px] font-semibold flex items-center gap-1 transition"
+                          title="Direct Email"
+                        >
+                          <Mail size={12} />
+                          <span className="hidden sm:inline">Email</span>
+                        </a>
+                        <Link
+                          href="/dashboard/crm/pipeline"
+                          className="text-slate-500 hover:text-mode-royal font-semibold text-xs px-1.5 py-1"
+                        >
+                          Pipeline
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(lead)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-mode-royal hover:bg-blue-50 transition"
+                          title="Edit Lead"
+                        >
+                          <Edit3 size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { if (confirm(`Delete lead "${lead.name}"?`)) deleteLead(lead.id); }}
+                          className="text-slate-400 hover:text-rose-600 text-xs px-1"
+                          title="Delete Lead"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Pagination Controls */}
+      {totalLeads > 0 && (
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="text-slate-500">
+            Showing <strong className="text-slate-800">{startIndex + 1}</strong> to <strong className="text-slate-800">{endIndex}</strong> of <strong className="text-slate-800">{totalLeads}</strong> leads
+            {filteredLeads.length !== leads.length && (
+              <span className="text-slate-400 ml-1">({leads.length} total)</span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setCurrentPage(1)}
+              disabled={safeCurrentPage <= 1}
+              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              title="First page"
+            >
+              <ChevronsLeft size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={safeCurrentPage <= 1}
+              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              title="Previous page"
+            >
+              <ChevronLeft size={14} />
+            </button>
+
+            {/* Page number buttons with smart ellipsis */}
+            <div className="flex items-center gap-1 px-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - safeCurrentPage) <= 2)
+                .map((p, idx, arr) => {
+                  const prevPage = arr[idx - 1];
+                  const hasGap = prevPage && p - prevPage > 1;
+                  return (
+                    <React.Fragment key={p}>
+                      {hasGap && <span className="px-1 text-slate-400 font-mono">...</span>}
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(p)}
+                        className={`min-w-[28px] h-7 px-2 rounded-lg font-bold text-xs transition ${
+                          p === safeCurrentPage
+                            ? 'bg-mode-royal text-white shadow-2xs'
+                            : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    </React.Fragment>
+                  );
+                })}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={safeCurrentPage >= totalPages}
+              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              title="Next page"
+            >
+              <ChevronRight size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={safeCurrentPage >= totalPages}
+              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              title="Last page"
+            >
+              <ChevronsRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* New Lead Modal */}
       {(newModalOpen || editingLead) && (

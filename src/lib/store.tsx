@@ -552,6 +552,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { paymentsRef.current = payments; }, [payments]);
 
   const lastLocalEditRef = useRef<{ [key: string]: number }>({});
+  const deletedIdsRef = useRef<{ [key: string]: Set<string> }>({});
+  const failedSyncQueueRef = useRef<Array<{ delta: any; timestamp: string }>>([]);
 
   const syncEntityToServer = async (entity: string, data: any) => {
     try {
@@ -571,24 +573,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const syncDeltaToServer = async (entity: string, action: 'upsert' | 'delete', itemOrId: any) => {
     try {
       lastLocalEditRef.current[entity] = Date.now();
+      const id = typeof itemOrId === 'string' ? itemOrId : itemOrId?.id;
+      if (action === 'delete' && id) {
+        if (!deletedIdsRef.current[entity]) deletedIdsRef.current[entity] = new Set();
+        deletedIdsRef.current[entity].add(id);
+      } else if (action === 'upsert' && id) {
+        if (deletedIdsRef.current[entity]) {
+          deletedIdsRef.current[entity].delete(id);
+        }
+      }
+
       if (typeof window !== 'undefined') {
         const payload = {
           delta: {
             entity,
             action,
             item: typeof itemOrId === 'object' ? itemOrId : undefined,
-            id: typeof itemOrId === 'string' ? itemOrId : itemOrId?.id
+            id
           },
           timestamp: new Date().toISOString()
         };
-        await fetch('/api/sync', {
+        const res = await fetch('/api/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
+        if (!res.ok) {
+          failedSyncQueueRef.current.push(payload);
+        }
       }
     } catch {
-      // background sync deferred
+      failedSyncQueueRef.current.push({
+        delta: {
+          entity,
+          action,
+          item: typeof itemOrId === 'object' ? itemOrId : undefined,
+          id: typeof itemOrId === 'string' ? itemOrId : itemOrId?.id
+        },
+        timestamp: new Date().toISOString()
+      });
     }
   };
 
@@ -652,6 +675,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const pullServerState = async () => {
       try {
+        // Flush any pending failed sync deltas
+        if (failedSyncQueueRef.current.length > 0) {
+          const queue = [...failedSyncQueueRef.current];
+          failedSyncQueueRef.current = [];
+          for (const item of queue) {
+            try {
+              const res = await fetch('/api/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+              });
+              if (!res.ok) failedSyncQueueRef.current.push(item);
+            } catch {
+              failedSyncQueueRef.current.push(item);
+            }
+          }
+        }
+
         const res = await fetch('/api/sync');
         if (!res.ok) return;
         const result = await res.json();
@@ -735,11 +776,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             });
           }
 
-          // Simple last-write-wins merge for entities with no bespoke conflict logic of
-          // their own (contrast services/shifts above, which protect specific invariants
-          // like "never overwrite a customized catalog" or "never clobber an active shift").
-          // Guards against a concurrent local edit being clobbered by a slightly-stale
-          // server read landing in between.
+          // ID-aware union merge: protects locally created items from ever being erased by server reads.
+          // If local has items the server doesn't know about yet, keep them and push them to the server immediately!
           function mergeSimple<T extends { id: string }>(
             entity: string,
             serverArray: T[] | undefined,
@@ -753,11 +791,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             const serverTs = serverTsIso ? new Date(serverTsIso).getTime() : 0;
             // Protect recent local edits from stale server reads overwriting them (within 5 seconds or if local is newer)
             if (Date.now() - localTs < 5000 || localTs > serverTs) return;
+
+            const deletedSet = deletedIdsRef.current[entity] || new Set();
+
             setter(prev => {
-              if (JSON.stringify(prev) === JSON.stringify(serverArray)) return prev;
-              if (currentRef) currentRef.current = serverArray;
-              if (storageKey) setStorageItem(storageKey, serverArray);
-              return serverArray;
+              const serverMap = new Map(serverArray.map(item => [item.id, item]));
+
+              // Local items that haven't landed on the server yet (and were not deleted)
+              const localUnsynced = prev.filter(item => !serverMap.has(item.id) && !deletedSet.has(item.id));
+
+              // If any local items are missing from server, push them immediately to avoid data loss!
+              if (localUnsynced.length > 0) {
+                localUnsynced.forEach(item => {
+                  syncDeltaToServer(entity, 'upsert', item);
+                });
+              }
+
+              // Server items (excluding locally deleted) merged with unsynced local items
+              const merged = [...serverArray.filter(item => !deletedSet.has(item.id)), ...localUnsynced];
+
+              if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;
+              if (currentRef) currentRef.current = merged;
+              if (storageKey) setStorageItem(storageKey, merged);
+              return merged;
             });
           }
 
