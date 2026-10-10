@@ -5,13 +5,13 @@ import type {
 } from './types';
 
 export const initialProfiles: UserProfile[] = [
-  { id: 'u1', email: 'info@modedigitalcreations.ng', password: 'password123', full_name: 'Davids Ogan', role: 'managing_director', department: 'Executive', job_title: 'Managing Director & Super Admin', phone: '+234 801 234 5678', is_active: true, hasPayrollAccess: true },
-  { id: 'u2', email: 'chioma@modedigitalcreations.ng', password: 'password123', full_name: 'Chioma Eze', role: 'sales', department: 'Sales & Growth', job_title: 'Head of Sales', phone: '+234 802 345 6789', is_active: true },
-  { id: 'u3', email: 'emeka@modedigitalcreations.ng', password: 'password123', full_name: 'Emeka Nwosu', role: 'developer', department: 'Engineering', job_title: 'Senior Full-Stack Engineer', phone: '+234 803 456 7890', is_active: true },
-  { id: 'u4', email: 'fatima@modedigitalcreations.ng', password: 'password123', full_name: 'Fatima Bello', role: 'manager', department: 'Operations', job_title: 'Operations & Project Manager', phone: '+234 804 567 8901', is_active: true },
-  { id: 'u5', email: 'ibrahim@modedigitalcreations.ng', password: 'password123', full_name: 'Ibrahim Musa', role: 'administration', department: 'Administration', job_title: 'Administration & Finance Lead', phone: '+234 805 678 9012', is_active: true, hasPayrollAccess: true },
-  { id: 'u6', email: 'admin@modewebhost.com.ng', password: 'password123', full_name: 'Mode Web Host Admin', role: 'managing_director', department: 'Executive & Systems', job_title: 'Super Admin & Lead Hostmaster', phone: '+234 801 888 9999', is_active: true, hasPayrollAccess: true },
-  { id: 'u7', email: 'ben@modewebhost.com.ng', password: 'password123', full_name: 'Ben Asiedu', role: 'employee', department: 'Web Hosting & Support', job_title: 'Hosting & Technical Support Specialist', phone: '+234 802 888 7777', is_active: true, hasPayrollAccess: false },
+  { id: 'u1', email: 'info@modedigitalcreations.ng', password: 'Solutions1@1@', full_name: 'Davids Ogan', role: 'managing_director', department: 'Executive', job_title: 'Managing Director & Super Admin', phone: '+234 801 234 5678', is_active: true, hasPayrollAccess: true },
+  { id: 'u2', email: 'chioma@modedigitalcreations.ng', password: 'MDCLPH1@1@', full_name: 'Chioma Eze', role: 'sales', department: 'Sales & Growth', job_title: 'Head of Sales', phone: '+234 802 345 6789', is_active: true },
+  { id: 'u3', email: 'emeka@modedigitalcreations.ng', password: 'MDCLPH1@1@', full_name: 'Emeka Nwosu', role: 'developer', department: 'Engineering', job_title: 'Senior Full-Stack Engineer', phone: '+234 803 456 7890', is_active: true },
+  { id: 'u4', email: 'fatima@modedigitalcreations.ng', password: 'MDCLPH1@1@', full_name: 'Fatima Bello', role: 'manager', department: 'Operations', job_title: 'Operations & Project Manager', phone: '+234 804 567 8901', is_active: true },
+  { id: 'u5', email: 'ibrahim@modedigitalcreations.ng', password: 'MDCLPH1@1@', full_name: 'Ibrahim Musa', role: 'administration', department: 'Administration', job_title: 'Administration & Finance Lead', phone: '+234 805 678 9012', is_active: true, hasPayrollAccess: true },
+  { id: 'u6', email: 'admin@modewebhost.com.ng', password: 'MDCLPH1@1@', full_name: 'Mode Web Host Admin', role: 'managing_director', department: 'Executive & Systems', job_title: 'Super Admin & Lead Hostmaster', phone: '+234 801 888 9999', is_active: true, hasPayrollAccess: true },
+  { id: 'u7', email: 'ben@modewebhost.com.ng', password: 'MDCLPH1@1@', full_name: 'Ben Asiedu', role: 'employee', department: 'Web Hosting & Support', job_title: 'Hosting & Technical Support Specialist', phone: '+234 802 888 7777', is_active: true, hasPayrollAccess: false },
 ];
 
 export const initialLeads: Lead[] = [
