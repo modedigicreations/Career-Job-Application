@@ -170,12 +170,18 @@ async function callWhmcsApi(endpoint: string, action: string, auth: { identifier
       }
     }
 
+    const headersObj: Record<string, string> = {};
+    response.headers.forEach((v, k) => {
+      headersObj[k] = v;
+    });
+
     if (json && json.result === 'error') {
       return {
         ok: false,
         status: response.status,
         error: json.message || 'WHMCS API Error',
         whmcsError: json.message,
+        headers: headersObj,
         raw: text.slice(0, 300)
       };
     }
@@ -197,11 +203,12 @@ async function callWhmcsApi(endpoint: string, action: string, auth: { identifier
         ok: false,
         status: response.status,
         error: friendlyError,
+        headers: headersObj,
         raw: text.slice(0, 300)
       };
     }
 
-    return { ok: true, status: response.status, data: json };
+    return { ok: true, status: response.status, headers: headersObj, data: json };
   } catch (err: any) {
     clearTimeout(timeoutId);
     return {
@@ -273,6 +280,17 @@ export async function POST(request: Request) {
         const ipMatch = combined.match(/Invalid IP\s+([0-9a-fA-F.:]+)/i);
         if (ipMatch) {
           detectedIp = ipMatch[1];
+        } else {
+          try {
+            const ipRes = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(3000) });
+            if (ipRes.ok) {
+              const ipData = await ipRes.json();
+              detectedIp = ipData.ip || null;
+            }
+          } catch {}
+        }
+
+        if (detectedIp) {
           userAdvice = `WHMCS Access Denied: Server IP ${detectedIp} is not in your WHMCS API whitelist. To fix this, log in to WHMCS > System Settings (or Setup) > General Settings > Security > API IP Access Restriction, and add ${detectedIp} to the whitelist (or empty the whitelist field to allow all IPs).`;
         }
 
@@ -281,6 +299,7 @@ export async function POST(request: Request) {
           error: res.error,
           endpoint,
           detectedIp,
+          responseHeaders: res.headers,
           rawResponse: res.raw,
           message: userAdvice
         }, { status: 400 });
