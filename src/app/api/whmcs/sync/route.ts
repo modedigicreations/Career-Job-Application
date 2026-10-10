@@ -149,6 +149,7 @@ async function callWhmcsApi(endpoint: string, action: string, auth: { identifier
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Accept-Encoding': 'identity',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 WHMCS-Sync/2.0'
       },
       body: formData.toString(),
